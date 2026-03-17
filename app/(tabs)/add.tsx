@@ -3,7 +3,7 @@ import { createTransaction, extractTransaction, type ExtractedTransactionData } 
 import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
 import React, { useState } from 'react';
-import { ActivityIndicator, Alert, Image, Pressable, ScrollView, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, Image, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 type UploadedFile = {
@@ -13,12 +13,18 @@ type UploadedFile = {
   size?: number;
 };
 
+type InlineAlert = {
+  type: 'success' | 'error' | 'info';
+  message: string;
+} | null;
+
 export default function AddScreen() {
   const [selectedType, setSelectedType] = useState<'expense' | 'money_saving'>('expense');
   const [uploadedFile, setUploadedFile] = useState<UploadedFile | null>(null);
   const [isExtracting, setIsExtracting] = useState(false);
   const [extractedData, setExtractedData] = useState<ExtractedTransactionData | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [inlineAlert, setInlineAlert] = useState<InlineAlert>(null);
 
   const handleTakePhoto = async () => {
     try {
@@ -115,31 +121,48 @@ export default function AddScreen() {
   };
 
   const handleManualEntry = () => {
-    // TODO: Navigate to manual entry form
-    Alert.alert(
-      'Manual Entry',
-      'Manual transaction entry form will be available soon.',
-      [{ text: 'OK' }]
-    );
+    setInlineAlert({
+      type: 'info',
+      message: 'Manual transaction entry form will be available soon.'
+    });
+    setTimeout(() => setInlineAlert(null), 3000);
   };
 
   const handleCancelUpload = () => {
     setUploadedFile(null);
     setExtractedData(null);
+    setInlineAlert(null);
   };
 
   const handleExtractTransaction = async () => {
-    if (!uploadedFile) return;
+    if (!uploadedFile) {
+      setInlineAlert({
+        type: 'error',
+        message: 'Please upload a file first.'
+      });
+      setTimeout(() => setInlineAlert(null), 3000);
+      return;
+    }
 
+    console.log('Starting extraction...', uploadedFile);
+    
+    setInlineAlert({
+      type: 'info',
+      message: 'Extracting transaction data from your image...'
+    });
+    
     setIsExtracting(true);
     
     try {
-      // Create file object for upload
+      // Create file object for upload - React Native format
       const fileToUpload = {
         uri: uploadedFile.uri,
         type: uploadedFile.type === 'pdf' ? 'application/pdf' : 'image/jpeg',
         name: uploadedFile.name,
       } as any;
+
+      console.log('File to upload:', fileToUpload);
+      console.log('Calling extractTransaction API...');
 
       // Extract transaction data from image
       const extracted = await extractTransaction({
@@ -148,21 +171,29 @@ export default function AddScreen() {
         transaction_type: selectedType,
       });
 
+      console.log('Extraction successful:', extracted);
       setExtractedData(extracted);
       setIsExtracting(false);
       
-    } catch (error) {
+      setInlineAlert({
+        type: 'success',
+        message: 'Extraction complete! Please review and edit if needed.'
+      });
+      setTimeout(() => setInlineAlert(null), 4000);
+      
+    } catch (error: any) {
       setIsExtracting(false);
       console.error('Extraction error:', error);
-      Alert.alert(
-        'Extraction Failed ❌',
-        'Failed to extract transaction data from the image. Please try again or use manual entry.',
-        [
-          { text: 'Cancel', style: 'cancel', onPress: () => setUploadedFile(null) },
-          { text: 'Retry', onPress: handleExtractTransaction },
-          { text: 'Manual Entry', onPress: handleManualEntry },
-        ]
-      );
+      console.error('Error details:', error.response?.data || error.message);
+      
+      const errorMessage = error.response?.data?.message 
+        || error.message 
+        || 'Failed to extract transaction data. Please try again or use manual entry.';
+      
+      setInlineAlert({
+        type: 'error',
+        message: errorMessage
+      });
     }
   };
 
@@ -172,43 +203,50 @@ export default function AddScreen() {
     setIsSaving(true);
     
     try {
+      // Format text dari extracted data
+      const textData = [
+        extractedData.merchant ? `Merchant: ${extractedData.merchant}` : '',
+        `Amount: Rp ${extractedData.total.toLocaleString('id-ID')}`,
+        `Category: ${extractedData.category}`,
+        `Date: ${extractedData.transaction_date}`,
+        extractedData.notes ? `Notes: ${extractedData.notes}` : '',
+        extractedData.payment_method ? `Payment: ${extractedData.payment_method}` : '',
+      ].filter(Boolean).join('\n');
+
+      console.log('Saving transaction with text format:', textData);
+
       // Save transaction to database
       await createTransaction({
         user_id: 'test-user-123',
         type: selectedType,
-        merchant: extractedData.merchant,
-        total: extractedData.total,
-        category: extractedData.category,
-        transaction_date: extractedData.transaction_date,
-        notes: extractedData.notes,
-        payment_method: extractedData.payment_method,
+        text: textData,
+        source_name: uploadedFile?.name || 'manual-entry',
       });
 
-      Alert.alert(
-        'Success! ✅',
-        'Transaction has been saved successfully.',
-        [
-          {
-            text: 'OK',
-            onPress: () => {
-              setUploadedFile(null);
-              setExtractedData(null);
-              setIsSaving(false);
-            },
-          },
-        ]
-      );
-    } catch (error) {
+      setInlineAlert({
+        type: 'success',
+        message: 'Transaction saved successfully!'
+      });
+      
+      setTimeout(() => {
+        setUploadedFile(null);
+        setExtractedData(null);
+        setIsSaving(false);
+        setInlineAlert(null);
+      }, 2000);
+    } catch (error: any) {
       setIsSaving(false);
       console.error('Save error:', error);
-      Alert.alert(
-        'Save Failed ❌',
-        'Failed to save transaction. Please check your connection and try again.',
-        [
-          { text: 'Cancel', style: 'cancel' },
-          { text: 'Retry', onPress: handleSaveTransaction },
-        ]
-      );
+      console.error('Save error details:', error.response?.data || error.message);
+      
+      const errorMessage = error.response?.data?.message 
+        || error.message 
+        || 'Failed to save transaction. Please check your connection and try again.';
+      
+      setInlineAlert({
+        type: 'error',
+        message: errorMessage
+      });
     }
   };
 
@@ -231,6 +269,56 @@ export default function AddScreen() {
           <Text style={{ color: '#ffffff', fontSize: 24, fontWeight: 'bold' }}>Add Transaction</Text>
           <Text style={{ color: '#737373', fontSize: 14, marginTop: 4 }}>Upload receipt or enter manually</Text>
         </View>
+
+        {/* Inline Alert */}
+        {inlineAlert && (
+          <View style={{ paddingHorizontal: 20, marginTop: 16 }}>
+            <View style={{ 
+              borderRadius: 12, 
+              padding: 14, 
+              flexDirection: 'row', 
+              alignItems: 'center',
+              backgroundColor: 
+                inlineAlert.type === 'success' ? 'rgba(34, 197, 94, 0.15)' :
+                inlineAlert.type === 'error' ? 'rgba(239, 68, 68, 0.15)' :
+                'rgba(200, 245, 66, 0.15)',
+              borderWidth: 1,
+              borderColor: 
+                inlineAlert.type === 'success' ? '#22c55e' :
+                inlineAlert.type === 'error' ? '#ef4444' :
+                '#c8f542'
+            }}>
+              <IconSymbol 
+                name={
+                  inlineAlert.type === 'success' ? 'checkmark.circle.fill' :
+                  inlineAlert.type === 'error' ? 'xmark.circle.fill' :
+                  'info.circle.fill'
+                }
+                size={20} 
+                color={
+                  inlineAlert.type === 'success' ? '#22c55e' :
+                  inlineAlert.type === 'error' ? '#ef4444' :
+                  '#c8f542'
+                }
+              />
+              <Text style={{ 
+                flex: 1, 
+                marginLeft: 12, 
+                fontSize: 13, 
+                color: 
+                  inlineAlert.type === 'success' ? '#22c55e' :
+                  inlineAlert.type === 'error' ? '#ef4444' :
+                  '#c8f542',
+                fontWeight: '500'
+              }}>
+                {inlineAlert.message}
+              </Text>
+              <Pressable onPress={() => setInlineAlert(null)} style={{ padding: 4 }}>
+                <IconSymbol name="xmark" size={14} color="#737373" />
+              </Pressable>
+            </View>
+          </View>
+        )}
 
         {/* Transaction Type Selector */}
         <View style={{ paddingHorizontal: 20, marginTop: 16 }}>
