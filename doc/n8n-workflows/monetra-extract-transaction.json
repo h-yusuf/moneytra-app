@@ -1,0 +1,376 @@
+{
+  "name": "Monetra - Extract Transaction (money_saving)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "extract-transaction",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "1",
+      "name": "Webhook Extract Transaction",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [220, 300],
+      "webhookId": "monetra-extract-transaction"
+    },
+    {
+      "parameters": {
+        "jsCode": "const body = $json.body ?? $json;\n\nconst type = String(body.type || '').trim().toLowerCase();\nconst text = String(body.text || '').trim();\nconst source_name = String(body.source_name || 'manual input').trim();\nconst user_id = String(body.user_id || 'default-user').trim();\n\nif (!['expense', 'money_saving'].includes(type)) {\n  throw new Error('type harus expense atau money_saving');\n}\n\nif (!text) {\n  throw new Error('text wajib diisi');\n}\n\nreturn [{ json: { type, text, source_name, user_id } }];"
+      },
+      "id": "2",
+      "name": "Validate Input",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": false,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{$json.type}}",
+                    "rightValue": "expense",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": false,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{$json.type}}",
+                    "rightValue": "money_saving",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "3",
+      "name": "Switch Transaction Type",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3,
+      "position": [700, 300]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "a1",
+              "name": "prompt",
+              "value": "Ekstrak transaksi berikut menjadi JSON valid.\n\nKategori transaksi: expense\n\nAturan:\n- Kembalikan HANYA JSON\n- Jangan tambahkan penjelasan\n- Jika tidak yakin, isi string kosong\n- total harus angka tanpa pemisah ribuan\n- transaction_date format YYYY-MM-DD jika bisa dikenali\n- type harus selalu \"expense\"\n\nFormat JSON:\n{\n  \"type\": \"expense\",\n  \"total\": 0,\n  \"merchant\": \"\",\n  \"category\": \"\",\n  \"payment_method\": \"\",\n  \"transaction_date\": \"\",\n  \"notes\": \"\"\n}\n\nTeks transaksi:\n{{$json.text}}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "4",
+      "name": "Set Expense Prompt",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [940, 220]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "b1",
+              "name": "prompt",
+              "value": "Ekstrak transaksi berikut menjadi JSON valid.\n\nKategori transaksi: money_saving (tabungan nikah)\n\nAturan:\n- Kembalikan HANYA JSON\n- Jangan tambahkan penjelasan\n- Jika tidak yakin, isi string kosong\n- total harus angka tanpa pemisah ribuan\n- transaction_date format YYYY-MM-DD jika bisa dikenali\n- type harus selalu \"money_saving\"\n- category selalu \"Tabungan\"\n\nFormat JSON:\n{\n  \"type\": \"money_saving\",\n  \"total\": 0,\n  \"merchant\": \"\",\n  \"category\": \"Tabungan\",\n  \"payment_method\": \"\",\n  \"transaction_date\": \"\",\n  \"notes\": \"\"\n}\n\nTeks transaksi:\n{{$json.text}}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "5",
+      "name": "Set Money Saving Prompt",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [940, 380]
+    },
+    {
+      "parameters": {
+        "mode": "append"
+      },
+      "id": "6",
+      "name": "Merge Prompt",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [1180, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.deepseek.com/chat/completions",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "={{$env.DEEPSEEK_API_KEY}}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"model\": \"deepseek-chat\",\n  \"messages\": [\n    {\n      \"role\": \"user\",\n      \"content\": \"{{ $json.prompt }}\"\n    }\n  ],\n  \"temperature\": 0.2\n}",
+        "options": {}
+      },
+      "id": "7",
+      "name": "Call AI DeepSeek",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1420, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const raw = $json.choices?.[0]?.message?.content || '{}';\n\nlet text = String(raw).trim();\nconst start = text.indexOf('{');\nconst end = text.lastIndexOf('}');\nif (start !== -1 && end !== -1 && end > start) {\n  text = text.slice(start, end + 1);\n}\n\nlet parsed;\ntry {\n  parsed = JSON.parse(text);\n} catch (e) {\n  return [{\n    json: {\n      success: false,\n      error: 'Gagal parse JSON dari AI',\n      raw_response: raw\n    }\n  }];\n}\n\nconst inputData = $('Validate Input').first().json;\n\nreturn [{\n  json: {\n    success: true,\n    user_id: inputData.user_id,\n    source_name: inputData.source_name,\n    raw_text: inputData.text,\n    raw_ai_response: JSON.stringify(parsed),\n    data: parsed\n  }\n}];"
+      },
+      "id": "8",
+      "name": "Parse AI Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1660, 300]
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": "={{$env.GOOGLE_SHEETS_ID}}",
+        "sheetName": "Raw_Extractions",
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "timestamp": "={{$now}}",
+            "user_id": "={{$json.user_id}}",
+            "source_name": "={{$json.source_name}}",
+            "type": "={{$json.data.type}}",
+            "raw_ai_response": "={{$json.raw_ai_response}}",
+            "raw_text": "={{$json.raw_text}}",
+            "status": "pending"
+          }
+        },
+        "options": {}
+      },
+      "id": "9",
+      "name": "Save Raw to Sheets",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4,
+      "position": [1900, 300],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "={{$env.GOOGLE_SHEETS_CREDENTIAL_ID}}",
+          "name": "Google Sheets Account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "documentId": "={{$env.GOOGLE_SHEETS_ID}}",
+        "sheetName": "Raw_Extractions",
+        "options": {
+          "range": "A:Z",
+          "limit": 1
+        }
+      },
+      "id": "10",
+      "name": "Read Latest from Sheets",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4,
+      "position": [2140, 300],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "={{$env.GOOGLE_SHEETS_CREDENTIAL_ID}}",
+          "name": "Google Sheets Account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Get data from previous nodes\nconst sheetData = $json;\nconst parseNode = $('Parse AI Response').first().json;\n\n// Parse AI response from Sheets\nconst aiData = parseNode.data;\n\n// Transform to app format\nreturn [{\n  json: {\n    user_id: sheetData.user_id || parseNode.user_id,\n    source_name: sheetData.source_name || parseNode.source_name,\n    sheets_row: sheetData.row_number,\n    transaction: {\n      type: aiData.type,\n      total: Number(aiData.total) || 0,\n      merchant: aiData.merchant || '',\n      category: aiData.category || '',\n      payment_method: aiData.payment_method || '',\n      transaction_date: aiData.transaction_date || new Date().toISOString().split('T')[0],\n      notes: aiData.notes || ''\n    }\n  }\n}];"
+      },
+      "id": "11",
+      "name": "Transform to App Format",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2380, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{$env.SUPABASE_URL}}/rest/v1/transactions",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{$env.SUPABASE_ANON_KEY}}"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer {{$env.SUPABASE_ANON_KEY}}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=representation"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"user_id\": {{ $json.user_id }},\n  \"type\": {{ $json.transaction.type }},\n  \"source_name\": {{ $json.source_name }},\n  \"transaction_date\": {{ $json.transaction.transaction_date }},\n  \"merchant\": {{ $json.transaction.merchant }},\n  \"category\": {{ $json.transaction.category }},\n  \"payment_method\": {{ $json.transaction.payment_method }},\n  \"total\": {{ $json.transaction.total }},\n  \"notes\": {{ $json.transaction.notes }},\n  \"sheets_row_id\": {{ $json.sheets_row }}\n}",
+        "options": {}
+      },
+      "id": "12",
+      "name": "Save to Supabase",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2620, 300]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": "={{$env.GOOGLE_SHEETS_ID}}",
+        "sheetName": "Raw_Extractions",
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "status": "processed",
+            "db_id": "={{$json.id}}",
+            "processed_at": "={{$now}}"
+          }
+        },
+        "options": {
+          "range": "={{$('Read Latest from Sheets').first().json.row_number}}:{{$('Read Latest from Sheets').first().json.row_number}}"
+        }
+      },
+      "id": "13",
+      "name": "Update Sheets Status",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4,
+      "position": [2860, 300],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "={{$env.GOOGLE_SHEETS_CREDENTIAL_ID}}",
+          "name": "Google Sheets Account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const transformed = $('Transform to App Format').first().json;\nconst supabaseResponse = $('Save to Supabase').first().json;\nconst insertedRow = Array.isArray(supabaseResponse) ? supabaseResponse[0] : supabaseResponse;\n\nreturn [{\n  json: {\n    success: true,\n    source_name: transformed.source_name,\n    data: transformed.transaction,\n    sheets_row: transformed.sheets_row,\n    db_id: insertedRow?.id ?? null,\n  },\n}];"
+      },
+      "id": "15",
+      "name": "Build Response Payload",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [3100, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {}
+      },
+      "id": "14",
+      "name": "Respond to App",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [3340, 300]
+    }
+  ],
+  "connections": {
+    "Webhook Extract Transaction": {
+      "main": [[{"node": "Validate Input", "type": "main", "index": 0}]]
+    },
+    "Validate Input": {
+      "main": [[{"node": "Switch Transaction Type", "type": "main", "index": 0}]]
+    },
+    "Switch Transaction Type": {
+      "main": [
+        [{"node": "Set Expense Prompt", "type": "main", "index": 0}],
+        [{"node": "Set Money Saving Prompt", "type": "main", "index": 0}]
+      ]
+    },
+    "Set Expense Prompt": {
+      "main": [[{"node": "Merge Prompt", "type": "main", "index": 0}]]
+    },
+    "Set Money Saving Prompt": {
+      "main": [[{"node": "Merge Prompt", "type": "main", "index": 1}]]
+    },
+    "Merge Prompt": {
+      "main": [[{"node": "Call AI DeepSeek", "type": "main", "index": 0}]]
+    },
+    "Call AI DeepSeek": {
+      "main": [[{"node": "Parse AI Response", "type": "main", "index": 0}]]
+    },
+    "Parse AI Response": {
+      "main": [[{"node": "Save Raw to Sheets", "type": "main", "index": 0}]]
+    },
+    "Save Raw to Sheets": {
+      "main": [[{"node": "Read Latest from Sheets", "type": "main", "index": 0}]]
+    },
+    "Read Latest from Sheets": {
+      "main": [[{"node": "Transform to App Format", "type": "main", "index": 0}]]
+    },
+    "Transform to App Format": {
+      "main": [[{"node": "Save to Supabase", "type": "main", "index": 0}]]
+    },
+    "Save to Supabase": {
+      "main": [[{"node": "Update Sheets Status", "type": "main", "index": 0}]]
+    },
+    "Update Sheets Status": {
+      "main": [[{"node": "Build Response Payload", "type": "main", "index": 0}]]
+    },
+    "Build Response Payload": {
+      "main": [[{"node": "Respond to App", "type": "main", "index": 0}]]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "meta": {
+    "instanceId": "monetra-money-saving"
+  },
+  "tags": []
+}

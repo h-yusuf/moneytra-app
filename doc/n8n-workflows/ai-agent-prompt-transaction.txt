@@ -1,0 +1,163 @@
+Extract transaction details from the given receipt/payment proof text. The document may be:
+- Physical store receipt (Indomaret, Alfamart, supermarket, restaurant, etc.)
+- E-commerce receipt (Tokopedia, Shopee, Lazada, etc.)
+- Bank transfer proof
+- E-wallet payment proof (GoPay, OVO, Dana, ShopeePay, etc.)
+- QRIS payment confirmation
+- Other payment receipts
+
+Fields to extract:
+- merchant
+- total
+- transaction_date
+- payment_method
+- category
+- notes
+
+Use the following input text:
+{{ $json.rawText }}
+
+Return the result as a valid JSON object using this exact structure:
+
+{
+  "merchant": "string or null",
+  "total": number or null,
+  "transaction_date": "string (YYYY-MM-DD) or null",
+  "payment_method": "string or null",
+  "category": "string or null",
+  "notes": "string or null"
+}
+
+--------------------------------
+EXTRACTION RULES
+--------------------------------
+
+1) MERCHANT (Nama Toko/Penerima)
+- Extract the store/merchant/recipient name from the receipt
+- Common patterns:
+  - Top of receipt (first 1-3 lines)
+  - After "Merchant:", "Toko:", "Penerima:", "To:", etc.
+- Examples: "INDOMARET", "ALFAMART", "STARBUCKS", "TOKOPEDIA", "John Doe"
+- If multiple merchant names appear, prefer the most prominent one
+- Clean up extra characters (*, =, -, etc.)
+- If unclear or not found → set to null
+
+2) TOTAL (Nominal Transaksi)
+- Extract the final total amount paid
+- Look for keywords: "Total", "Jumlah", "Grand Total", "Amount", "Bayar", "Dibayar"
+- Format: numeric value only (without currency symbol)
+- Handle various formats:
+  - "Rp 125.000" → 125000
+  - "Rp. 1.250.000" → 1250000
+  - "IDR 50,000" → 50000
+  - "125000" → 125000
+- Remove dots (.) and commas (,) used as thousand separators
+- If multiple totals exist (subtotal, tax, grand total), prefer "Grand Total" or the largest value
+- MUST be a positive number
+- If unclear or not found → set to null
+
+3) TRANSACTION_DATE (Tanggal Transaksi)
+- Extract the transaction date
+- Look for keywords: "Tanggal", "Date", "Tgl", near merchant name or total
+- Convert to YYYY-MM-DD format
+- Handle various formats:
+  - "16/03/2026" → "2026-03-16"
+  - "16 Maret 2026" → "2026-03-16"
+  - "16-03-26" → "2026-03-16"
+  - "Mar 16, 2026" → "2026-03-16"
+- Month names (Indonesian): Jan, Feb, Mar, Apr, Mei, Jun, Jul, Agu, Sep, Okt, Nov, Des
+- Month names (English): Jan, Feb, Mar, Apr, May, Jun, Jul, Aug, Sep, Oct, Nov, Dec
+- Validation:
+  - Year range: 2020 to current year + 1
+  - Must be a valid calendar date
+  - If date is in the future (more than 1 day), verify it's not a typo
+- If unclear or invalid → set to null
+
+4) PAYMENT_METHOD (Metode Pembayaran)
+- Extract the payment method used
+- Common values:
+  - "Cash" / "Tunai"
+  - "Debit Card" / "Kartu Debit"
+  - "Credit Card" / "Kartu Kredit"
+  - "QRIS"
+  - "GoPay" / "OVO" / "Dana" / "ShopeePay" / "LinkAja"
+  - "Transfer Bank" / "Bank Transfer"
+  - "Virtual Account"
+- Look for keywords: "Payment", "Pembayaran", "Metode", "Method", near total or at bottom
+- Normalize to standard format (Title Case)
+- If multiple methods mentioned, prefer the one closest to the total amount
+- If unclear or not found → set to null
+
+5) CATEGORY (Kategori Transaksi)
+- Infer the transaction category based on merchant and items
+- Standard categories:
+  - "Belanja Harian" (groceries, daily needs)
+  - "Makanan & Minuman" (food & beverage)
+  - "Transportasi" (transport, fuel, parking)
+  - "Kesehatan" (pharmacy, hospital, clinic)
+  - "Hiburan" (entertainment, movies, games)
+  - "Pakaian" (clothing, fashion)
+  - "Elektronik" (electronics, gadgets)
+  - "Pendidikan" (education, books, courses)
+  - "Tagihan" (bills, utilities)
+  - "Transfer" (money transfer)
+  - "Lainnya" (others)
+- Inference rules:
+  - Indomaret, Alfamart, supermarket → "Belanja Harian"
+  - Restaurant, cafe, Starbucks → "Makanan & Minuman"
+  - Pertamina, Shell, parking → "Transportasi"
+  - Apotek, hospital → "Kesehatan"
+  - Cinema, game top-up → "Hiburan"
+- If cannot infer confidently → set to "Lainnya"
+- Never set to null, always provide a category
+
+6) NOTES (Catatan Tambahan)
+- Extract additional relevant information
+- May include:
+  - Item names (if clearly listed)
+  - Cashier name
+  - Store branch/location
+  - Promo/discount info
+  - Reference number
+- Keep it concise (max 200 characters)
+- Format: comma-separated if multiple items
+- Example: "Snack, Minuman, Promo 10%"
+- If no relevant additional info → set to empty string ""
+
+--------------------------------
+VALIDATION RULES
+--------------------------------
+
+1) TOTAL VALIDATION
+- MUST be a positive number
+- Reasonable range: 100 to 100,000,000 (Rp 100 to Rp 100 juta)
+- If outside range but clearly stated → keep the value
+- If negative or zero → set to null
+
+2) DATE VALIDATION
+- MUST be a valid calendar date
+- Year range: 2020 to (current year + 1)
+- Format: YYYY-MM-DD
+- If invalid → set to null
+
+3) MERCHANT VALIDATION
+- MUST be at least 2 characters
+- Should not be purely numeric
+- Should not contain only special characters
+- If invalid → set to null
+
+4) GENERAL NORMALIZATION
+- Trim extra spaces
+- Use Title Case for merchant, category, payment_method
+- Remove special characters that don't add meaning
+- Keep Indonesian terms (do NOT translate)
+- Do NOT infer missing values beyond reasonable inference
+
+--------------------------------
+OUTPUT RULES
+--------------------------------
+- If any field is missing or unclear → set it as null (except category → use "Lainnya")
+- Do NOT guess or hallucinate values
+- Return ONLY the JSON object
+- Do NOT include explanations, comments, or extra text
+- Ensure valid JSON format (proper quotes, no trailing commas)
