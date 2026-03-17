@@ -37,7 +37,7 @@ export default function DashboardScreen() {
         <View className="mb-3">
           <SummaryCard
             title="Tabungan Nikah Bulan Ini"
-            value={formatCurrency(dummySummary.total_wedding_savings)}
+            value={formatCurrency(dummySummary.total_money_saving)}
             trend={dummySummary.savings_growth}
             subtitle="vs bulan lalu"
             icon="heart.circle.fill"

@@ -20,7 +20,4 @@ export const PAYMENT_METHODS = [
   'Other',
 ];
 
-export const TRANSACTION_TYPES = [
-  { label: 'Expense', value: 'expense' },
-  { label: 'Tabungan Nikah', value: 'wedding_savings' },
-];
+export const TRANSACTION_TYPES = ['expense', 'money_saving'] as const;

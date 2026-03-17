@@ -1,4 +1,4 @@
-import type { Transaction, DashboardSummary, MonthlyTrend, CategoryBreakdown } from '@/types';
+import type { CategoryBreakdown, DashboardSummary, MonthlyTrend, Transaction } from '@/src/types';
 
 export const dummyTransactions: Transaction[] = [
   {
@@ -14,16 +14,16 @@ export const dummyTransactions: Transaction[] = [
     created_at: '2026-03-16T10:30:00Z',
   },
   {
-    id: '2',
-    user_id: 'user1',
-    type: 'wedding_savings',
-    transaction_date: '2026-03-15',
+    id: '5',
+    user_id: 'user-1',
+    type: 'money_saving',
+    transaction_date: '2024-03-10',
     merchant: 'Transfer Bank',
     category: 'Tabungan',
     payment_method: 'Transfer',
-    total: 2000000,
+    total: 5000000,
     notes: 'Tabungan nikah bulan Maret',
-    created_at: '2026-03-15T14:20:00Z',
+    created_at: '2024-03-10T10:00:00Z',
   },
   {
     id: '3',
@@ -65,7 +65,7 @@ export const dummyTransactions: Transaction[] = [
 
 export const dummySummary: DashboardSummary = {
   total_expense: 3250000,
-  total_wedding_savings: 5000000,
+  total_money_saving: 5000000,
   total_transactions: 28,
   expense_growth: -12.5,
   savings_growth: 8.3,

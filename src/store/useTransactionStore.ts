@@ -1,5 +1,5 @@
+import type { Transaction, UploadResponse } from '@/src/types';
 import { create } from 'zustand';
-import type { Transaction, UploadResponse } from '@/types';
 
 interface TransactionStore {
   pendingTransaction: Partial<Transaction> | null;

@@ -1,4 +1,4 @@
-export type TransactionType = 'expense' | 'wedding_savings';
+export type TransactionType = 'expense' | 'money_saving';
 
 export type PaymentMethod = 'QRIS' | 'Cash' | 'Debit' | 'Credit' | 'Transfer' | 'E-Wallet' | 'Other';
 
@@ -19,7 +19,7 @@ export interface Transaction {
 
 export interface DashboardSummary {
   total_expense: number;
-  total_wedding_savings: number;
+  total_money_saving: number;
   total_transactions: number;
   expense_growth: number;
   savings_growth: number;
