@@ -3,8 +3,8 @@ import { dummySummary, dummyTransactions } from '@/src/lib/dummy-data';
 import { formatCurrency } from '@/src/lib/utils';
 import { fetchMonthlyReport, fetchTransactions } from '@/src/services/transactionService';
 import type { MonthlyReportResponse, Transaction } from '@/src/types';
-import { useRouter } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import { useFocusEffect, useRouter } from 'expo-router';
+import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -13,6 +13,7 @@ export default function DashboardScreen() {
   const [report, setReport] = useState<MonthlyReportResponse | null>(null);
   const [recentTransactions, setRecentTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
   const currentDate = new Date();
   const formattedDate = currentDate.toLocaleDateString('id-ID', {
@@ -25,9 +26,20 @@ export default function DashboardScreen() {
     loadDashboardData();
   }, []);
 
-  const loadDashboardData = async () => {
+  // Auto-fetch saat navigasi ke halaman ini
+  useFocusEffect(
+    useCallback(() => {
+      loadDashboardData();
+    }, [])
+  );
+
+  const loadDashboardData = async (isRefresh = false) => {
     try {
-      setLoading(true);
+      if (isRefresh) {
+        setRefreshing(true);
+      } else {
+        setLoading(true);
+      }
       const currentYear = currentDate.getFullYear();
       const currentMonth = currentDate.getMonth() + 1;
 
@@ -69,7 +81,12 @@ export default function DashboardScreen() {
       setRecentTransactions(dummyTransactions.slice(0, 5));
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
+  };
+
+  const handleRefresh = () => {
+    loadDashboardData(true);
   };
 
   const totalBalance = report 
@@ -198,9 +215,22 @@ export default function DashboardScreen() {
         <View style={{ paddingHorizontal: 20, marginTop: 24 }}>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
             <Text style={{ color: '#ffffff', fontSize: 18, fontWeight: 'bold' }}>Recent Transactions</Text>
-            <Pressable onPress={() => router.push('/(tabs)/history')}>
-              <Text style={{ color: '#c8f542', fontSize: 13, fontWeight: '500' }}>See all</Text>
-            </Pressable>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+              <Pressable 
+                onPress={handleRefresh}
+                disabled={refreshing}
+                style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: '#262626', alignItems: 'center', justifyContent: 'center' }}
+              >
+                {refreshing ? (
+                  <ActivityIndicator size="small" color="#c8f542" />
+                ) : (
+                  <IconSymbol name="arrow.clockwise" size={16} color="#c8f542" />
+                )}
+              </Pressable>
+              <Pressable onPress={() => router.push('/(tabs)/history')}>
+                <Text style={{ color: '#c8f542', fontSize: 13, fontWeight: '500' }}>See all</Text>
+              </Pressable>
+            </View>
           </View>
 
           {loading ? (

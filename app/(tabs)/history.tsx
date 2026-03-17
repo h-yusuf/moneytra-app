@@ -3,7 +3,8 @@ import { dummyTransactions } from '@/src/lib/dummy-data';
 import { formatCurrency } from '@/src/lib/utils';
 import { fetchTransactions } from '@/src/services/transactionService';
 import type { Transaction } from '@/src/types';
-import React, { useEffect, useState } from 'react';
+import { useFocusEffect } from 'expo-router';
+import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -11,15 +12,27 @@ export default function HistoryScreen() {
   const [searchQuery, setSearchQuery] = useState('');
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [activeFilter, setActiveFilter] = useState<'all' | 'expense' | 'money_saving'>('all');
 
   useEffect(() => {
     loadTransactions();
   }, []);
 
-  const loadTransactions = async () => {
+  // Auto-fetch saat navigasi ke halaman ini
+  useFocusEffect(
+    useCallback(() => {
+      loadTransactions();
+    }, [])
+  );
+
+  const loadTransactions = async (isRefresh = false) => {
     try {
-      setLoading(true);
+      if (isRefresh) {
+        setRefreshing(true);
+      } else {
+        setLoading(true);
+      }
       const response = await fetchTransactions({
         user_id: 'test-user-123',
         limit: 100,
@@ -30,7 +43,12 @@ export default function HistoryScreen() {
       setTransactions(dummyTransactions);
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
+  };
+
+  const handleRefresh = () => {
+    loadTransactions(true);
   };
 
   const filteredTransactions = transactions.filter((transaction) => {
@@ -48,9 +66,22 @@ export default function HistoryScreen() {
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: '#0a0a0a' }}>
       {/* Header */}
-      <View style={{ paddingHorizontal: 20, paddingTop: 16, paddingBottom: 8 }}>
-        <Text style={{ color: '#ffffff', fontSize: 24, fontWeight: 'bold' }}>Transaction History</Text>
-        <Text style={{ color: '#737373', fontSize: 14, marginTop: 4 }}>All your expenses and savings</Text>
+      <View style={{ paddingHorizontal: 20, paddingTop: 16, paddingBottom: 8, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+        <View style={{ flex: 1 }}>
+          <Text style={{ color: '#ffffff', fontSize: 24, fontWeight: 'bold' }}>Transaction History</Text>
+          <Text style={{ color: '#737373', fontSize: 14, marginTop: 4 }}>All your expenses and savings</Text>
+        </View>
+        <Pressable 
+          onPress={handleRefresh}
+          disabled={refreshing}
+          style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: '#262626', alignItems: 'center', justifyContent: 'center' }}
+        >
+          {refreshing ? (
+            <ActivityIndicator size="small" color="#c8f542" />
+          ) : (
+            <IconSymbol name="arrow.clockwise" size={20} color="#c8f542" />
+          )}
+        </Pressable>
       </View>
 
       {/* Search Bar */}
