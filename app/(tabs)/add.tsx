@@ -1,13 +1,13 @@
-import React, { useState } from 'react';
-import { View, Text, TouchableOpacity } from 'react-native';
+import { IconSymbol } from '@/components/ui/icon-symbol';
 import { AppContainer } from '@/src/components/common/AppContainer';
 import { PrimaryButton } from '@/src/components/common/PrimaryButton';
-import { IconSymbol } from '@/components/ui/icon-symbol';
-import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
+import * as ImagePicker from 'expo-image-picker';
+import React, { useState } from 'react';
+import { Text, TouchableOpacity, View } from 'react-native';
 
 export default function AddScreen() {
-  const [selectedType, setSelectedType] = useState<'expense' | 'wedding_savings'>('expense');
+  const [selectedType, setSelectedType] = useState<'expense' | 'money_saving'>('expense');
 
   const handleImagePicker = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -74,25 +74,25 @@ export default function AddScreen() {
           </TouchableOpacity>
 
           <TouchableOpacity
-            onPress={() => setSelectedType('wedding_savings')}
+            onPress={() => setSelectedType('money_saving')}
             className={`flex-1 rounded-xl p-4 border-2 ${
-              selectedType === 'wedding_savings'
+              selectedType === 'money_saving'
                 ? 'bg-teal-50 border-teal-600'
                 : 'bg-white border-slate-200'
             }`}
           >
             <View className="items-center">
               <View className={`w-12 h-12 rounded-full items-center justify-center mb-2 ${
-                selectedType === 'wedding_savings' ? 'bg-teal-100' : 'bg-slate-100'
+                selectedType === 'money_saving' ? 'bg-teal-100' : 'bg-slate-100'
               }`}>
                 <IconSymbol 
                   name="heart.circle.fill" 
                   size={28} 
-                  color={selectedType === 'wedding_savings' ? '#0d9488' : '#64748b'} 
+                  color={selectedType === 'money_saving' ? '#0d9488' : '#64748b'} 
                 />
               </View>
               <Text className={`text-sm font-semibold ${
-                selectedType === 'wedding_savings' ? 'text-teal-900' : 'text-slate-700'
+                selectedType === 'money_saving' ? 'text-teal-900' : 'text-slate-700'
               }`}>
                 Tabungan Nikah
               </Text>
