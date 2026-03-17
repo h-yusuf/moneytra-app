@@ -1,0 +1,111 @@
+{
+  "name": "Monetra - Get All Transactions",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "GET",
+        "path": "transactions",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-get-transactions",
+      "name": "Webhook Get Transactions",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [240, 300],
+      "webhookId": "monetra-get-transactions"
+    },
+    {
+      "parameters": {
+        "jsCode": "const query = $json.query || {};\nconst user_id = query.user_id || null;\nconst type = query.type || null;\nconst limit = parseInt(query.limit) || 50;\nconst offset = parseInt(query.offset) || 0;\n\nreturn [{\n  json: {\n    user_id,\n    type,\n    limit,\n    offset\n  }\n}];"
+      },
+      "id": "parse-query-params",
+      "name": "Parse Query Params",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [480, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const params = $json;\nlet url = `{{$env.SUPABASE_URL}}/rest/v1/transactions?order=created_at.desc&limit=${params.limit}&offset=${params.offset}`;\n\nif (params.user_id) {\n  url += `&user_id=eq.${params.user_id}`;\n}\n\nif (params.type) {\n  url += `&type=eq.${params.type}`;\n}\n\nreturn [{\n  json: {\n    url\n  }\n}];"
+      },
+      "id": "build-supabase-url",
+      "name": "Build Supabase URL",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [720, 300]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $json.url }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{$env.SUPABASE_SERVICE_ROLE_KEY}}"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer {{$env.SUPABASE_SERVICE_ROLE_KEY}}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "fetch-from-supabase",
+      "name": "Fetch from Supabase",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [960, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const data = $json;\nconst transactions = Array.isArray(data) ? data : [data];\n\nreturn [{\n  json: {\n    success: true,\n    count: transactions.length,\n    data: transactions\n  }\n}];"
+      },
+      "id": "format-response",
+      "name": "Format Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1200, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {}
+      },
+      "id": "respond-to-webhook",
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [1440, 300]
+    }
+  ],
+  "connections": {
+    "Webhook Get Transactions": {
+      "main": [[{"node": "Parse Query Params", "type": "main", "index": 0}]]
+    },
+    "Parse Query Params": {
+      "main": [[{"node": "Build Supabase URL", "type": "main", "index": 0}]]
+    },
+    "Build Supabase URL": {
+      "main": [[{"node": "Fetch from Supabase", "type": "main", "index": 0}]]
+    },
+    "Fetch from Supabase": {
+      "main": [[{"node": "Format Response", "type": "main", "index": 0}]]
+    },
+    "Format Response": {
+      "main": [[{"node": "Respond to Webhook", "type": "main", "index": 0}]]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "meta": {
+    "instanceId": "monetra-get-transactions"
+  },
+  "tags": []
+}

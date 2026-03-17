@@ -1,0 +1,882 @@
+{
+  "info": {
+    "name": "Monetra API - n8n Workflow",
+    "description": "Collection untuk testing n8n workflow extraction Monetra App",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "monetra-v1"
+  },
+  "item": [
+    {
+      "name": "Extract Transaction",
+      "item": [
+        {
+          "name": "Extract Expense - Indomaret",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"expense\",\n  \"text\": \"Indomaret Rp 125.000 QRIS 16 Maret 2026 Belanja snack dan minuman\",\n  \"source_name\": \"IMG_1234.jpg\",\n  \"user_id\": \"test-user-123\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/webhook/extract-transaction",
+              "host": ["{{base_url}}"],
+              "path": ["webhook", "extract-transaction"]
+            },
+            "description": "Test extraction untuk transaksi expense di Indomaret"
+          },
+          "response": []
+        },
+        {
+          "name": "Extract Expense - Alfamart",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"expense\",\n  \"text\": \"ALFAMART\\nTgl: 15/03/2026\\nTotal: Rp 85.500\\nMetode: Debit BCA\\nItem: Sabun, Shampoo, Pasta Gigi\",\n  \"source_name\": \"receipt_alfamart.jpg\",\n  \"user_id\": \"user-456\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/webhook/extract-transaction",
+              "host": ["{{base_url}}"],
+              "path": ["webhook", "extract-transaction"]
+            },
+            "description": "Test extraction dengan format struk Alfamart"
+          },
+          "response": []
+        },
+        {
+          "name": "Extract Expense - Grab Food",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"expense\",\n  \"text\": \"Grab Food - McDonald's\\nOrder ID: GF123456\\nTanggal: 16 Mar 2026\\nTotal Pembayaran: Rp 156.000\\nMetode: GoPay\\nCatatan: Paket McFlurry + Big Mac\",\n  \"source_name\": \"grab_receipt.png\",\n  \"user_id\": \"user-789\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/webhook/extract-transaction",
+              "host": ["{{base_url}}"],
+              "path": ["webhook", "extract-transaction"]
+            },
+            "description": "Test extraction untuk transaksi online food delivery"
+          },
+          "response": []
+        },
+        {
+          "name": "Extract Expense - Transfer Bank",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"expense\",\n  \"text\": \"BCA Mobile\\nTransfer ke: Toko Elektronik Jaya\\nJumlah: Rp 2.500.000\\nTanggal: 14 Maret 2026\\nKeterangan: Beli laptop untuk kerja\",\n  \"source_name\": \"transfer_bca.jpg\",\n  \"user_id\": \"user-101\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/webhook/extract-transaction",
+              "host": ["{{base_url}}"],
+              "path": ["webhook", "extract-transaction"]
+            },
+            "description": "Test extraction untuk bukti transfer bank"
+          },
+          "response": []
+        },
+        {
+          "name": "Extract Wedding Savings - Transfer",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"wedding_savings\",\n  \"text\": \"Transfer ke Tabungan Nikah\\nBank Mandiri\\nJumlah: Rp 5.000.000\\nTanggal: 16 Maret 2026\\nKeterangan: Nabung bulan Maret\",\n  \"source_name\": \"transfer_mandiri.jpg\",\n  \"user_id\": \"couple-001\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/webhook/extract-transaction",
+              "host": ["{{base_url}}"],
+              "path": ["webhook", "extract-transaction"]
+            },
+            "description": "Test extraction untuk tabungan nikah via transfer"
+          },
+          "response": []
+        },
+        {
+          "name": "Extract Wedding Savings - Cash",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"wedding_savings\",\n  \"text\": \"Setor Tunai Tabungan Nikah\\nRp 3.000.000\\n15 Maret 2026\\nCatatan: Bonus kantor\",\n  \"source_name\": \"manual_input.txt\",\n  \"user_id\": \"couple-002\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/webhook/extract-transaction",
+              "host": ["{{base_url}}"],
+              "path": ["webhook", "extract-transaction"]
+            },
+            "description": "Test extraction untuk tabungan nikah cash"
+          },
+          "response": []
+        },
+        {
+          "name": "Extract Expense - Minimal Data",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"expense\",\n  \"text\": \"Warteg 25rb\",\n  \"source_name\": \"manual\",\n  \"user_id\": \"user-minimal\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/webhook/extract-transaction",
+              "host": ["{{base_url}}"],
+              "path": ["webhook", "extract-transaction"]
+            },
+            "description": "Test extraction dengan data minimal"
+          },
+          "response": []
+        },
+        {
+          "name": "Extract Expense - Complex Receipt",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"expense\",\n  \"text\": \"TRANSMART CARREFOUR\\n================================\\nTanggal: 16/03/2026 14:35\\nKasir: 05\\n\\nSusu Ultra 1L x2      Rp 36.000\\nTelur 1kg             Rp 28.500\\nMinyak Goreng 2L      Rp 42.000\\nBeras 5kg             Rp 75.000\\nGula Pasir 1kg        Rp 15.500\\n--------------------------------\\nSub Total:            Rp 197.000\\nDiskon Member:        Rp  -7.000\\n================================\\nTOTAL:                Rp 190.000\\nTunai:                Rp 200.000\\nKembali:              Rp  10.000\\n\\nMetode: Cash\\nTerima Kasih\",\n  \"source_name\": \"carrefour_receipt.jpg\",\n  \"user_id\": \"user-complex\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/webhook/extract-transaction",
+              "host": ["{{base_url}}"],
+              "path": ["webhook", "extract-transaction"]
+            },
+            "description": "Test extraction dengan struk kompleks multi-item"
+          },
+          "response": []
+        }
+      ],
+      "description": "Endpoint untuk extract transaksi dari text/OCR result"
+    },
+    {
+      "name": "Error Cases",
+      "item": [
+        {
+          "name": "Missing Type",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"text\": \"Indomaret Rp 125.000\",\n  \"source_name\": \"test.jpg\",\n  \"user_id\": \"user-123\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/webhook/extract-transaction",
+              "host": ["{{base_url}}"],
+              "path": ["webhook", "extract-transaction"]
+            },
+            "description": "Test error handling ketika type tidak ada"
+          },
+          "response": []
+        },
+        {
+          "name": "Invalid Type",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"invalid_type\",\n  \"text\": \"Indomaret Rp 125.000\",\n  \"source_name\": \"test.jpg\",\n  \"user_id\": \"user-123\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/webhook/extract-transaction",
+              "host": ["{{base_url}}"],
+              "path": ["webhook", "extract-transaction"]
+            },
+            "description": "Test error handling ketika type tidak valid"
+          },
+          "response": []
+        },
+        {
+          "name": "Missing Text",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"expense\",\n  \"source_name\": \"test.jpg\",\n  \"user_id\": \"user-123\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/webhook/extract-transaction",
+              "host": ["{{base_url}}"],
+              "path": ["webhook", "extract-transaction"]
+            },
+            "description": "Test error handling ketika text kosong"
+          },
+          "response": []
+        },
+        {
+          "name": "Empty Text",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"expense\",\n  \"text\": \"\",\n  \"source_name\": \"test.jpg\",\n  \"user_id\": \"user-123\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/webhook/extract-transaction",
+              "host": ["{{base_url}}"],
+              "path": ["webhook", "extract-transaction"]
+            },
+            "description": "Test error handling ketika text empty string"
+          },
+          "response": []
+        }
+      ],
+      "description": "Test cases untuk error handling"
+    },
+    {
+      "name": "Edge Cases",
+      "item": [
+        {
+          "name": "Extract with Special Characters",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"expense\",\n  \"text\": \"Café & Resto 'Nikmat'\\nTotal: Rp. 150.000,-\\nTgl: 16/3/2026\\nMetode: E-Wallet (OVO)\\nCatatan: Makan siang @ resto\",\n  \"source_name\": \"special_chars.jpg\",\n  \"user_id\": \"user-special\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/webhook/extract-transaction",
+              "host": ["{{base_url}}"],
+              "path": ["webhook", "extract-transaction"]
+            },
+            "description": "Test dengan special characters"
+          },
+          "response": []
+        },
+        {
+          "name": "Extract with Large Amount",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"expense\",\n  \"text\": \"Pembayaran DP Gedung Pernikahan\\nVenue: Grand Ballroom Hotel Mulia\\nJumlah: Rp 50.000.000\\nTanggal: 16 Maret 2026\\nMetode: Transfer Bank BCA\",\n  \"source_name\": \"dp_gedung.jpg\",\n  \"user_id\": \"couple-wedding\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/webhook/extract-transaction",
+              "host": ["{{base_url}}"],
+              "path": ["webhook", "extract-transaction"]
+            },
+            "description": "Test dengan nominal besar"
+          },
+          "response": []
+        },
+        {
+          "name": "Extract with Multiple Dates",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"expense\",\n  \"text\": \"Invoice #INV-2026-001\\nTanggal Invoice: 10 Maret 2026\\nJatuh Tempo: 17 Maret 2026\\nTanggal Bayar: 16 Maret 2026\\nJumlah: Rp 1.250.000\\nVendor: PT Digital Solutions\",\n  \"source_name\": \"invoice_multiple_dates.pdf\",\n  \"user_id\": \"user-invoice\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/webhook/extract-transaction",
+              "host": ["{{base_url}}"],
+              "path": ["webhook", "extract-transaction"]
+            },
+            "description": "Test dengan multiple dates (ambil tanggal bayar)"
+          },
+          "response": []
+        },
+        {
+          "name": "Extract with No Date",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"expense\",\n  \"text\": \"Parkir Mall Rp 5.000 Cash\",\n  \"source_name\": \"parkir.jpg\",\n  \"user_id\": \"user-nodate\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/webhook/extract-transaction",
+              "host": ["{{base_url}}"],
+              "path": ["webhook", "extract-transaction"]
+            },
+            "description": "Test tanpa tanggal (should use today)"
+          },
+          "response": []
+        }
+      ],
+      "description": "Test cases untuk edge cases"
+    },
+    {
+      "name": "Upload File (OCR + AI Extract)",
+      "item": [
+        {
+          "name": "Upload Image - Struk/KTP",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}",
+                "description": "Header auth wajib diisi (lihat credential di n8n)"
+              }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": "",
+                  "description": "Upload file gambar (JPG/PNG) — struk belanja, bukti transfer, atau KTP"
+                },
+                {
+                  "key": "type",
+                  "value": "expense",
+                  "type": "text",
+                  "description": "Tipe transaksi: expense | wedding_savings"
+                },
+                {
+                  "key": "user_id",
+                  "value": "test-user-123",
+                  "type": "text"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/webhook/uploadDoc",
+              "host": ["{{base_url}}"],
+              "path": ["webhook", "uploadDoc"]
+            },
+            "description": "Upload file gambar (JPG/PNG). n8n akan OCR via Tesseract → masking data sensitif (NIK/Nama) → AI Agent DeepSeek ekstrak data → response JSON.\n\n**Flow:** Webhook File upload → Check file type → Image to Text (Tesseract OCR) → Pisah Data Sensitive → AI Agent → Transform data → Response"
+          },
+          "response": []
+        },
+        {
+          "name": "Upload PDF - Invoice/Nota",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}",
+                "description": "Header auth wajib diisi"
+              }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": "",
+                  "description": "Upload file PDF — invoice atau nota digital"
+                },
+                {
+                  "key": "type",
+                  "value": "expense",
+                  "type": "text"
+                },
+                {
+                  "key": "user_id",
+                  "value": "test-user-123",
+                  "type": "text"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/webhook/uploadDoc",
+              "host": ["{{base_url}}"],
+              "path": ["webhook", "uploadDoc"]
+            },
+            "description": "Upload file PDF. n8n akan ekstrak teks via PDF to Text node → masking data sensitif → AI Agent ekstrak data → response JSON.\n\n**Flow:** Webhook File upload → Check file type → PDF to Text → Pisah Data Sensitive → AI Agent → Transform data → Response"
+          },
+          "response": []
+        },
+        {
+          "name": "Upload Image - Wedding Savings",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": "",
+                  "description": "Upload bukti transfer tabungan nikah"
+                },
+                {
+                  "key": "type",
+                  "value": "wedding_savings",
+                  "type": "text"
+                },
+                {
+                  "key": "user_id",
+                  "value": "couple-001",
+                  "type": "text"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/webhook/uploadDoc",
+              "host": ["{{base_url}}"],
+              "path": ["webhook", "uploadDoc"]
+            },
+            "description": "Upload bukti transfer untuk tabungan nikah"
+          },
+          "response": []
+        },
+        {
+          "name": "Upload - Error: Missing Auth Header",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": ""
+                },
+                {
+                  "key": "type",
+                  "value": "expense",
+                  "type": "text"
+                },
+                {
+                  "key": "user_id",
+                  "value": "test-user-123",
+                  "type": "text"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/webhook/uploadDoc",
+              "host": ["{{base_url}}"],
+              "path": ["webhook", "uploadDoc"]
+            },
+            "description": "Test error ketika Authorization header tidak disertakan (harus return 401 Unauthorized)"
+          },
+          "response": []
+        },
+        {
+          "name": "Upload - Error: No File Attached",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "type",
+                  "value": "expense",
+                  "type": "text"
+                },
+                {
+                  "key": "user_id",
+                  "value": "test-user-123",
+                  "type": "text"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/webhook/uploadDoc",
+              "host": ["{{base_url}}"],
+              "path": ["webhook", "uploadDoc"]
+            },
+            "description": "Test error ketika file tidak disertakan dalam request"
+          },
+          "response": []
+        }
+      ],
+      "description": "Endpoint POST untuk upload file (gambar JPG/PNG atau PDF). n8n akan melakukan OCR (Tesseract untuk image, built-in untuk PDF), masking data sensitif (NIK/Nama), lalu AI Agent DeepSeek mengekstrak informasi transaksi. Memerlukan header Authorization.\n\nPath: POST /webhook/uploadDoc\nAuth: headerAuth (Bearer token)"
+    },
+    {
+      "name": "Get All Transactions",
+      "item": [
+        {
+          "name": "Get All Transactions - No Filter",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/webhook/transactions",
+              "host": ["{{base_url}}"],
+              "path": ["webhook", "transactions"]
+            },
+            "description": "Ambil semua transaksi tanpa filter (default limit 50)"
+          },
+          "response": []
+        },
+        {
+          "name": "Get All Transactions - By User ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/webhook/transactions?user_id=test-user-123",
+              "host": ["{{base_url}}"],
+              "path": ["webhook", "transactions"],
+              "query": [
+                {
+                  "key": "user_id",
+                  "value": "test-user-123"
+                }
+              ]
+            },
+            "description": "Ambil semua transaksi milik user tertentu"
+          },
+          "response": []
+        },
+        {
+          "name": "Get All Transactions - Expense Only",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/webhook/transactions?user_id=test-user-123&type=expense",
+              "host": ["{{base_url}}"],
+              "path": ["webhook", "transactions"],
+              "query": [
+                {
+                  "key": "user_id",
+                  "value": "test-user-123"
+                },
+                {
+                  "key": "type",
+                  "value": "expense"
+                }
+              ]
+            },
+            "description": "Ambil hanya transaksi expense"
+          },
+          "response": []
+        },
+        {
+          "name": "Get All Transactions - Wedding Savings Only",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/webhook/transactions?user_id=couple-001&type=wedding_savings",
+              "host": ["{{base_url}}"],
+              "path": ["webhook", "transactions"],
+              "query": [
+                {
+                  "key": "user_id",
+                  "value": "couple-001"
+                },
+                {
+                  "key": "type",
+                  "value": "wedding_savings"
+                }
+              ]
+            },
+            "description": "Ambil hanya transaksi tabungan nikah"
+          },
+          "response": []
+        },
+        {
+          "name": "Get All Transactions - With Pagination",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/webhook/transactions?user_id=test-user-123&limit=10&offset=0",
+              "host": ["{{base_url}}"],
+              "path": ["webhook", "transactions"],
+              "query": [
+                {
+                  "key": "user_id",
+                  "value": "test-user-123"
+                },
+                {
+                  "key": "limit",
+                  "value": "10"
+                },
+                {
+                  "key": "offset",
+                  "value": "0"
+                }
+              ]
+            },
+            "description": "Ambil transaksi dengan pagination (10 per halaman, halaman pertama)"
+          },
+          "response": []
+        },
+        {
+          "name": "Get All Transactions - Page 2",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/webhook/transactions?user_id=test-user-123&limit=10&offset=10",
+              "host": ["{{base_url}}"],
+              "path": ["webhook", "transactions"],
+              "query": [
+                {
+                  "key": "user_id",
+                  "value": "test-user-123"
+                },
+                {
+                  "key": "limit",
+                  "value": "10"
+                },
+                {
+                  "key": "offset",
+                  "value": "10"
+                }
+              ]
+            },
+            "description": "Ambil transaksi halaman ke-2 (offset 10)"
+          },
+          "response": []
+        }
+      ],
+      "description": "Endpoint GET untuk mengambil daftar transaksi dari Supabase (n8n: Monetra - Get All Transactions)"
+    },
+    {
+      "name": "Get Monthly Report",
+      "item": [
+        {
+          "name": "Get Monthly Report - Bulan Ini",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/webhook/report/monthly?user_id=test-user-123&year=2026&month=3",
+              "host": ["{{base_url}}"],
+              "path": ["webhook", "report", "monthly"],
+              "query": [
+                {
+                  "key": "user_id",
+                  "value": "test-user-123"
+                },
+                {
+                  "key": "year",
+                  "value": "2026"
+                },
+                {
+                  "key": "month",
+                  "value": "3"
+                }
+              ]
+            },
+            "description": "Laporan bulanan Maret 2026 — summary expense, tabungan, dan breakdown kategori"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Monthly Report - Bulan Sebelumnya",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/webhook/report/monthly?user_id=test-user-123&year=2026&month=2",
+              "host": ["{{base_url}}"],
+              "path": ["webhook", "report", "monthly"],
+              "query": [
+                {
+                  "key": "user_id",
+                  "value": "test-user-123"
+                },
+                {
+                  "key": "year",
+                  "value": "2026"
+                },
+                {
+                  "key": "month",
+                  "value": "2"
+                }
+              ]
+            },
+            "description": "Laporan bulanan Februari 2026"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Monthly Report - Laporan Tahunan (Semua Bulan)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/webhook/report/monthly?user_id=test-user-123&year=2026",
+              "host": ["{{base_url}}"],
+              "path": ["webhook", "report", "monthly"],
+              "query": [
+                {
+                  "key": "user_id",
+                  "value": "test-user-123"
+                },
+                {
+                  "key": "year",
+                  "value": "2026"
+                }
+              ]
+            },
+            "description": "Laporan tahunan 2026 — semua bulan tanpa filter month (summary + breakdown per bulan)"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Monthly Report - Couple Tabungan Nikah",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/webhook/report/monthly?user_id=couple-001&year=2026&month=3",
+              "host": ["{{base_url}}"],
+              "path": ["webhook", "report", "monthly"],
+              "query": [
+                {
+                  "key": "user_id",
+                  "value": "couple-001"
+                },
+                {
+                  "key": "year",
+                  "value": "2026"
+                },
+                {
+                  "key": "month",
+                  "value": "3"
+                }
+              ]
+            },
+            "description": "Laporan bulan Maret untuk pasangan yang fokus tabungan nikah"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Monthly Report - Error: Missing user_id",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/webhook/report/monthly?year=2026&month=3",
+              "host": ["{{base_url}}"],
+              "path": ["webhook", "report", "monthly"],
+              "query": [
+                {
+                  "key": "year",
+                  "value": "2026"
+                },
+                {
+                  "key": "month",
+                  "value": "3"
+                }
+              ]
+            },
+            "description": "Test error handling ketika user_id tidak dikirim (harus return error)"
+          },
+          "response": []
+        }
+      ],
+      "description": "Endpoint GET untuk laporan bulanan/tahunan — total expense, tabungan, dan breakdown kategori (n8n: Monetra - Get Monthly Report)"
+    }
+  ],
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "https://your-n8n-instance.com",
+      "type": "string"
+    }
+  ]
+}

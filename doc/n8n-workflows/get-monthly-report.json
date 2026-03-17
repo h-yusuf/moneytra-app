@@ -1,0 +1,111 @@
+{
+  "name": "Monetra - Get Monthly Report",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "GET",
+        "path": "report/monthly",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-monthly-report",
+      "name": "Webhook Monthly Report",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [240, 300],
+      "webhookId": "monetra-monthly-report"
+    },
+    {
+      "parameters": {
+        "jsCode": "const query = $json.query || {};\nconst user_id = query.user_id || null;\nconst year = parseInt(query.year) || new Date().getFullYear();\nconst month = parseInt(query.month) || null;\n\nif (!user_id) {\n  throw new Error('user_id is required');\n}\n\nreturn [{\n  json: {\n    user_id,\n    year,\n    month\n  }\n}];"
+      },
+      "id": "parse-report-params",
+      "name": "Parse Report Params",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [480, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const params = $json;\nlet url = `{{$env.SUPABASE_URL}}/rest/v1/transactions?user_id=eq.${params.user_id}&select=type,total,transaction_date,category`;\n\nif (params.month) {\n  const startDate = `${params.year}-${String(params.month).padStart(2, '0')}-01`;\n  const endDate = new Date(params.year, params.month, 0);\n  const endDateStr = `${params.year}-${String(params.month).padStart(2, '0')}-${String(endDate.getDate()).padStart(2, '0')}`;\n  url += `&transaction_date=gte.${startDate}&transaction_date=lte.${endDateStr}`;\n} else {\n  url += `&transaction_date=gte.${params.year}-01-01&transaction_date=lte.${params.year}-12-31`;\n}\n\nreturn [{\n  json: {\n    url,\n    year: params.year,\n    month: params.month,\n    user_id: params.user_id\n  }\n}];"
+      },
+      "id": "build-report-url",
+      "name": "Build Report URL",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [720, 300]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $json.url }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{$env.SUPABASE_SERVICE_ROLE_KEY}}"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer {{$env.SUPABASE_SERVICE_ROLE_KEY}}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "fetch-transactions",
+      "name": "Fetch Transactions",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [960, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const transactions = Array.isArray($json) ? $json : [$json];\nconst params = $('Build Report URL').first().json;\n\n// Group by month\nconst monthlyData = {};\nlet totalExpense = 0;\nlet totalMoneySaving = 0;\nconst categoryBreakdown = {};\n\ntransactions.forEach(tx => {\n  const date = new Date(tx.transaction_date);\n  const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;\n  \n  if (!monthlyData[monthKey]) {\n    monthlyData[monthKey] = {\n      month: monthKey,\n      expense: 0,\n      money_saving: 0,\n      total: 0,\n      count: 0\n    };\n  }\n  \n  const amount = parseFloat(tx.total) || 0;\n  \n  if (tx.type === 'expense') {\n    monthlyData[monthKey].expense += amount;\n    totalExpense += amount;\n  } else if (tx.type === 'money_saving') {\n    monthlyData[monthKey].money_saving += amount;\n    totalMoneySaving += amount;\n  }\n  \n  monthlyData[monthKey].total += amount;\n  monthlyData[monthKey].count += 1;\n  \n  // Category breakdown\n  const category = tx.category || 'Uncategorized';\n  if (!categoryBreakdown[category]) {\n    categoryBreakdown[category] = {\n      category,\n      total: 0,\n      count: 0\n    };\n  }\n  categoryBreakdown[category].total += amount;\n  categoryBreakdown[category].count += 1;\n});\n\nconst monthlyReport = Object.values(monthlyData).sort((a, b) => a.month.localeCompare(b.month));\nconst categoryReport = Object.values(categoryBreakdown).sort((a, b) => b.total - a.total);\n\nreturn [{\n  json: {\n    success: true,\n    user_id: params.user_id,\n    year: params.year,\n    month: params.month,\n    summary: {\n      total_expense: totalExpense,\n      total_money_saving: totalMoneySaving,\n      total_transactions: transactions.length\n    },\n    monthly_report: monthlyReport,\n    category_breakdown: categoryReport\n  }\n}];"
+      },
+      "id": "process-report",
+      "name": "Process Report",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1200, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {}
+      },
+      "id": "respond-report",
+      "name": "Respond Report",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [1440, 300]
+    }
+  ],
+  "connections": {
+    "Webhook Monthly Report": {
+      "main": [[{"node": "Parse Report Params", "type": "main", "index": 0}]]
+    },
+    "Parse Report Params": {
+      "main": [[{"node": "Build Report URL", "type": "main", "index": 0}]]
+    },
+    "Build Report URL": {
+      "main": [[{"node": "Fetch Transactions", "type": "main", "index": 0}]]
+    },
+    "Fetch Transactions": {
+      "main": [[{"node": "Process Report", "type": "main", "index": 0}]]
+    },
+    "Process Report": {
+      "main": [[{"node": "Respond Report", "type": "main", "index": 0}]]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "meta": {
+    "instanceId": "monetra-monthly-report"
+  },
+  "tags": []
+}

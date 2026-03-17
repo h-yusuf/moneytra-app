@@ -1,0 +1,1146 @@
+{
+  "name": "Monetra - Extract Transaction (Fixed)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "extract-transaction",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "d12f3634-2d63-462e-87da-c674c4a2b3f7",
+      "name": "Webhook Extract Transaction",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -720,
+        80
+      ],
+      "webhookId": "monetra-extract-transaction"
+    },
+    {
+      "parameters": {
+        "jsCode": "const body = $json.body ?? $json;\n\nconst type = String(body.type || '').trim().toLowerCase();\nconst text = String(body.text || '').trim();\nconst source_name = String(body.source_name || 'manual input').trim();\nconst user_id = String(body.user_id || 'default-user').trim();\n\n// Update: wedding_savings instead of money_saving\nif (!['expense', 'wedding_savings'].includes(type)) {\n  throw new Error('type harus expense atau wedding_savings');\n}\n\nif (!text) {\n  throw new Error('text wajib diisi');\n}\n\nreturn [{ json: { type, text, source_name, user_id } }];"
+      },
+      "id": "403f9480-0185-4a30-bad6-27efc3c6573e",
+      "name": "Validate Input",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -480,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 1
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{$json.type}}",
+                    "rightValue": "expense",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "65516394-50b6-4591-9bf2-e980e1c101d8"
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 1
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{$json.type}}",
+                    "rightValue": "money_savings",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "44d914c4-6d48-430f-bc7b-8da88784d9bd"
+                  }
+                ],
+                "combinator": "and"
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "3f3aa438-e88e-4f3a-95c5-75176d60c46e",
+      "name": "Switch Transaction Type",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3,
+      "position": [
+        -240,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "a1",
+              "name": "prompt",
+              "value": "=Extract transaction data from the text.\n\nReturn ONLY valid JSON.\n\nDo NOT explain anything.\nDo NOT write code.\nDo NOT add markdown.\n\nOutput MUST be exactly this JSON structure:\n\n{\n\"type\":\"expense\",\n\"total\": number,\n\"merchant\": \"string\",\n\"category\": \"string\",\n\"payment_method\": \"string\",\n\"transaction_date\": \"YYYY-MM-DD\",\n\"notes\": \"string\"\n}\n\nText:\n{{ $json.text }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "46168e53-e1ff-4768-949f-75144cbfc331",
+      "name": "Set Expense Prompt",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "b1",
+              "name": "prompt",
+              "value": "=Extract transaction data from the text.\n\nReturn ONLY valid JSON.\n\nDo NOT explain anything.\nDo NOT write code.\nDo NOT add markdown.\n\nOutput MUST be exactly this JSON structure:\n\n{\n\"type\":\"money_saving\",\n\"total\": number,\n\"merchant\": \"string\",\n\"category\": \"string\",\n\"payment_method\": \"string\",\n\"transaction_date\": \"YYYY-MM-DD\",\n\"notes\": \"string\"\n}\n\nText:\n{{ $json.text }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "f08b3e6f-7461-4e49-9d49-c5f9bb9e5958",
+      "name": "Set Wedding Savings Prompt",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        0,
+        160
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.deepseek.com/chat/completions",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer sk-3ead3c018427466fa679590a7533e98c"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\"model\":\"deepseek-chat\",\"messages\":[{\"role\":\"user\",\"content\":\"Extract transaction data from the text.\\n\\nReturn ONLY valid JSON.\\n\\nDo NOT explain anything.\\nDo NOT write code.\\nDo NOT add markdown.\\n\\nOutput MUST be exactly this JSON structure:\\n\\n{\\n\\\"type\\\":\\\"expense\\\",\\n\\\"total\\\": number,\\n\\\"merchant\\\": \\\"string\\\",\\n\\\"category\\\": \\\"string\\\",\\n\\\"payment_method\\\": \\\"string\\\",\\n\\\"transaction_date\\\": \\\"YYYY-MM-DD\\\",\\n\\\"notes\\\": \\\"string\\\"\\n}\\n\\nText:\\nIndomaret Rp 125.000 QRIS 16 Maret 2026 Belanja snack dan minuman\"}],\"temperature\":0.2}",
+        "options": {}
+      },
+      "id": "bff70e0a-d136-4172-8b50-974d21212940",
+      "name": "Call AI DeepSeek",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        480,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const raw = $json.choices?.[0]?.message?.content || '{}';\n\nlet text = String(raw).trim();\nconst start = text.indexOf('{');\nconst end = text.lastIndexOf('}');\nif (start !== -1 && end !== -1 && end > start) {\n  text = text.slice(start, end + 1);\n}\n\nlet parsed;\ntry {\n  parsed = JSON.parse(text);\n} catch (e) {\n  return [{\n    json: {\n      success: false,\n      error: 'Gagal parse JSON dari AI',\n      raw_response: raw\n    }\n  }];\n}\n\nconst inputData = $('Validate Input').first().json;\n\nreturn [{\n  json: {\n    success: true,\n    user_id: inputData.user_id,\n    source_name: inputData.source_name,\n    raw_text: inputData.text,\n    raw_ai_response: JSON.stringify(parsed),\n    data: parsed\n  }\n}];"
+      },
+      "id": "844781c5-8655-4c2b-a08a-7cc359dc14e5",
+      "name": "Parse AI Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        720,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1bmAjvJAflklKH-Xoyitd2mK6agT6j2bnYKbO3L7GQiE",
+          "mode": "list",
+          "cachedResultName": "Monetra",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1bmAjvJAflklKH-Xoyitd2mK6agT6j2bnYKbO3L7GQiE/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Expense",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1bmAjvJAflklKH-Xoyitd2mK6agT6j2bnYKbO3L7GQiE/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "success",
+              "displayName": "success",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "user_id",
+              "displayName": "user_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "source_name",
+              "displayName": "source_name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "raw_text",
+              "displayName": "raw_text",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "raw_ai_response",
+              "displayName": "raw_ai_response",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "data",
+              "displayName": "data",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "id": "b214aae7-aae2-4b5a-871e-3a1f5ae2655e",
+      "name": "Save Raw to Sheets",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4,
+      "position": [
+        960,
+        80
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "yLOgVWwPRm6EFEcC",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1bmAjvJAflklKH-Xoyitd2mK6agT6j2bnYKbO3L7GQiE",
+          "mode": "list",
+          "cachedResultName": "Monetra",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1bmAjvJAflklKH-Xoyitd2mK6agT6j2bnYKbO3L7GQiE/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Expense",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1bmAjvJAflklKH-Xoyitd2mK6agT6j2bnYKbO3L7GQiE/edit#gid=0"
+        },
+        "options": {}
+      },
+      "id": "ae8f4a82-1745-4b5f-9191-8dbb3dc08778",
+      "name": "Read Latest from Sheets",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4,
+      "position": [
+        1200,
+        80
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "yLOgVWwPRm6EFEcC",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Get data from previous nodes\nconst sheetData = $json;\nconst parseNode = $('Parse AI Response').first().json;\n\n// Parse AI response from Sheets\nconst aiData = parseNode.data;\n\n// Transform to app format\nreturn [{\n  json: {\n    user_id: sheetData.user_id || parseNode.user_id,\n    source_name: sheetData.source_name || parseNode.source_name,\n    sheets_row: sheetData.row_number,\n    transaction: {\n      type: aiData.type,\n      total: Number(aiData.total) || 0,\n      merchant: aiData.merchant || '',\n      category: aiData.category || '',\n      payment_method: aiData.payment_method || '',\n      transaction_date: aiData.transaction_date || new Date().toISOString().split('T')[0],\n      notes: aiData.notes || ''\n    }\n  }\n}];"
+      },
+      "id": "1785f659-ed2c-48c3-b146-c7a053fbd79b",
+      "name": "Transform to App Format",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1440,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://xslstofngselbphqctfl.supabase.co/rest/v1/transactions",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "=sb_publishable_MeLWFDHWNpjvRxCIAAJyMA_ZW_GfUvK"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhzbHN0b2ZuZ3NlbGJwaHFjdGZsIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3MzcxOTE2NCwiZXhwIjoyMDg5Mjk1MTY0fQ.fzmilQ0mwMxW1qv1TiMFue7yzNU9RZyYMWfjSMOkQyw"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=representation"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json) }}",
+        "options": {}
+      },
+      "id": "9c93b8f0-649d-46ed-b5a9-54e890280d99",
+      "name": "Save to Supabase",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1888,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "value": "1bmAjvJAflklKH-Xoyitd2mK6agT6j2bnYKbO3L7GQiE",
+          "mode": "list",
+          "cachedResultName": "Monetra",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1bmAjvJAflklKH-Xoyitd2mK6agT6j2bnYKbO3L7GQiE/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Expense",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1bmAjvJAflklKH-Xoyitd2mK6agT6j2bnYKbO3L7GQiE/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {},
+          "matchingColumns": [
+            "success"
+          ],
+          "schema": [
+            {
+              "id": "success",
+              "displayName": "success",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "user_id",
+              "displayName": "user_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "source_name",
+              "displayName": "source_name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "raw_text",
+              "displayName": "raw_text",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "raw_ai_response",
+              "displayName": "raw_ai_response",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "data",
+              "displayName": "data",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "id",
+              "displayName": "id",
+              "required": false,
+              "defaultMatch": true,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "type",
+              "displayName": "type",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "transaction_date",
+              "displayName": "transaction_date",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "merchant",
+              "displayName": "merchant",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "category",
+              "displayName": "category",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "payment_method",
+              "displayName": "payment_method",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "total",
+              "displayName": "total",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "notes",
+              "displayName": "notes",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "sheets_row_id",
+              "displayName": "sheets_row_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "created_at",
+              "displayName": "created_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "row_number",
+              "displayName": "row_number",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "readOnly": true,
+              "removed": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "id": "b94a187a-abf1-4690-8156-3443785ab01b",
+      "name": "Update Sheets Status",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4,
+      "position": [
+        2128,
+        80
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "yLOgVWwPRm6EFEcC",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\"success\":true,\"source_name\":\"IMG_1234.jpg\",\"data\":{\"type\":\"expense\",\"total\":125000,\"merchant\":\"Indomaret\",\"category\":\"Belanja snack dan minuman\",\"payment_method\":\"QRIS\",\"transaction_date\":\"2026-03-16\",\"notes\":\"\"},\"sheets_row\":2,\"db_id\":\"40c7f7d5-e636-4093-9706-ca71b53d41f4\"}",
+        "options": {}
+      },
+      "id": "b8f6e385-1667-4904-99e5-3df8dc2aad18",
+      "name": "Respond to App",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        2576,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{\n  json: {\n    model: \"deepseek-chat\",\n    messages: [\n      {\n        role: \"user\",\n        content: $json.prompt\n      }\n    ],\n    temperature: 0.2\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        208,
+        0
+      ],
+      "id": "0d71f66b-d842-48c6-b9d1-2eaf40b01eb9",
+      "name": "pharsing-promp"
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{\n  json: {\n    user_id: $json.user_id,\n    type: $json.transaction.type,\n    source_name: $json.source_name,\n    transaction_date: $json.transaction.transaction_date,\n    merchant: $json.transaction.merchant,\n    category: $json.transaction.category,\n    payment_method: $json.transaction.payment_method,\n    total: $json.transaction.total,\n    notes: $json.transaction.notes,\n    sheets_row_id: $json.sheets_row,\n  },\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1648,
+        80
+      ],
+      "id": "953fb166-42a3-4055-a8ed-00f5843dad88",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "jsCode": "const transformed = $('Transform to App Format').first().json;\nconst supabaseResponse = $('Save to Supabase').first().json;\nconst insertedRow = Array.isArray(supabaseResponse) ? supabaseResponse[0] : supabaseResponse;\n\nreturn [{\n  json: {\n    success: true,\n    source_name: transformed.source_name,\n    data: transformed.transaction,\n    sheets_row: transformed.sheets_row,\n    db_id: insertedRow?.id ?? null,\n  },\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2336,
+        80
+      ],
+      "id": "f471f708-4d24-4d0a-bfb1-81976acf4dc5",
+      "name": "Code in JavaScript1"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "version": 2,
+                  "leftValue": "",
+                  "caseSensitive": true,
+                  "typeValidation": "strict"
+                },
+                "combinator": "and",
+                "conditions": [
+                  {
+                    "id": "40ee8e68-2b72-4ba9-b7a2-8c976852d48b",
+                    "operator": {
+                      "type": "string",
+                      "operation": "contains"
+                    },
+                    "leftValue": "={{ $('Webhook File upload').item.binary.file.mimeType }}",
+                    "rightValue": "image"
+                  }
+                ]
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "version": 2,
+                  "leftValue": "",
+                  "caseSensitive": true,
+                  "typeValidation": "strict"
+                },
+                "combinator": "and",
+                "conditions": [
+                  {
+                    "id": "c4315e16-313f-4363-a625-71436498e46a",
+                    "operator": {
+                      "name": "filter.operator.equals",
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "leftValue": "={{ $('Webhook File upload').item.binary.file.mimeType }}",
+                    "rightValue": "application/pdf"
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "c3f2655f-7323-4b46-86cb-4ed5a41bbbcc",
+      "name": "Check file type",
+      "type": "n8n-nodes-base.switch",
+      "position": [
+        -448,
+        -656
+      ],
+      "typeVersion": 3.2
+    },
+    {
+      "parameters": {
+        "jsCode": "const raw = $input.first().json.output || '';\n\n// 1. Remove code block syntax like ```json ... ```\nconst cleaned = raw.replace(/```json|```/g, '').trim();\n\n\nconst parsed = JSON.parse(cleaned);\nparsed.nama_lengkap = $(\"Pisah Data Sensitive\").last().json[\"1\"].nama.toLocaleUpperCase();\nlet nik = $(\"Pisah Data Sensitive\").last().json[\"1\"].nik;\nparsed.nik = nik.length === 16 ? nik : null;\nreturn [{ json: parsed }];"
+      },
+      "id": "1c075953-380a-42e6-9f04-26e55e485296",
+      "name": "Transfrom data",
+      "type": "n8n-nodes-base.code",
+      "position": [
+        560,
+        -656
+      ],
+      "typeVersion": 2,
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "operation": "pdf",
+        "binaryPropertyName": "file",
+        "options": {}
+      },
+      "id": "52e75f79-ea2b-4417-9648-0a21810b4b9a",
+      "name": "PDF to Text",
+      "type": "n8n-nodes-base.extractFromFile",
+      "position": [
+        -224,
+        -480
+      ],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "inputDataFieldName": "file",
+        "options": {}
+      },
+      "id": "99bee395-3b31-4b4a-b66c-a9693fb1e18d",
+      "name": "Image to Text",
+      "type": "n8n-nodes-tesseractjs.tesseractNode",
+      "position": [
+        -224,
+        -848
+      ],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "content": "## Parser for /Image/csv to text",
+        "height": 720,
+        "width": 2028,
+        "color": 7
+      },
+      "id": "3a2dba05-878f-4e7c-834b-7f9d0389830b",
+      "name": "Sticky Note1",
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -752,
+        -912
+      ],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        1056,
+        -656
+      ],
+      "id": "17eef319-e6e1-463d-b181-580649eb3fbc",
+      "name": "Respond to Webhook"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Loop over input items and add a new field called 'myNewField' to the JSON of each one\n// file: n8n_code_mask_sensitive.js\n// Node: Code (JavaScript)\n// Input: Ambil dari node \"Image to Text\" dengan properti json.text (sesuaikan jika lain)\n// Output: Dua items:\n//   - items[0].json -> data[1]: { nik, nama }\n//   - items[1].json -> data[2]: { maskedText, originalText, nikMaskedExample, namaMaskedExample }\n//\n// Catatan:\n// - Regex dibuat toleran variasi OCR: tanda sama dengan, dash, garis, spasi ganda,\n//   dan karakter non-alfanumerik di sekitar label.\n// - Masking dilakukan mengganti semua kemunculan NIK/Nama di teks penuh dengan bintang (*).\n// - Jika NIK/Nama tidak ditemukan, tetap keluarkan struktur standar (nik/nama null) dan teks tidak diubah.\n// - Pastikan node “Image to Text” benar-benar mengoutput field \"text\". Jika berbeda, ubah `sourceText` assignment di bawah.\n\n// file: n8n_code_structured_output.js\n// Node: Code (JavaScript)\n// Input: item[0].json.text dari node \"Image to Text\"\n// Output: Satu item dengan struktur:\n// {\n//   meta: { sourceNode, processedAt },\n//   data: {\n//     1: { nik, nama },\n//     2: { originalText, maskedText, masked: { nik, nama } }\n//   }\n// }\n\nfunction cleanDecorations(str) {\n  if (!str) return '';\n  return str\n    .replace(/[“”\"’‘]/g, '\"')\n    .replace(/[—–‐\\-]+/g, '-') // normalisasi dash\n    .replace(/[=_]+/g, '=')    // normalisasi '='\n    .replace(/\\u00A0/g, ' ')\n    .trim();\n}\n\nfunction normalizeSpaces(str) {\n  return str.replace(/[ \\t]+/g, ' ').replace(/\\r/g, '').replace(/\\n{3,}/g, '\\n\\n');\n}\n\nfunction extractNik(text) {\n  const nikLabel = /(?:\\bNIK\\b)\\s*(?:[:=]|\\-)?\\s*([0-9]{8,20})/i;\n  const m = text.match(nikLabel);\n  return m ? m[1] : null;\n}\n\nfunction extractNama(text) {\n  const lines = text.split('\\n');\n  let candidate = null;\n  for (const line of lines) {\n    const cl = cleanDecorations(line);\n    if (/^\\s*Nama\\b/i.test(cl)) {\n      const after = cl.replace(/^\\s*Nama\\b\\s*(?:[:=]|\\-+)?\\s*/i, '');\n      candidate = after;\n      break;\n    }\n  }\n  if (!candidate) {\n    const namaLabel = /(?:\\bNama\\b)\\s*(?:[:=]|\\-+)?\\s*(\"?)([A-ZÁ-ÚÀ-ÙÄ-Üa-zá-úà-ùä-ü.'\\s]{2,})\\1(?=$|\\n)/i;\n    const m = text.match(namaLabel);\n    if (m) candidate = m[2];\n  }\n  if (!candidate) return null;\n\n  candidate = candidate\n    .replace(/[:\\-\"]+$/g, '')\n    .replace(/\\s{2,}/g, ' ')\n    .trim();\n\n  candidate = candidate.replace(/\\b(Tempat|Tanggal|Tempat\\/|Jenis|Alamat|RT|RW|Kel|Desa|Kecamatan|Agama|Status|Perkawinan|Pekerjaan|Kewarganegaraan|Berlaku)\\b.*$/i, '').trim();\n  candidate = candidate.replace(/[^\\w\\s.'-]+$/g, '').trim();\n\n  if (!candidate || candidate.length < 2) return null;\n  return candidate;\n}\n\nfunction maskExact(haystack, secret) {\n  if (!secret || !haystack) return haystack;\n  const escaped = secret.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&');\n  const mask = '*'.repeat(secret.length);\n  return haystack.replace(new RegExp(escaped, 'g'), mask);\n}\n\nfunction maskNameByWords(haystack, name) {\n  if (!name || !haystack) return haystack;\n  const words = name.split(/\\s+/).filter(w => w.length >= 3);\n  let result = haystack;\n  for (const w of words) {\n    const escaped = w.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&');\n    const mask = '*'.repeat(w.length);\n    result = result.replace(new RegExp(escaped, 'gi'), mask);\n  }\n  return result;\n}\n\nfunction main(items) {\n  const inputItem = items[0] || {};\n  const inputText = (inputItem.json && inputItem.json.text) || '';\n  const originalText = String(inputText || '');\n\n  const working = normalizeSpaces(cleanDecorations(originalText));\n\n  const nik = extractNik(working);\n  const nama = extractNama(working);\n\n  let maskedText = originalText;\n  if (nik) maskedText = maskExact(maskedText, nik);\n  if (nama) maskedText = maskNameByWords(maskedText, nama);\n\n  const output = {\n    meta: {\n      sourceNode: 'Image to Text',\n      processedAt: new Date().toISOString()\n    },\n    data: {\n      1: {\n        nik: nik || null,\n        nama: nama || null\n      },\n      2: {\n        originalText,\n        maskedText,\n        masked: {\n          nik: nik ? '*'.repeat(nik.length) : null,\n          nama: nama\n            ? nama\n                .split(/\\s+/)\n                .map(w => (w.length >= 3 ? '*'.repeat(w.length) : w))\n                .join(' ')\n            : null\n        }\n      }\n    }\n  };\n\n  return [{ json: output }];\n}\n\nreturn main($input.all())[0].json.data;\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -16,
+        -656
+      ],
+      "id": "835fdd2a-bef0-4c26-a4bf-44bc5038283c",
+      "name": "Pisah Data Sensitive"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Extract the following ID card details from the given raw text. The document may be:\n- Indonesian KTP (WNI), or\n- Indonesian-issued ID for foreigners (WNA) such as KITAS/KITAP/other residency card text fragments.\n\nFields to extract:\n- nik\n- nama_lengkap\n- tempat_lahir\n- tanggal_lahir\n- jenis_kelamin\n- golongan_darah\n- alamat\n- rt_rw\n- kelurahan_desa\n- kecamatan\n- agama\n- status_perkawinan\n- pekerjaan\n- kewarganegaraan\n- berlaku_hingga\n\nUse the following input text:\n{{ $json['2'].maskedText }}\n\nReturn the result as a valid JSON object using this exact structure:\n\n{\n  \"nik\": \"string or null\",\n  \"nama_lengkap\": \"string or null\",\n  \"tempat_lahir\": \"string or null\",\n  \"tanggal_lahir\": \"string (YYYY-MM-DD) or null\",\n  \"jenis_kelamin\": \"string or null\",\n  \"golongan_darah\": \"string or null\",\n  \"alamat\": \"string or null\",\n  \"rt_rw\": \"string (e.g., 001/002) or null\",\n  \"kelurahan_desa\": \"string or null\",\n  \"kecamatan\": \"string or null\",\n  \"kota\" : \"string or null\",\n  \"provinsi\" : \"string or null\",\n  \"agama\": \"string or null\",\n  \"status_perkawinan\": \"string or null\",\n  \"pekerjaan\": \"string or null\",\n  \"kewarganegaraan\": \"string (e.g., WNI, WNA, or a country name) or null\",\n  \"berlaku_hingga\": \"string (e.g., SEUMUR HIDUP or YYYY-MM-DD) or null\"\n}\n\n--------------------------------\nDETECTION RULES (WNI vs WNA)\n--------------------------------\n- Determine status from the text:\n  - If text contains \"WNI\" OR \"KEWARGANEGARAAN: WNI\" OR indicates \"Republik Indonesia\" in the nationality context → treat as WNI.\n  - If text contains \"WNA\" OR \"Nationality\" OR an explicit foreign country name (e.g., \"JAPAN\", \"USA\", \"AUSTRALIA\") → treat as WNA.\n- Set \"kewarganegaraan\" based on the clearest indicator:\n  - Prefer explicit \"WNI/WNA\".\n  - If WNA and a country name is present, set it to that country name (do NOT force \"WNA\").\n- If status cannot be determined reliably → keep kewarganegaraan as extracted best value, otherwise null.\n\n--------------------------------\nVALIDATION RULES (IMPORTANT)\n--------------------------------\n\n1) VALIDASI NIK (CONDITIONAL)\n- If detected as WNI:\n  - nik MUST be exactly 16 digits.\n  - If not 16 digits → set nik to null.\n- If detected as WNA:\n  - Do NOT force 16 digits.\n  - If a 16-digit number exists AND is clearly labeled as NIK → keep it.\n  - Otherwise set nik to null (do NOT guess another ID).\n\n2) VALIDASI TANGGAL LAHIR\n- tanggal_lahir MUST be a valid calendar date.\n- Year range:\n  - Minimum year: 1900\n  - Maximum year: current year\n- Age range: 0 to 100 years.\n- If invalid/illogical/out of range → set tanggal_lahir to estimation expectation result or set to null.\n\n3) VALIDASI TEMPAT LAHIR (WNI vs WNA)\n- tempat_lahir MUST look like a real place name (not numeric-only, not random tokens).\n- If WNI:\n  - tempat_lahir SHOULD be an Indonesian city/regency/region name.\n  - If clearly not Indonesian (e.g., foreign country/city) → set tempat_lahir to null unless explicitly labeled as place of birth.\n- If WNA:\n  - tempat_lahir MAY be outside Indonesia (foreign city/country is allowed).\n  - Still reject corrupted/garbage values; if unreliable → set null.\n\n4) VALIDASI WILAYAH ADMINISTRATIF (kelurahan_desa & kecamatan)\n- These fields are Indonesian administrative units.\n- If WNI (KTP context):\n  - kelurahan_desa and kecamatan SHOULD be present and alphabetic (spaces allowed).\n  - set 'kota' and 'provinsi' automated base on data related from kecamatan. Use the official full name of the province without abbreviations follows the rules of official regulations. Especially for Jakarta (DKI Jakarta), use Jakarta as a province.\n  - If contains numbers/special chars (besides spaces) or looks corrupted → set the invalid one to null.\n  - They SHOULD be logically consistent (kelurahan_desa under kecamatan). If mismatch is suspected → null the less confident field.\n- If WNA:\n  - These fields MAY be missing or formatted differently.\n  - Do NOT force them to exist.\n  - Only fill them if explicitly present and clean; otherwise set to null.\n\n5) VALIDASI RT/RW (CONDITIONAL)\n- If WNI:\n  - rt_rw SHOULD match pattern NNN/NNN (e.g., 001/002). If not → set rt_rw to null.\n- If WNA:\n  - RT/RW may be absent. Only fill if explicitly present and matches pattern; otherwise null.\n\n6) VALIDASI BERLAKU HINGGA (WNI vs WNA)\n- If WNI:\n  - \"SEUMUR HIDUP\" is valid and common; keep as is.\n  - A date (YYYY-MM-DD) is also valid if present.\n- If WNA:\n  - Prefer a date (YYYY-MM-DD) if present.\n  - If only \"SEUMUR HIDUP\" appears but the document context indicates WNA residency/permit → treat as suspicious and set berlaku_hingga to null unless clearly labeled and consistent.\n\n7) GENERAL NORMALIZATION\n- implement fuzzy matching.\n- Trim extra spaces.\n- Use Title Case for name/place fields where appropriate.\n- Keep Indonesian terms (do NOT translate).\n- Do NOT infer missing values.\n\n--------------------------------\nOUTPUT RULES\n--------------------------------\n- If any field is missing, unclear, or fails validation → set it as null\n- Do NOT guess or hallucinate values\n- Return ONLY the JSON object\n- Do NOT include explanations, comments, or extra text",
+        "hasOutputParser": true,
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3,
+      "position": [
+        192,
+        -656
+      ],
+      "id": "25169a76-1d8f-4b84-8880-7beeb2966994",
+      "name": "AI Agent"
+    },
+    {
+      "parameters": {
+        "sessionIdType": "customKey",
+        "sessionKey": "={{ $json['1'].nik }}",
+        "contextWindowLength": 3
+      },
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.3,
+      "position": [
+        304,
+        -416
+      ],
+      "id": "28b427ba-d30f-4a28-9c0a-83ba724b3e99",
+      "name": "Simple Memory"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "uploadDoc",
+        "authentication": "headerAuth",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "0893cac6-1cc9-4c87-a675-9295256fb8bd",
+      "name": "Webhook File upload",
+      "type": "n8n-nodes-base.webhook",
+      "position": [
+        -704,
+        -656
+      ],
+      "webhookId": "3dafecda-82df-4af9-84f2-7815ffa81319",
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatDeepSeek",
+      "typeVersion": 1,
+      "position": [
+        48,
+        -448
+      ],
+      "id": "18b10e0d-577b-4091-bece-daafef50a689",
+      "name": "DeepSeek Chat Model",
+      "credentials": {
+        "deepSeekApi": {
+          "id": "wX5Iyrc7ujqKakbX",
+          "name": "DeepSeek account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook Extract Transaction": {
+      "main": [
+        [
+          {
+            "node": "Validate Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Input": {
+      "main": [
+        [
+          {
+            "node": "Switch Transaction Type",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch Transaction Type": {
+      "main": [
+        [
+          {
+            "node": "Set Expense Prompt",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Set Wedding Savings Prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Expense Prompt": {
+      "main": [
+        [
+          {
+            "node": "pharsing-promp",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Wedding Savings Prompt": {
+      "main": [
+        [
+          {
+            "node": "Call AI DeepSeek",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call AI DeepSeek": {
+      "main": [
+        [
+          {
+            "node": "Parse AI Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse AI Response": {
+      "main": [
+        [
+          {
+            "node": "Save Raw to Sheets",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save Raw to Sheets": {
+      "main": [
+        [
+          {
+            "node": "Read Latest from Sheets",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Latest from Sheets": {
+      "main": [
+        [
+          {
+            "node": "Transform to App Format",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Transform to App Format": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save to Supabase": {
+      "main": [
+        [
+          {
+            "node": "Update Sheets Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Sheets Status": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "pharsing-promp": {
+      "main": [
+        [
+          {
+            "node": "Call AI DeepSeek",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "Save to Supabase",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript1": {
+      "main": [
+        [
+          {
+            "node": "Respond to App",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check file type": {
+      "main": [
+        [
+          {
+            "node": "Image to Text",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "PDF to Text",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Transfrom data": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "PDF to Text": {
+      "main": [
+        [
+          {
+            "node": "Pisah Data Sensitive",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Image to Text": {
+      "main": [
+        [
+          {
+            "node": "Pisah Data Sensitive",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pisah Data Sensitive": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "Transfrom data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Simple Memory": {
+      "ai_memory": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook File upload": {
+      "main": [
+        [
+          {
+            "node": "Check file type",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "DeepSeek Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "2be2775b-5208-42e0-9668-8f0a87fdf183",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "e6ec7078cff15ab9547ded35b42c5e4f5eaffd3431d7e645ea0be2dac61b5e77"
+  },
+  "id": "F8J4HU1EtX7cVIfu",
+  "tags": []
+}
