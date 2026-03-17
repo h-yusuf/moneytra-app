@@ -3,27 +3,54 @@ import { dummySummary } from '@/src/lib/dummy-data';
 import { formatCurrency } from '@/src/lib/utils';
 import { fetchMonthlyReport } from '@/src/services/transactionService';
 import type { MonthlyReportResponse } from '@/src/types';
-import React, { useEffect, useState } from 'react';
+import { useFocusEffect } from 'expo-router';
+import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function ExploreScreen() {
   const [report, setReport] = useState<MonthlyReportResponse | null>(null);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [selectedPeriod, setSelectedPeriod] = useState<'week' | 'month' | 'year'>('month');
 
   useEffect(() => {
     loadReport();
   }, []);
 
-  const loadReport = async () => {
+  // Auto-fetch saat navigasi ke halaman ini
+  useFocusEffect(
+    useCallback(() => {
+      loadReport();
+    }, [])
+  );
+
+  // Refetch saat period berubah
+  useEffect(() => {
+    loadReport();
+  }, [selectedPeriod]);
+
+  const loadReport = async (isRefresh = false) => {
     try {
-      setLoading(true);
+      if (isRefresh) {
+        setRefreshing(true);
+      } else {
+        setLoading(true);
+      }
       const currentDate = new Date();
-      const reportData = await fetchMonthlyReport({
+      
+      // Adjust params based on selected period
+      const params: any = {
         user_id: 'test-user-123',
         year: currentDate.getFullYear(),
-      });
+      };
+      
+      if (selectedPeriod === 'month') {
+        params.month = currentDate.getMonth() + 1;
+      }
+      // For week and year, we use the same endpoint but interpret data differently
+      
+      const reportData = await fetchMonthlyReport(params);
       setReport(reportData);
     } catch (err) {
       console.error('Failed to load report:', err);
@@ -47,7 +74,12 @@ export default function ExploreScreen() {
       });
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
+  };
+
+  const handleRefresh = () => {
+    loadReport(true);
   };
 
   const totalSpent = report?.summary.total_expense || 0;
@@ -61,9 +93,22 @@ export default function ExploreScreen() {
         showsVerticalScrollIndicator={false}
       >
         {/* Header */}
-        <View style={{ paddingHorizontal: 20, paddingTop: 16, paddingBottom: 8 }}>
-          <Text style={{ color: '#ffffff', fontSize: 24, fontWeight: 'bold' }}>Analytics</Text>
-          <Text style={{ color: '#737373', fontSize: 14, marginTop: 4 }}>Track your spending patterns</Text>
+        <View style={{ paddingHorizontal: 20, paddingTop: 16, paddingBottom: 8, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+          <View style={{ flex: 1 }}>
+            <Text style={{ color: '#ffffff', fontSize: 24, fontWeight: 'bold' }}>Analytics</Text>
+            <Text style={{ color: '#737373', fontSize: 14, marginTop: 4 }}>Track your spending patterns</Text>
+          </View>
+          <Pressable 
+            onPress={handleRefresh}
+            disabled={refreshing}
+            style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: '#262626', alignItems: 'center', justifyContent: 'center' }}
+          >
+            {refreshing ? (
+              <ActivityIndicator size="small" color="#c8f542" />
+            ) : (
+              <IconSymbol name="arrow.clockwise" size={20} color="#c8f542" />
+            )}
+          </Pressable>
         </View>
 
         {/* Period Selector */}
@@ -114,23 +159,45 @@ export default function ExploreScreen() {
             <View style={{ marginHorizontal: 20, marginTop: 24, backgroundColor: '#262626', borderRadius: 16, padding: 20 }}>
               <Text style={{ color: '#ffffff', fontWeight: 'bold', marginBottom: 16, fontSize: 16 }}>Spending Overview</Text>
               <View style={{ flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', height: 128 }}>
-                {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((day, index) => {
-                  const heights = [60, 80, 45, 90, 70, 100, 55];
-                  return (
-                    <View key={day} style={{ alignItems: 'center', flex: 1 }}>
-                      <View 
-                        style={{ 
-                          width: 24,
-                          borderTopLeftRadius: 8,
-                          borderTopRightRadius: 8,
-                          height: heights[index], 
-                          backgroundColor: index === 5 ? '#c8f542' : '#404040' 
-                        }}
-                      />
-                      <Text style={{ color: '#737373', fontSize: 10, marginTop: 8 }}>{day}</Text>
-                    </View>
-                  );
-                })}
+                {(() => {
+                  // Generate chart data based on period
+                  let labels: string[] = [];
+                  let data: number[] = [];
+                  
+                  if (selectedPeriod === 'week') {
+                    labels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+                    // Use monthly_report data if available, otherwise use dummy data
+                    data = report?.monthly_report?.slice(0, 7).map(m => m.total_expense) || [60, 80, 45, 90, 70, 100, 55];
+                  } else if (selectedPeriod === 'month') {
+                    labels = ['W1', 'W2', 'W3', 'W4'];
+                    data = report?.monthly_report?.slice(0, 4).map(m => m.total_expense) || [250, 300, 280, 320];
+                  } else {
+                    labels = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'];
+                    data = report?.monthly_report?.slice(0, 6).map(m => m.total_expense) || [1200, 1500, 1300, 1400, 1600, 1450];
+                  }
+                  
+                  const maxValue = Math.max(...data, 1);
+                  
+                  return labels.map((label, index) => {
+                    const height = data[index] ? (data[index] / maxValue) * 100 : 20;
+                    const isHighest = data[index] === maxValue;
+                    
+                    return (
+                      <View key={label} style={{ alignItems: 'center', flex: 1 }}>
+                        <View 
+                          style={{ 
+                            width: 24,
+                            borderTopLeftRadius: 8,
+                            borderTopRightRadius: 8,
+                            height: Math.max(height, 20),
+                            backgroundColor: isHighest ? '#c8f542' : '#404040' 
+                          }}
+                        />
+                        <Text style={{ color: '#737373', fontSize: 10, marginTop: 8 }}>{label}</Text>
+                      </View>
+                    );
+                  });
+                })()}
               </View>
             </View>
 

@@ -1,8 +1,8 @@
 import apiClient from '@/src/lib/api';
 import type {
-    GetTransactionsResponse,
-    MonthlyReportResponse,
-    Transaction
+  GetTransactionsResponse,
+  MonthlyReportResponse,
+  Transaction
 } from '@/src/types';
 
 export interface FetchTransactionsParams {
@@ -82,43 +82,93 @@ export const fetchMonthlyReport = async (
 };
 
 /**
- * Extract transaction data from receipt image using OCR
- * POST /webhook/extract-transaction
+ * Upload and extract transaction data from receipt image using OCR
+ * POST /webhook/uploadDoc
  */
 export const extractTransaction = async (
   params: ExtractTransactionParams
 ): Promise<ExtractedTransactionData> => {
+  // MOCK MODE for testing - remove this when API is ready
+  const USE_MOCK = false; // Set to false when API is ready
+  
+  if (USE_MOCK) {
+    console.log('Using MOCK data for extraction');
+    await new Promise(resolve => setTimeout(resolve, 2000)); // Simulate API delay
+    return {
+      merchant: 'Indomaret',
+      total: 125000,
+      category: 'Belanja snack dan minuman',
+      transaction_date: new Date().toISOString().split('T')[0],
+      notes: 'Extracted from receipt image',
+      payment_method: 'Cash',
+      confidence: 0.95,
+    };
+  }
+
   const formData = new FormData();
   
-  formData.append('file', params.file);
+  // React Native FormData requires specific format
+  // @ts-ignore - React Native FormData typing
+  formData.append('file', {
+    uri: params.file.uri,
+    type: params.file.type,
+    name: params.file.name,
+  });
   formData.append('user_id', params.user_id);
   formData.append('transaction_type', params.transaction_type);
 
-  const response = await apiClient.post<ExtractedTransactionData>(
-    '/webhook/extract-transaction',
-    formData,
-    {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
-    }
-  );
-  
-  return response.data;
+  console.log('Sending FormData to API:', {
+    endpoint: '/webhook/uploadDoc',
+    user_id: params.user_id,
+    transaction_type: params.transaction_type,
+    file: params.file.name,
+  });
+
+  try {
+    const response = await apiClient.post<ExtractedTransactionData>(
+      '/webhook/uploadDoc',
+      formData,
+      {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+        timeout: 60000, // 60 seconds for OCR processing
+      }
+    );
+    
+    console.log('API Response:', response.data);
+    return response.data;
+  } catch (error: any) {
+    console.error('API Error:', error.response?.data || error.message);
+    throw error;
+  }
 };
+
+export interface CreateTransactionParams {
+  user_id: string;
+  type: 'expense' | 'money_saving';
+  text: string;
+  source_name: string;
+}
 
 /**
  * Create/save transaction after user confirms extracted data
- * POST /webhook/transactions
+ * POST /webhook/extract-transaction
  */
 export const createTransaction = async (
-  data: Partial<Transaction> & { user_id: string }
+  data: CreateTransactionParams
 ): Promise<Transaction> => {
+  console.log('Saving transaction to API:', {
+    endpoint: '/webhook/extract-transaction',
+    data,
+  });
+
   const response = await apiClient.post<Transaction>(
-    '/webhook/transactions',
+    '/webhook/extract-transaction',
     data
   );
   
+  console.log('Transaction saved:', response.data);
   return response.data;
 };
 
