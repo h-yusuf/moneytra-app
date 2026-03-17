@@ -1,29 +1,19 @@
 export const colors = {
-  primary: {
-    50: '#f0fdfa',
-    100: '#ccfbf1',
-    200: '#99f6e4',
-    300: '#5eead4',
-    400: '#2dd4bf',
-    500: '#14b8a6',
-    600: '#0d9488',
-    700: '#0f766e',
-    800: '#115e59',
-    900: '#134e4a',
+  // Lime Green accent (primary)
+  lime: {
+    50: '#f7fee7',
+    100: '#ecfccb',
+    200: '#d9f99d',
+    300: '#bef264',
+    400: '#a3e635',
+    500: '#84cc16',
+    600: '#65a30d',
+    700: '#4d7c0f',
+    800: '#3f6212',
+    900: '#365314',
   },
-  emerald: {
-    50: '#ecfdf5',
-    100: '#d1fae5',
-    200: '#a7f3d0',
-    300: '#6ee7b7',
-    400: '#34d399',
-    500: '#10b981',
-    600: '#059669',
-    700: '#047857',
-    800: '#065f46',
-    900: '#064e3b',
-  },
-  slate: {
+  // Dark theme colors
+  dark: {
     50: '#f8fafc',
     100: '#f1f5f9',
     200: '#e2e8f0',
@@ -34,6 +24,20 @@ export const colors = {
     700: '#334155',
     800: '#1e293b',
     900: '#0f172a',
+    950: '#020617',
+  },
+  // Neutral grays
+  neutral: {
+    50: '#fafafa',
+    100: '#f5f5f5',
+    200: '#e5e5e5',
+    300: '#d4d4d4',
+    400: '#a3a3a3',
+    500: '#737373',
+    600: '#525252',
+    700: '#404040',
+    800: '#262626',
+    900: '#171717',
   },
   red: {
     50: '#fef2f2',
@@ -46,18 +50,6 @@ export const colors = {
     700: '#b91c1c',
     800: '#991b1b',
     900: '#7f1d1d',
-  },
-  amber: {
-    50: '#fffbeb',
-    100: '#fef3c7',
-    200: '#fde68a',
-    300: '#fcd34d',
-    400: '#fbbf24',
-    500: '#f59e0b',
-    600: '#d97706',
-    700: '#b45309',
-    800: '#92400e',
-    900: '#78350f',
   },
   green: {
     50: '#f0fdf4',
@@ -73,32 +65,71 @@ export const colors = {
   },
 };
 
-export const lightTheme = {
-  background: '#ffffff',
-  surface: '#f8fafc',
-  text: {
-    primary: '#0f172a',
-    secondary: '#64748b',
-    tertiary: '#94a3b8',
+// Main app theme - Dark with Lime accent
+export const theme = {
+  // Backgrounds
+  background: {
+    primary: '#0a0a0a',      // Main background (almost black)
+    secondary: '#141414',    // Card background
+    tertiary: '#1f1f1f',     // Elevated surfaces
+    card: '#1a1a1a',         // Card surfaces
+    input: '#262626',        // Input fields
   },
-  border: '#e2e8f0',
-  primary: colors.primary[600],
+  // Accent colors
+  accent: {
+    primary: '#c8f542',      // Lime green (main accent)
+    secondary: '#a3e635',    // Lighter lime
+    muted: '#4d7c0f',        // Muted lime for backgrounds
+  },
+  // Text colors
+  text: {
+    primary: '#ffffff',      // White text
+    secondary: '#a3a3a3',    // Gray text
+    tertiary: '#737373',     // Muted text
+    inverse: '#0a0a0a',      // Dark text on light backgrounds
+  },
+  // Status colors
+  status: {
+    success: '#22c55e',      // Green
+    warning: '#f59e0b',      // Amber
+    danger: '#ef4444',       // Red
+    info: '#3b82f6',         // Blue
+  },
+  // Border colors
+  border: {
+    primary: '#262626',      // Main borders
+    secondary: '#404040',    // Lighter borders
+    accent: '#c8f542',       // Accent borders
+  },
+};
+
+// Legacy support
+export const lightTheme = {
+  background: '#f5f5f5',
+  surface: '#ffffff',
+  text: {
+    primary: '#171717',
+    secondary: '#525252',
+    tertiary: '#a3a3a3',
+  },
+  border: '#e5e5e5',
+  primary: '#c8f542',
   success: colors.green[600],
-  warning: colors.amber[500],
+  warning: '#f59e0b',
   danger: colors.red[600],
 };
 
 export const darkTheme = {
-  background: '#0f172a',
-  surface: '#1e293b',
+  background: '#0a0a0a',
+  surface: '#1a1a1a',
   text: {
-    primary: '#f8fafc',
-    secondary: '#cbd5e1',
-    tertiary: '#94a3b8',
+    primary: '#ffffff',
+    secondary: '#a3a3a3',
+    tertiary: '#737373',
   },
-  border: '#334155',
-  primary: colors.primary[500],
+  border: '#262626',
+  primary: '#c8f542',
   success: colors.green[500],
-  warning: colors.amber[400],
+  warning: '#f59e0b',
   danger: colors.red[500],
 };

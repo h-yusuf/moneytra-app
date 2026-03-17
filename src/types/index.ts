@@ -53,3 +53,37 @@ export interface UploadResponse {
   total: string;
   notes?: string;
 }
+
+export interface GetTransactionsResponse {
+  success: boolean;
+  count: number;
+  data: Transaction[];
+}
+
+export interface MonthlyReportData {
+  month: string;
+  expense: number;
+  money_saving: number;
+  total: number;
+  count: number;
+}
+
+export interface CategoryBreakdownData {
+  category: string;
+  total: number;
+  count: number;
+}
+
+export interface MonthlyReportResponse {
+  success: boolean;
+  user_id: string;
+  year: number;
+  month: number | null;
+  summary: {
+    total_expense: number;
+    total_money_saving: number;
+    total_transactions: number;
+  };
+  monthly_report: MonthlyReportData[];
+  category_breakdown: CategoryBreakdownData[];
+}

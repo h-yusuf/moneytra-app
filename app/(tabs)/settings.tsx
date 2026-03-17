@@ -1,8 +1,8 @@
-import React from 'react';
-import { View, Text, TouchableOpacity } from 'react-native';
-import { AppContainer } from '@/src/components/common/AppContainer';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { formatCurrency } from '@/src/lib/utils';
+import React from 'react';
+import { Pressable, ScrollView, Text, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function SettingsScreen() {
   const targetSavings = 50000000;
@@ -10,169 +10,149 @@ export default function SettingsScreen() {
   const progress = (currentSavings / targetSavings) * 100;
 
   return (
-    <AppContainer scrollable>
-      <View className="px-4 pt-6 pb-4">
-        <Text className="text-3xl font-bold text-slate-900 mb-1">
-          Pengaturan
-        </Text>
-        <Text className="text-base text-slate-600">
-          Kelola profil dan preferensi aplikasi
-        </Text>
-      </View>
+    <SafeAreaView style={{ flex: 1, backgroundColor: '#0a0a0a' }}>
+      <ScrollView 
+        style={{ flex: 1 }} 
+        contentContainerStyle={{ paddingBottom: 100 }}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Header */}
+        <View style={{ paddingHorizontal: 20, paddingTop: 16, paddingBottom: 8 }}>
+          <Text style={{ color: '#ffffff', fontSize: 24, fontWeight: 'bold' }}>Settings</Text>
+          <Text style={{ color: '#737373', fontSize: 14, marginTop: 4 }}>Manage your profile and preferences</Text>
+        </View>
 
-      <View className="px-4 mb-6">
-        <View className="bg-gradient-to-br from-teal-500 to-emerald-600 rounded-2xl p-6 mb-4">
-          <View className="flex-row items-center mb-4">
-            <View className="w-16 h-16 rounded-full bg-white/20 items-center justify-center mr-4">
-              <IconSymbol name="person.fill" size={32} color="#ffffff" />
+        {/* Profile Card */}
+        <View style={{ marginHorizontal: 20, marginTop: 16, backgroundColor: '#262626', borderRadius: 16, padding: 20 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <View style={{ width: 64, height: 64, borderRadius: 32, backgroundColor: '#c8f542', alignItems: 'center', justifyContent: 'center', marginRight: 16 }}>
+              <Text style={{ color: '#0a0a0a', fontSize: 24, fontWeight: 'bold' }}>U</Text>
             </View>
-            <View className="flex-1">
-              <Text className="text-xl font-bold text-white mb-1">
-                User Name
-              </Text>
-              <Text className="text-sm text-white/80">
-                user@example.com
-              </Text>
+            <View style={{ flex: 1 }}>
+              <Text style={{ color: '#ffffff', fontSize: 18, fontWeight: 'bold', marginBottom: 2 }}>User Name</Text>
+              <Text style={{ color: '#737373', fontSize: 13 }}>user@example.com</Text>
             </View>
+            <Pressable style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: '#1a1a1a', alignItems: 'center', justifyContent: 'center' }}>
+              <IconSymbol name="pencil" size={16} color="#c8f542" />
+            </Pressable>
           </View>
         </View>
 
-        <View className="bg-white rounded-2xl p-6 border border-slate-200 mb-4">
-          <View className="flex-row items-center justify-between mb-3">
-            <Text className="text-lg font-bold text-slate-900">
-              Target Tabungan Nikah
-            </Text>
-            <IconSymbol name="heart.fill" size={24} color="#0d9488" />
+        {/* Savings Target Card */}
+        <View style={{ marginHorizontal: 20, marginTop: 12, backgroundColor: '#262626', borderRadius: 16, padding: 20 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+            <Text style={{ color: '#ffffff', fontSize: 17, fontWeight: 'bold' }}>Savings Target</Text>
+            <IconSymbol name="heart.fill" size={20} color="#c8f542" />
           </View>
           
-          <Text className="text-3xl font-bold text-teal-600 mb-2">
+          <Text style={{ color: '#c8f542', fontSize: 32, fontWeight: 'bold', marginBottom: 12 }}>
             {formatCurrency(targetSavings)}
           </Text>
           
-          <View className="mb-3">
-            <View className="flex-row justify-between mb-2">
-              <Text className="text-sm text-slate-600">Progress</Text>
-              <Text className="text-sm font-semibold text-slate-900">
-                {progress.toFixed(1)}%
-              </Text>
+          <View style={{ marginBottom: 12 }}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 }}>
+              <Text style={{ color: '#737373', fontSize: 12 }}>Progress</Text>
+              <Text style={{ color: '#ffffff', fontSize: 12, fontWeight: '600' }}>{progress.toFixed(1)}%</Text>
             </View>
-            <View className="h-2 bg-slate-200 rounded-full overflow-hidden">
+            <View style={{ height: 8, backgroundColor: '#1a1a1a', borderRadius: 4, overflow: 'hidden' }}>
               <View 
-                className="h-full bg-teal-600 rounded-full"
-                style={{ width: `${progress}%` }}
+                style={{ height: '100%', borderRadius: 4, width: `${progress}%`, backgroundColor: '#c8f542' }}
               />
             </View>
           </View>
           
-          <Text className="text-sm text-slate-600">
-            Terkumpul: {formatCurrency(currentSavings)}
+          <Text style={{ color: '#737373', fontSize: 12 }}>
+            Collected: {formatCurrency(currentSavings)}
           </Text>
         </View>
 
-        <Text className="text-sm font-semibold text-slate-700 mb-3 px-1">
-          Preferensi
-        </Text>
+        {/* Preferences Section */}
+        <View style={{ paddingHorizontal: 20, marginTop: 24 }}>
+          <Text style={{ color: '#a3a3a3', fontSize: 11, fontWeight: '600', marginBottom: 12, letterSpacing: 0.5 }}>PREFERENCES</Text>
+          
+          <View style={{ backgroundColor: '#262626', borderRadius: 16, overflow: 'hidden' }}>
+            <Pressable style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 16, borderBottomWidth: 1, borderBottomColor: '#1a1a1a' }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
+                <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: '#1a1a1a', alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
+                  <IconSymbol name="dollarsign.circle.fill" size={20} color="#c8f542" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ color: '#ffffff', fontWeight: '600', fontSize: 15, marginBottom: 2 }}>Currency</Text>
+                  <Text style={{ color: '#737373', fontSize: 12 }}>IDR - Indonesian Rupiah</Text>
+                </View>
+              </View>
+              <IconSymbol name="chevron.right" size={16} color="#737373" />
+            </Pressable>
 
-        <View className="bg-white rounded-2xl border border-slate-200 overflow-hidden mb-4">
-          <TouchableOpacity className="flex-row items-center justify-between p-4 border-b border-slate-200">
-            <View className="flex-row items-center flex-1">
-              <View className="w-10 h-10 rounded-full bg-slate-100 items-center justify-center mr-3">
-                <IconSymbol name="dollarsign.circle.fill" size={20} color="#64748b" />
+            <Pressable style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 16, borderBottomWidth: 1, borderBottomColor: '#1a1a1a' }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
+                <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: '#1a1a1a', alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
+                  <IconSymbol name="moon.fill" size={20} color="#c8f542" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ color: '#ffffff', fontWeight: '600', fontSize: 15, marginBottom: 2 }}>Theme</Text>
+                  <Text style={{ color: '#737373', fontSize: 12 }}>Dark Mode</Text>
+                </View>
               </View>
-              <View className="flex-1">
-                <Text className="text-base font-semibold text-slate-900">
-                  Mata Uang
-                </Text>
-                <Text className="text-sm text-slate-600">
-                  IDR - Indonesian Rupiah
-                </Text>
-              </View>
-            </View>
-            <IconSymbol name="chevron.right" size={20} color="#94a3b8" />
-          </TouchableOpacity>
+              <IconSymbol name="chevron.right" size={16} color="#737373" />
+            </Pressable>
 
-          <TouchableOpacity className="flex-row items-center justify-between p-4 border-b border-slate-200">
-            <View className="flex-row items-center flex-1">
-              <View className="w-10 h-10 rounded-full bg-slate-100 items-center justify-center mr-3">
-                <IconSymbol name="paintbrush.fill" size={20} color="#64748b" />
+            <Pressable style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 16 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
+                <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: '#1a1a1a', alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
+                  <IconSymbol name="bell.fill" size={20} color="#c8f542" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ color: '#ffffff', fontWeight: '600', fontSize: 15, marginBottom: 2 }}>Notifications</Text>
+                  <Text style={{ color: '#737373', fontSize: 12 }}>Manage app notifications</Text>
+                </View>
               </View>
-              <View className="flex-1">
-                <Text className="text-base font-semibold text-slate-900">
-                  Tema
-                </Text>
-                <Text className="text-sm text-slate-600">
-                  Light Mode
-                </Text>
-              </View>
-            </View>
-            <IconSymbol name="chevron.right" size={20} color="#94a3b8" />
-          </TouchableOpacity>
-
-          <TouchableOpacity className="flex-row items-center justify-between p-4">
-            <View className="flex-row items-center flex-1">
-              <View className="w-10 h-10 rounded-full bg-slate-100 items-center justify-center mr-3">
-                <IconSymbol name="bell.fill" size={20} color="#64748b" />
-              </View>
-              <View className="flex-1">
-                <Text className="text-base font-semibold text-slate-900">
-                  Notifikasi
-                </Text>
-                <Text className="text-sm text-slate-600">
-                  Kelola notifikasi aplikasi
-                </Text>
-              </View>
-            </View>
-            <IconSymbol name="chevron.right" size={20} color="#94a3b8" />
-          </TouchableOpacity>
+              <IconSymbol name="chevron.right" size={16} color="#737373" />
+            </Pressable>
+          </View>
         </View>
 
-        <Text className="text-sm font-semibold text-slate-700 mb-3 px-1">
-          Lainnya
-        </Text>
-
-        <View className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
-          <TouchableOpacity className="flex-row items-center justify-between p-4 border-b border-slate-200">
-            <View className="flex-row items-center flex-1">
-              <View className="w-10 h-10 rounded-full bg-slate-100 items-center justify-center mr-3">
-                <IconSymbol name="questionmark.circle.fill" size={20} color="#64748b" />
+        {/* Other Section */}
+        <View style={{ paddingHorizontal: 20, marginTop: 24 }}>
+          <Text style={{ color: '#a3a3a3', fontSize: 11, fontWeight: '600', marginBottom: 12, letterSpacing: 0.5 }}>OTHER</Text>
+          
+          <View style={{ backgroundColor: '#262626', borderRadius: 16, overflow: 'hidden' }}>
+            <Pressable style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 16, borderBottomWidth: 1, borderBottomColor: '#1a1a1a' }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
+                <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: '#1a1a1a', alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
+                  <IconSymbol name="questionmark.circle.fill" size={20} color="#737373" />
+                </View>
+                <Text style={{ color: '#ffffff', fontWeight: '600', fontSize: 15 }}>Help & FAQ</Text>
               </View>
-              <Text className="text-base font-semibold text-slate-900">
-                Bantuan & FAQ
-              </Text>
-            </View>
-            <IconSymbol name="chevron.right" size={20} color="#94a3b8" />
-          </TouchableOpacity>
+              <IconSymbol name="chevron.right" size={16} color="#737373" />
+            </Pressable>
 
-          <TouchableOpacity className="flex-row items-center justify-between p-4 border-b border-slate-200">
-            <View className="flex-row items-center flex-1">
-              <View className="w-10 h-10 rounded-full bg-slate-100 items-center justify-center mr-3">
-                <IconSymbol name="info.circle.fill" size={20} color="#64748b" />
+            <Pressable style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 16, borderBottomWidth: 1, borderBottomColor: '#1a1a1a' }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
+                <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: '#1a1a1a', alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
+                  <IconSymbol name="info.circle.fill" size={20} color="#737373" />
+                </View>
+                <Text style={{ color: '#ffffff', fontWeight: '600', fontSize: 15 }}>About App</Text>
               </View>
-              <Text className="text-base font-semibold text-slate-900">
-                Tentang Aplikasi
-              </Text>
-            </View>
-            <IconSymbol name="chevron.right" size={20} color="#94a3b8" />
-          </TouchableOpacity>
+              <IconSymbol name="chevron.right" size={16} color="#737373" />
+            </Pressable>
 
-          <TouchableOpacity className="flex-row items-center justify-between p-4">
-            <View className="flex-row items-center flex-1">
-              <View className="w-10 h-10 rounded-full bg-red-100 items-center justify-center mr-3">
-                <IconSymbol name="rectangle.portrait.and.arrow.right" size={20} color="#dc2626" />
+            <Pressable style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 16 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
+                <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: 'rgba(153, 27, 27, 0.3)', alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
+                  <IconSymbol name="rectangle.portrait.and.arrow.right" size={20} color="#ef4444" />
+                </View>
+                <Text style={{ color: '#ef4444', fontWeight: '600', fontSize: 15 }}>Logout</Text>
               </View>
-              <Text className="text-base font-semibold text-red-600">
-                Keluar
-              </Text>
-            </View>
-          </TouchableOpacity>
+            </Pressable>
+          </View>
         </View>
-      </View>
 
-      <View className="px-4 pb-6">
-        <Text className="text-xs text-slate-500 text-center">
-          Monetra v1.0.0
-        </Text>
-      </View>
-    </AppContainer>
+        {/* Version */}
+        <View style={{ paddingHorizontal: 20, marginTop: 32 }}>
+          <Text style={{ color: '#525252', fontSize: 11, textAlign: 'center' }}>Monetra v1.0.0</Text>
+        </View>
+      </ScrollView>
+    </SafeAreaView>
   );
 }

@@ -1,88 +1,260 @@
-import { AppContainer } from '@/src/components/common/AppContainer';
-import { SectionHeader } from '@/src/components/common/SectionHeader';
-import { SummaryCard } from '@/src/components/common/SummaryCard';
-import { TransactionCard } from '@/src/components/common/TransactionCard';
+import { IconSymbol } from '@/components/ui/icon-symbol';
 import { dummySummary, dummyTransactions } from '@/src/lib/dummy-data';
-import { formatCurrency, getGreeting } from '@/src/lib/utils';
+import { formatCurrency } from '@/src/lib/utils';
+import { fetchMonthlyReport, fetchTransactions } from '@/src/services/transactionService';
+import type { MonthlyReportResponse, Transaction } from '@/src/types';
 import { useRouter } from 'expo-router';
-import React from 'react';
-import { Text, View } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function DashboardScreen() {
   const router = useRouter();
+  const [report, setReport] = useState<MonthlyReportResponse | null>(null);
+  const [recentTransactions, setRecentTransactions] = useState<Transaction[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const currentDate = new Date();
+  const formattedDate = currentDate.toLocaleDateString('id-ID', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  });
+
+  useEffect(() => {
+    loadDashboardData();
+  }, []);
+
+  const loadDashboardData = async () => {
+    try {
+      setLoading(true);
+      const currentYear = currentDate.getFullYear();
+      const currentMonth = currentDate.getMonth() + 1;
+
+      const [reportData, transactionsData] = await Promise.all([
+        fetchMonthlyReport({
+          user_id: 'test-user-123',
+          year: currentYear,
+          month: currentMonth,
+        }),
+        fetchTransactions({
+          user_id: 'test-user-123',
+          limit: 5,
+        }),
+      ]);
+
+      setReport(reportData);
+      setRecentTransactions(transactionsData.data);
+    } catch (err) {
+      console.error('Failed to load dashboard data:', err);
+      setReport({
+        success: true,
+        user_id: 'test-user-123',
+        year: new Date().getFullYear(),
+        month: new Date().getMonth() + 1,
+        summary: {
+          total_expense: dummySummary.total_expense,
+          total_money_saving: dummySummary.total_money_saving,
+          total_transactions: dummySummary.total_transactions,
+        },
+        monthly_report: [],
+        category_breakdown: [
+          {
+            category: dummySummary.top_category.name,
+            total: dummySummary.top_category.total,
+            count: 1,
+          },
+        ],
+      });
+      setRecentTransactions(dummyTransactions.slice(0, 5));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const totalBalance = report 
+    ? report.summary.total_money_saving - report.summary.total_expense 
+    : 0;
 
   return (
-    <AppContainer scrollable>
-      <View className="px-4 pt-6 pb-4">
-        <Text className="text-3xl font-bold text-slate-900 mb-1">
-          {getGreeting()}
-        </Text>
-        <Text className="text-base text-slate-600">
-          Kelola keuangan dan tabungan nikah Anda
-        </Text>
-      </View>
-
-      <View className="px-4 mb-6">
-        <View className="mb-3">
-          <SummaryCard
-            title="Total Expense Bulan Ini"
-            value={formatCurrency(dummySummary.total_expense)}
-            trend={dummySummary.expense_growth}
-            subtitle="vs bulan lalu"
-            icon="arrow.down.circle.fill"
-            variant="default"
-          />
-        </View>
-        
-        <View className="mb-3">
-          <SummaryCard
-            title="Tabungan Nikah Bulan Ini"
-            value={formatCurrency(dummySummary.total_money_saving)}
-            trend={dummySummary.savings_growth}
-            subtitle="vs bulan lalu"
-            icon="heart.circle.fill"
-            variant="primary"
-          />
-        </View>
-
-        <View className="flex-row gap-3">
-          <View className="flex-1">
-            <SummaryCard
-              title="Total Transaksi"
-              value={dummySummary.total_transactions.toString()}
-              subtitle="bulan ini"
-              icon="list.bullet"
-            />
+    <SafeAreaView style={{ flex: 1, backgroundColor: '#0a0a0a' }}>
+      <ScrollView 
+        style={{ flex: 1 }} 
+        contentContainerStyle={{ paddingBottom: 100 }}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Header */}
+        <View style={{ paddingHorizontal: 20, paddingTop: 16, paddingBottom: 8, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+          <View>
+            <Text style={{ color: '#ffffff', fontSize: 26, fontWeight: 'bold' }}>Hello, User!</Text>
           </View>
-          <View className="flex-1">
-            <SummaryCard
-              title="Top Kategori"
-              value={dummySummary.top_category.name}
-              subtitle={formatCurrency(dummySummary.top_category.total)}
-              icon="chart.pie.fill"
-            />
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <Pressable style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: '#262626', alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
+              <IconSymbol name="bell.fill" size={20} color="#a3a3a3" />
+            </Pressable>
+            <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: '#c8f542', alignItems: 'center', justifyContent: 'center' }}>
+              <Text style={{ color: '#0a0a0a', fontWeight: 'bold', fontSize: 16 }}>U</Text>
+            </View>
           </View>
         </View>
-      </View>
 
-      <View className="px-4 mb-4">
-        <SectionHeader
-          title="Transaksi Terbaru"
-          subtitle="5 transaksi terakhir"
-          action={{
-            label: 'Lihat Semua',
-            onPress: () => router.push('/(tabs)/history'),
-          }}
-        />
-        
-        {dummyTransactions.slice(0, 5).map((transaction) => (
-          <TransactionCard
-            key={transaction.id}
-            transaction={transaction}
-            onPress={() => {}}
-          />
-        ))}
-      </View>
-    </AppContainer>
+        {/* Balance Card */}
+        <View style={{ marginHorizontal: 20, marginTop: 16, borderRadius: 24, backgroundColor: '#c8f542', overflow: 'hidden' }}>
+          <View style={{ padding: 20, position: 'relative' }}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+              <Text style={{ color: '#404040', fontWeight: '600', fontSize: 14 }}>Your Balance</Text>
+              <Text style={{ color: '#525252', fontSize: 12 }}>{formattedDate}</Text>
+            </View>
+            
+            {loading ? (
+              <ActivityIndicator size="small" color="#0a0a0a" />
+            ) : (
+              <>
+                <Text style={{ color: '#0a0a0a', fontSize: 40, fontWeight: 'bold', marginBottom: 8, marginTop: 4 }}>
+                  {formatCurrency(Math.abs(totalBalance))}
+                </Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                  <IconSymbol 
+                    name={totalBalance >= 0 ? "arrow.up.right" : "arrow.down.right"} 
+                    size={14} 
+                    color={totalBalance >= 0 ? "#16a34a" : "#dc2626"} 
+                  />
+                  <Text style={{ color: totalBalance >= 0 ? '#15803d' : '#dc2626', fontSize: 14, marginLeft: 4, fontWeight: '500' }}>
+                    {totalBalance >= 0 ? '+' : ''}{((totalBalance / (report?.summary.total_money_saving || 1)) * 100).toFixed(1)}%
+                  </Text>
+                </View>
+              </>
+            )}
+            
+            {/* Dotted pattern decoration */}
+            <View style={{ position: 'absolute', right: 0, top: 0, bottom: 0, width: 80, opacity: 0.15 }}>
+              {[...Array(6)].map((_, i) => (
+                <View key={i} style={{ flexDirection: 'row', justifyContent: 'flex-end', paddingRight: 8, paddingVertical: 6 }}>
+                  {[...Array(3)].map((_, j) => (
+                    <View key={j} style={{ width: 4, height: 4, borderRadius: 2, backgroundColor: '#0a0a0a', marginHorizontal: 3 }} />
+                  ))}
+                </View>
+              ))}
+            </View>
+          </View>
+        </View>
+
+        {/* Quick Actions */}
+        <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 24, marginTop: 24, paddingHorizontal: 20 }}>
+          <Pressable 
+            style={{ alignItems: 'center' }}
+            onPress={() => router.push('/(tabs)/add')}
+          >
+            <View style={{ width: 56, height: 56, borderRadius: 16, backgroundColor: '#262626', alignItems: 'center', justifyContent: 'center', marginBottom: 8 }}>
+              <IconSymbol name="arrow.down.circle.fill" size={24} color="#c8f542" />
+            </View>
+            <Text style={{ color: '#a3a3a3', fontSize: 11 }}>Expense</Text>
+          </Pressable>
+          
+          <Pressable 
+            style={{ alignItems: 'center' }}
+            onPress={() => router.push('/(tabs)/add')}
+          >
+            <View style={{ width: 56, height: 56, borderRadius: 16, backgroundColor: '#262626', alignItems: 'center', justifyContent: 'center', marginBottom: 8 }}>
+              <IconSymbol name="arrow.up.circle.fill" size={24} color="#c8f542" />
+            </View>
+            <Text style={{ color: '#a3a3a3', fontSize: 11 }}>Saving</Text>
+          </Pressable>
+          
+          <Pressable style={{ alignItems: 'center' }}>
+            <View style={{ width: 56, height: 56, borderRadius: 16, backgroundColor: '#c8f542', alignItems: 'center', justifyContent: 'center', marginBottom: 8 }}>
+              <IconSymbol name="camera.fill" size={24} color="#0a0a0a" />
+            </View>
+            <Text style={{ color: '#ffffff', fontSize: 11, fontWeight: '600' }}>Scan</Text>
+          </Pressable>
+        </View>
+
+        {/* Summary Cards */}
+        <View style={{ flexDirection: 'row', paddingHorizontal: 20, marginTop: 24, gap: 12 }}>
+          <View style={{ flex: 1, borderRadius: 16, padding: 16, backgroundColor: '#262626' }}>
+            <Text style={{ color: '#a3a3a3', fontSize: 11, marginBottom: 8 }}>Total Expense</Text>
+            <Text style={{ color: '#ffffff', fontSize: 20, fontWeight: 'bold', marginBottom: 6 }}>
+              {loading ? '...' : formatCurrency(report?.summary.total_expense || 0)}
+            </Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <IconSymbol name="arrow.down" size={10} color="#ef4444" />
+              <Text style={{ color: '#ef4444', fontSize: 11, marginLeft: 4 }}>Pengeluaran</Text>
+            </View>
+          </View>
+          
+          <View style={{ flex: 1, borderRadius: 16, padding: 16, backgroundColor: '#262626' }}>
+            <Text style={{ color: '#a3a3a3', fontSize: 11, marginBottom: 8 }}>Total Saving</Text>
+            <Text style={{ color: '#ffffff', fontSize: 20, fontWeight: 'bold', marginBottom: 6 }}>
+              {loading ? '...' : formatCurrency(report?.summary.total_money_saving || 0)}
+            </Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <IconSymbol name="arrow.up" size={10} color="#22c55e" />
+              <Text style={{ color: '#22c55e', fontSize: 11, marginLeft: 4 }}>Tabungan</Text>
+            </View>
+          </View>
+        </View>
+
+        {/* Recent Transactions */}
+        <View style={{ paddingHorizontal: 20, marginTop: 24 }}>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+            <Text style={{ color: '#ffffff', fontSize: 18, fontWeight: 'bold' }}>Recent Transactions</Text>
+            <Pressable onPress={() => router.push('/(tabs)/history')}>
+              <Text style={{ color: '#c8f542', fontSize: 13, fontWeight: '500' }}>See all</Text>
+            </Pressable>
+          </View>
+
+          {loading ? (
+            <View style={{ paddingVertical: 32, alignItems: 'center' }}>
+              <ActivityIndicator size="small" color="#c8f542" />
+            </View>
+          ) : recentTransactions.length > 0 ? (
+            recentTransactions.map((transaction, index) => (
+              <Pressable 
+                key={transaction.id} 
+                style={{ 
+                  flexDirection: 'row', 
+                  alignItems: 'center', 
+                  paddingVertical: 12,
+                  borderBottomWidth: index < recentTransactions.length - 1 ? 1 : 0, 
+                  borderBottomColor: '#262626' 
+                }}
+              >
+                <View 
+                  style={{ 
+                    width: 48, 
+                    height: 48, 
+                    borderRadius: 16, 
+                    backgroundColor: transaction.type === 'expense' ? '#1f1f1f' : '#1a2e1a',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    marginRight: 12
+                  }}
+                >
+                  <IconSymbol 
+                    name={transaction.type === 'expense' ? 'cart.fill' : 'heart.fill'} 
+                    size={20} 
+                    color={transaction.type === 'expense' ? '#ef4444' : '#22c55e'} 
+                  />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ color: '#ffffff', fontWeight: '600', fontSize: 15, marginBottom: 2 }}>{transaction.merchant}</Text>
+                  <Text style={{ color: '#737373', fontSize: 12 }}>{transaction.category}</Text>
+                </View>
+                <View style={{ alignItems: 'flex-end' }}>
+                  <Text style={{ color: transaction.type === 'expense' ? '#ef4444' : '#22c55e', fontWeight: 'bold', fontSize: 15, marginBottom: 2 }}>
+                    {transaction.type === 'expense' ? '-' : '+'}{formatCurrency(transaction.total)}
+                  </Text>
+                  <Text style={{ color: '#737373', fontSize: 11 }}>{transaction.transaction_date}</Text>
+                </View>
+              </Pressable>
+            ))
+          ) : (
+            <View style={{ paddingVertical: 32, alignItems: 'center' }}>
+              <Text style={{ color: '#737373' }}>Belum ada transaksi</Text>
+            </View>
+          )}
+        </View>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
