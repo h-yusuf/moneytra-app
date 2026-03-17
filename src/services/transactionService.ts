@@ -1,8 +1,8 @@
 import apiClient from '@/src/lib/api';
-import type { 
-  GetTransactionsResponse, 
-  MonthlyReportResponse,
-  Transaction 
+import type {
+    GetTransactionsResponse,
+    MonthlyReportResponse,
+    Transaction
 } from '@/src/types';
 
 export interface FetchTransactionsParams {
@@ -22,6 +22,22 @@ export interface UploadReceiptParams {
   file: File | Blob;
   user_id: string;
   source_name?: string;
+}
+
+export interface ExtractTransactionParams {
+  file: File | Blob;
+  user_id: string;
+  transaction_type: 'expense' | 'money_saving';
+}
+
+export interface ExtractedTransactionData {
+  merchant: string;
+  total: number;
+  category: string;
+  transaction_date: string;
+  notes?: string;
+  payment_method?: string;
+  confidence?: number;
 }
 
 /**
@@ -66,8 +82,50 @@ export const fetchMonthlyReport = async (
 };
 
 /**
+ * Extract transaction data from receipt image using OCR
+ * POST /webhook/extract-transaction
+ */
+export const extractTransaction = async (
+  params: ExtractTransactionParams
+): Promise<ExtractedTransactionData> => {
+  const formData = new FormData();
+  
+  formData.append('file', params.file);
+  formData.append('user_id', params.user_id);
+  formData.append('transaction_type', params.transaction_type);
+
+  const response = await apiClient.post<ExtractedTransactionData>(
+    '/webhook/extract-transaction',
+    formData,
+    {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    }
+  );
+  
+  return response.data;
+};
+
+/**
+ * Create/save transaction after user confirms extracted data
+ * POST /webhook/transactions
+ */
+export const createTransaction = async (
+  data: Partial<Transaction> & { user_id: string }
+): Promise<Transaction> => {
+  const response = await apiClient.post<Transaction>(
+    '/webhook/transactions',
+    data
+  );
+  
+  return response.data;
+};
+
+/**
  * Upload receipt/payment proof for OCR extraction
  * POST /uploadDoc
+ * @deprecated Use extractTransaction instead
  */
 export const uploadReceipt = async (
   params: UploadReceiptParams
