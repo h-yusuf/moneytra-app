@@ -1,4 +1,5 @@
 import { IconSymbol } from '@/components/ui/icon-symbol';
+import { useTheme } from '@/src/contexts/ThemeContext';
 import { dummySummary } from '@/src/lib/dummy-data';
 import { formatCurrency } from '@/src/lib/utils';
 import { fetchMonthlyReport } from '@/src/services/transactionService';
@@ -9,6 +10,7 @@ import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-nati
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function ExploreScreen() {
+  const { colors } = useTheme();
   const [report, setReport] = useState<MonthlyReportResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -86,7 +88,7 @@ export default function ExploreScreen() {
   const totalSaved = report?.summary.total_money_saving || 0;
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: '#0a0a0a' }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
       <ScrollView 
         style={{ flex: 1 }} 
         contentContainerStyle={{ paddingBottom: 100 }}
@@ -95,18 +97,18 @@ export default function ExploreScreen() {
         {/* Header */}
         <View style={{ paddingHorizontal: 20, paddingTop: 16, paddingBottom: 8, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
           <View style={{ flex: 1 }}>
-            <Text style={{ color: '#ffffff', fontSize: 24, fontWeight: 'bold' }}>Analytics</Text>
-            <Text style={{ color: '#737373', fontSize: 14, marginTop: 4 }}>Track your spending patterns</Text>
+            <Text style={{ color: colors.text, fontSize: 24, fontWeight: 'bold' }}>Analytics</Text>
+            <Text style={{ color: colors.textTertiary, fontSize: 14, marginTop: 4 }}>Track your spending patterns</Text>
           </View>
           <Pressable 
             onPress={handleRefresh}
             disabled={refreshing}
-            style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: '#262626', alignItems: 'center', justifyContent: 'center' }}
+            style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: colors.card, alignItems: 'center', justifyContent: 'center' }}
           >
             {refreshing ? (
-              <ActivityIndicator size="small" color="#c8f542" />
+              <ActivityIndicator size="small" color={colors.primary} />
             ) : (
-              <IconSymbol name="arrow.clockwise" size={20} color="#c8f542" />
+              <IconSymbol name="arrow.clockwise" size={20} color={colors.primary} />
             )}
           </Pressable>
         </View>
@@ -117,9 +119,9 @@ export default function ExploreScreen() {
             <Pressable 
               key={period}
               onPress={() => setSelectedPeriod(period)}
-              style={{ paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, backgroundColor: selectedPeriod === period ? '#c8f542' : '#262626', marginRight: 8 }}
+              style={{ paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, backgroundColor: selectedPeriod === period ? colors.primary : colors.card, marginRight: 8 }}
             >
-              <Text style={{ color: selectedPeriod === period ? '#0a0a0a' : '#a3a3a3', fontWeight: selectedPeriod === period ? '600' : '400', fontSize: 13, textTransform: 'capitalize' }}>
+              <Text style={{ color: selectedPeriod === period ? '#0a0a0a' : colors.textSecondary, fontWeight: selectedPeriod === period ? '600' : '400', fontSize: 13, textTransform: 'capitalize' }}>
                 {period}
               </Text>
             </Pressable>
@@ -128,36 +130,36 @@ export default function ExploreScreen() {
 
         {loading ? (
           <View style={{ paddingVertical: 48, alignItems: 'center' }}>
-            <ActivityIndicator size="large" color="#c8f542" />
+            <ActivityIndicator size="large" color={colors.primary} />
           </View>
         ) : (
           <>
             {/* Overview Cards */}
             <View style={{ flexDirection: 'row', paddingHorizontal: 20, marginTop: 24, gap: 12 }}>
-              <View style={{ flex: 1, backgroundColor: '#262626', borderRadius: 16, padding: 16 }}>
+              <View style={{ flex: 1, backgroundColor: colors.card, borderRadius: 16, padding: 16 }}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
-                  <View style={{ width: 32, height: 32, borderRadius: 8, backgroundColor: 'rgba(153, 27, 27, 0.3)', alignItems: 'center', justifyContent: 'center', marginRight: 8 }}>
-                    <IconSymbol name="arrow.down" size={14} color="#ef4444" />
+                  <View style={{ width: 32, height: 32, borderRadius: 8, backgroundColor: 'rgba(239, 68, 68, 0.15)', alignItems: 'center', justifyContent: 'center', marginRight: 8 }}>
+                    <IconSymbol name="arrow.down" size={14} color={colors.error} />
                   </View>
-                  <Text style={{ color: '#a3a3a3', fontSize: 11 }}>Spent</Text>
+                  <Text style={{ color: colors.textSecondary, fontSize: 11 }}>Spent</Text>
                 </View>
-                <Text style={{ color: '#ffffff', fontSize: 20, fontWeight: 'bold' }}>{formatCurrency(totalSpent)}</Text>
+                <Text style={{ color: colors.text, fontSize: 20, fontWeight: 'bold' }}>{formatCurrency(totalSpent)}</Text>
               </View>
               
-              <View style={{ flex: 1, backgroundColor: '#262626', borderRadius: 16, padding: 16 }}>
+              <View style={{ flex: 1, backgroundColor: colors.card, borderRadius: 16, padding: 16 }}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
-                  <View style={{ width: 32, height: 32, borderRadius: 8, backgroundColor: 'rgba(21, 128, 61, 0.3)', alignItems: 'center', justifyContent: 'center', marginRight: 8 }}>
-                    <IconSymbol name="arrow.up" size={14} color="#22c55e" />
+                  <View style={{ width: 32, height: 32, borderRadius: 8, backgroundColor: 'rgba(34, 197, 94, 0.15)', alignItems: 'center', justifyContent: 'center', marginRight: 8 }}>
+                    <IconSymbol name="arrow.up" size={14} color={colors.success} />
                   </View>
-                  <Text style={{ color: '#a3a3a3', fontSize: 11 }}>Saved</Text>
+                  <Text style={{ color: colors.textSecondary, fontSize: 11 }}>Saved</Text>
                 </View>
-                <Text style={{ color: '#ffffff', fontSize: 20, fontWeight: 'bold' }}>{formatCurrency(totalSaved)}</Text>
+                <Text style={{ color: colors.text, fontSize: 20, fontWeight: 'bold' }}>{formatCurrency(totalSaved)}</Text>
               </View>
             </View>
 
             {/* Simple Bar Chart Visualization */}
-            <View style={{ marginHorizontal: 20, marginTop: 24, backgroundColor: '#262626', borderRadius: 16, padding: 20 }}>
-              <Text style={{ color: '#ffffff', fontWeight: 'bold', marginBottom: 16, fontSize: 16 }}>Spending Overview</Text>
+            <View style={{ marginHorizontal: 20, marginTop: 24, backgroundColor: colors.card, borderRadius: 16, padding: 20 }}>
+              <Text style={{ color: colors.text, fontWeight: 'bold', marginBottom: 16, fontSize: 16 }}>Spending Overview</Text>
               <View style={{ flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', height: 128 }}>
                 {(() => {
                   // Generate chart data based on period
@@ -190,10 +192,10 @@ export default function ExploreScreen() {
                             borderTopLeftRadius: 8,
                             borderTopRightRadius: 8,
                             height: Math.max(height, 20),
-                            backgroundColor: isHighest ? '#c8f542' : '#404040' 
+                            backgroundColor: isHighest ? colors.primary : colors.cardSecondary
                           }}
                         />
-                        <Text style={{ color: '#737373', fontSize: 10, marginTop: 8 }}>{label}</Text>
+                        <Text style={{ color: colors.textTertiary, fontSize: 10, marginTop: 8 }}>{label}</Text>
                       </View>
                     );
                   });
@@ -203,22 +205,22 @@ export default function ExploreScreen() {
 
             {/* Category Breakdown */}
             <View style={{ paddingHorizontal: 20, marginTop: 24 }}>
-              <Text style={{ color: '#ffffff', fontWeight: 'bold', marginBottom: 16, fontSize: 16 }}>Category Breakdown</Text>
+              <Text style={{ color: colors.text, fontWeight: 'bold', marginBottom: 16, fontSize: 16 }}>Category Breakdown</Text>
               
               {report?.category_breakdown.slice(0, 5).map((category, index) => {
                 const maxTotal = Math.max(...(report?.category_breakdown.map(c => c.total) || [1]));
                 const percentage = (category.total / maxTotal) * 100;
-                const colors = ['#c8f542', '#22c55e', '#3b82f6', '#f59e0b', '#ef4444'];
+                const chartColors = [colors.primary, colors.success, '#3b82f6', '#f59e0b', colors.error];
                 
                 return (
                   <View key={category.category} style={{ marginBottom: 16 }}>
                     <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 }}>
-                      <Text style={{ color: '#ffffff', fontWeight: '500', fontSize: 14 }}>{category.category}</Text>
-                      <Text style={{ color: '#a3a3a3', fontSize: 13 }}>{formatCurrency(category.total)}</Text>
+                      <Text style={{ color: colors.text, fontWeight: '500', fontSize: 14 }}>{category.category}</Text>
+                      <Text style={{ color: colors.textSecondary, fontSize: 13 }}>{formatCurrency(category.total)}</Text>
                     </View>
-                    <View style={{ height: 8, backgroundColor: '#1a1a1a', borderRadius: 4, overflow: 'hidden' }}>
+                    <View style={{ height: 8, backgroundColor: colors.cardSecondary, borderRadius: 4, overflow: 'hidden' }}>
                       <View 
-                        style={{ height: '100%', borderRadius: 4, width: `${percentage}%`, backgroundColor: colors[index % colors.length] }}
+                        style={{ height: '100%', borderRadius: 4, width: `${percentage}%`, backgroundColor: chartColors[index % chartColors.length] }}
                       />
                     </View>
                   </View>
@@ -228,30 +230,30 @@ export default function ExploreScreen() {
 
             {/* Insights */}
             <View style={{ paddingHorizontal: 20, marginTop: 24 }}>
-              <Text style={{ color: '#ffffff', fontWeight: 'bold', marginBottom: 16, fontSize: 16 }}>Insights</Text>
+              <Text style={{ color: colors.text, fontWeight: 'bold', marginBottom: 16, fontSize: 16 }}>Insights</Text>
               
-              <View style={{ backgroundColor: '#262626', borderRadius: 16, padding: 16, marginBottom: 12 }}>
+              <View style={{ backgroundColor: colors.card, borderRadius: 16, padding: 16, marginBottom: 12 }}>
                 <View style={{ flexDirection: 'row', alignItems: 'flex-start' }}>
-                  <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: 'rgba(21, 128, 61, 0.3)', alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
-                    <IconSymbol name="arrow.up.right" size={18} color="#22c55e" />
+                  <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: 'rgba(34, 197, 94, 0.15)', alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
+                    <IconSymbol name="arrow.up.right" size={18} color={colors.success} />
                   </View>
                   <View style={{ flex: 1 }}>
-                    <Text style={{ color: '#ffffff', fontWeight: '600', fontSize: 15, marginBottom: 4 }}>Great Progress!</Text>
-                    <Text style={{ color: '#737373', fontSize: 13, lineHeight: 18 }}>
+                    <Text style={{ color: colors.text, fontWeight: '600', fontSize: 15, marginBottom: 4 }}>Great Progress!</Text>
+                    <Text style={{ color: colors.textTertiary, fontSize: 13, lineHeight: 18 }}>
                       You've saved {formatCurrency(totalSaved)} this month. Keep it up!
                     </Text>
                   </View>
                 </View>
               </View>
 
-              <View style={{ backgroundColor: '#262626', borderRadius: 16, padding: 16 }}>
+              <View style={{ backgroundColor: colors.card, borderRadius: 16, padding: 16 }}>
                 <View style={{ flexDirection: 'row', alignItems: 'flex-start' }}>
-                  <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: 'rgba(217, 119, 6, 0.3)', alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
+                  <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: 'rgba(245, 158, 11, 0.15)', alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
                     <IconSymbol name="lightbulb.fill" size={18} color="#f59e0b" />
                   </View>
                   <View style={{ flex: 1 }}>
-                    <Text style={{ color: '#ffffff', fontWeight: '600', fontSize: 15, marginBottom: 4 }}>Tip</Text>
-                    <Text style={{ color: '#737373', fontSize: 13, lineHeight: 18 }}>
+                    <Text style={{ color: colors.text, fontWeight: '600', fontSize: 15, marginBottom: 4 }}>Tip</Text>
+                    <Text style={{ color: colors.textTertiary, fontSize: 13, lineHeight: 18 }}>
                       Your top spending category is {report?.category_breakdown[0]?.category || 'Food & Drinks'}. Consider setting a budget limit.
                     </Text>
                   </View>
