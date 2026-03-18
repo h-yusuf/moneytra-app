@@ -1,9 +1,10 @@
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { createTransaction, extractTransaction, type ExtractedTransactionData } from '@/src/services/transactionService';
+import { Audio } from 'expo-av';
 import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
 import React, { useState } from 'react';
-import { ActivityIndicator, Alert, Image, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Alert, Image, Modal, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 type UploadedFile = {
@@ -25,6 +26,28 @@ export default function AddScreen() {
   const [extractedData, setExtractedData] = useState<ExtractedTransactionData | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [inlineAlert, setInlineAlert] = useState<InlineAlert>(null);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+
+  const playSuccessSound = async (type: 'expense' | 'money_saving') => {
+    try {
+      const { sound } = await Audio.Sound.createAsync(
+        type === 'money_saving' 
+          ? require('@/public/mp3/Cash Register Sound Effect.mp3')
+          : require('@/public/mp3/Vintage Cash Register Sound.mp3')
+      );
+      
+      await sound.playAsync();
+      
+      // Unload sound after playing
+      sound.setOnPlaybackStatusUpdate((status) => {
+        if (status.isLoaded && status.didJustFinish) {
+          sound.unloadAsync();
+        }
+      });
+    } catch (error) {
+      console.error('Error playing sound:', error);
+    }
+  };
 
   const handleTakePhoto = async () => {
     try {
@@ -223,17 +246,20 @@ export default function AddScreen() {
         source_name: uploadedFile?.name || 'manual-entry',
       });
 
-      setInlineAlert({
-        type: 'success',
-        message: 'Transaction saved successfully!'
-      });
+      // Play sound effect based on transaction type
+      await playSuccessSound(selectedType);
+
+      // Show SweetAlert style modal
+      setIsSaving(false);
+      setShowSuccessModal(true);
       
+      // Auto close modal and reset form
       setTimeout(() => {
+        setShowSuccessModal(false);
         setUploadedFile(null);
         setExtractedData(null);
-        setIsSaving(false);
         setInlineAlert(null);
-      }, 2000);
+      }, 2500);
     } catch (error: any) {
       setIsSaving(false);
       console.error('Save error:', error);
@@ -631,6 +657,45 @@ export default function AddScreen() {
           </View>
         )}
       </ScrollView>
+
+      {/* SweetAlert Style Success Modal */}
+      <Modal
+        visible={showSuccessModal}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowSuccessModal(false)}
+      >
+        <View style={{ flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.75)', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+          <View style={{ backgroundColor: '#1a1a1a', borderRadius: 24, padding: 32, alignItems: 'center', width: '100%', maxWidth: 320, borderWidth: 1, borderColor: '#262626' }}>
+            {/* Success Icon with Animation */}
+            <View style={{ width: 80, height: 80, borderRadius: 40, backgroundColor: 'rgba(34, 197, 94, 0.15)', alignItems: 'center', justifyContent: 'center', marginBottom: 20 }}>
+              <View style={{ width: 64, height: 64, borderRadius: 32, backgroundColor: 'rgba(34, 197, 94, 0.25)', alignItems: 'center', justifyContent: 'center' }}>
+                <IconSymbol name="checkmark.circle.fill" size={48} color="#22c55e" />
+              </View>
+            </View>
+
+            {/* Success Message */}
+            <Text style={{ color: '#ffffff', fontSize: 22, fontWeight: 'bold', marginBottom: 8, textAlign: 'center' }}>
+              {selectedType === 'money_saving' ? 'Money Saved!' : 'Expense Recorded!'}
+            </Text>
+            <Text style={{ color: '#737373', fontSize: 14, textAlign: 'center', lineHeight: 20 }}>
+              {selectedType === 'money_saving' 
+                ? 'Your savings have been successfully recorded. Keep up the good work!' 
+                : 'Your expense has been successfully recorded and added to your history.'}
+            </Text>
+
+            {/* Amount Badge */}
+            {extractedData && (
+              <View style={{ marginTop: 20, backgroundColor: '#262626', borderRadius: 12, paddingVertical: 12, paddingHorizontal: 20 }}>
+                <Text style={{ color: '#a3a3a3', fontSize: 11, marginBottom: 4, textAlign: 'center' }}>AMOUNT</Text>
+                <Text style={{ color: '#c8f542', fontSize: 24, fontWeight: 'bold', textAlign: 'center' }}>
+                  Rp {extractedData.total.toLocaleString('id-ID')}
+                </Text>
+              </View>
+            )}
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
