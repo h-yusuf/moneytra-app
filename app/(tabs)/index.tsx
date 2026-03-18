@@ -6,12 +6,12 @@ import { fetchMonthlyReport, fetchTransactions } from '@/src/services/transactio
 import type { MonthlyReportResponse, Transaction } from '@/src/types';
 import { useFocusEffect, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
+import { ActivityIndicator, Image, Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function DashboardScreen() {
   const router = useRouter();
-  const { colors } = useTheme();
+  const { colors, theme } = useTheme();
   const [report, setReport] = useState<MonthlyReportResponse | null>(null);
   const [recentTransactions, setRecentTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
