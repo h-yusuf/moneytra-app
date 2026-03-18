@@ -25,6 +25,69 @@ In the output, you'll find options to open the app in a
 
 You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
 
+## Build App (EAS)
+
+Untuk build aplikasi menjadi APK (Android) atau IPA (iOS), gunakan EAS (Expo Application Services):
+
+### Opsi A: Menggunakan npx (tanpa install global)
+
+```bash
+# Init project dengan ID (jika sudah ada project ID)
+npx eas-cli@latest init --id 0f7b789b-9b59-44cd-95c0-748d0885ef39
+
+# Build untuk semua platform
+npx eas-cli@latest build --platform all
+
+# Build dan auto-submit ke app store
+npx eas-cli@latest build --platform all --auto-submit
+```
+
+### Opsi B: Install EAS CLI Global
+
+#### 1. Install EAS CLI
+
+```bash
+npm install -g eas-cli
+```
+
+#### 2. Login ke Expo Account
+
+```bash
+eas login
+```
+
+#### 3. Configure Project
+
+```bash
+eas build:configure
+```
+
+#### 4. Build Android APK/AAB
+
+```bash
+# Build APK (untuk testing)
+eas build -p android --profile preview
+
+# Build AAB (untuk Play Store production)
+eas build -p android --profile production
+```
+
+#### 5. Build iOS IPA
+
+> ⚠️ **Note**: Build iOS hanya bisa dilakukan di Mac dan memerlukan Apple Developer Account ($99/tahun)
+
+```bash
+eas build -p ios --profile production
+```
+
+### 6. Download Build
+
+Setelah build selesai, file APK/IPA bisa di-download dari:
+- Expo Dashboard: https://expo.dev/accounts/[username]/projects/[project-name]/builds
+- Atau dari link yang muncul di terminal setelah build selesai
+
+---
+
 ## Get a fresh project
 
 When you're ready, run:

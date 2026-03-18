@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "Monetra",
-    "slug": "monetra-app",
+    "slug": "moneytra-app",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./public/image/light-logo-app.png",
@@ -13,8 +13,10 @@
       "infoPlist": {
         "NSCameraUsageDescription": "This app needs access to your camera to take photos of receipts for transaction tracking.",
         "NSPhotoLibraryUsageDescription": "This app needs access to your photo library to upload receipt images.",
-        "NSPhotoLibraryAddUsageDescription": "This app needs permission to save photos to your library."
-      }
+        "NSPhotoLibraryAddUsageDescription": "This app needs permission to save photos to your library.",
+        "ITSAppUsesNonExemptEncryption": false
+      },
+      "bundleIdentifier": "com.hyusufsorganization.moneytraapp"
     },
     "android": {
       "adaptiveIcon": {
@@ -28,7 +30,8 @@
         "CAMERA",
         "READ_EXTERNAL_STORAGE",
         "WRITE_EXTERNAL_STORAGE"
-      ]
+      ],
+      "package": "com.hyusufsorganization.moneytraapp"
     },
     "web": {
       "output": "static",
@@ -53,6 +56,13 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
-    }
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "0f7b789b-9b59-44cd-95c0-748d0885ef39"
+      }
+    },
+    "owner": "h-yusufs-organization"
   }
 }
