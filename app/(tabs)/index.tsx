@@ -1,4 +1,5 @@
 import { IconSymbol } from '@/components/ui/icon-symbol';
+import { useTheme } from '@/src/contexts/ThemeContext';
 import { dummySummary, dummyTransactions } from '@/src/lib/dummy-data';
 import { formatCurrency } from '@/src/lib/utils';
 import { fetchMonthlyReport, fetchTransactions } from '@/src/services/transactionService';
@@ -10,6 +11,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function DashboardScreen() {
   const router = useRouter();
+  const { colors } = useTheme();
   const [report, setReport] = useState<MonthlyReportResponse | null>(null);
   const [recentTransactions, setRecentTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
@@ -94,7 +96,7 @@ export default function DashboardScreen() {
     : 0;
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: '#0a0a0a' }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
       <ScrollView 
         style={{ flex: 1 }} 
         contentContainerStyle={{ paddingBottom: 100 }}
@@ -103,24 +105,24 @@ export default function DashboardScreen() {
         {/* Header */}
         <View style={{ paddingHorizontal: 20, paddingTop: 16, paddingBottom: 8, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
           <View>
-            <Text style={{ color: '#ffffff', fontSize: 26, fontWeight: 'bold' }}>Hello, User!</Text>
+            <Text style={{ color: colors.text, fontSize: 24, fontWeight: 'bold' }}>Good Morning 👋</Text>
+            <Text style={{ color: colors.textTertiary, fontSize: 14, marginTop: 4 }}>{formattedDate}</Text>
           </View>
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-            <Pressable style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: '#262626', alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
-              <IconSymbol name="bell.fill" size={20} color="#a3a3a3" />
+            <Pressable style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: colors.backgroundSecondary, alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
+              <IconSymbol name="bell.fill" size={20} color={colors.icon} />
             </Pressable>
-            <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: '#c8f542', alignItems: 'center', justifyContent: 'center' }}>
-              <Text style={{ color: '#0a0a0a', fontWeight: 'bold', fontSize: 16 }}>U</Text>
+            <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center' }}>
+              <Text style={{ color: colors.text, fontWeight: 'bold', fontSize: 16 }}>U</Text>
             </View>
           </View>
         </View>
 
         {/* Balance Card */}
-        <View style={{ marginHorizontal: 20, marginTop: 16, borderRadius: 24, backgroundColor: '#c8f542', overflow: 'hidden' }}>
-          <View style={{ padding: 20, position: 'relative' }}>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-              <Text style={{ color: '#404040', fontWeight: '600', fontSize: 14 }}>Your Balance</Text>
-              <Text style={{ color: '#525252', fontSize: 12 }}>{formattedDate}</Text>
+        <View style={{ marginHorizontal: 20, marginTop: 16, backgroundColor: colors.primary, borderRadius: 20, padding: 20 }}>
+          <View style={{ position: 'relative' }}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
+              <Text style={{ color: '#0a0a0a', fontSize: 13, fontWeight: '500', opacity: 0.7 }}>Total Balance</Text>
             </View>
             
             {loading ? (
@@ -157,56 +159,56 @@ export default function DashboardScreen() {
         </View>
 
         {/* Quick Actions */}
-        <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 24, marginTop: 24, paddingHorizontal: 20 }}>
+        {/* <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 24, marginTop: 24, paddingHorizontal: 20 }}>
           <Pressable 
             style={{ alignItems: 'center' }}
             onPress={() => router.push('/(tabs)/add')}
           >
-            <View style={{ width: 56, height: 56, borderRadius: 16, backgroundColor: '#262626', alignItems: 'center', justifyContent: 'center', marginBottom: 8 }}>
-              <IconSymbol name="arrow.down.circle.fill" size={24} color="#c8f542" />
+            <View style={{ width: 56, height: 56, borderRadius: 16, backgroundColor: colors.card, alignItems: 'center', justifyContent: 'center', marginBottom: 8 }}>
+              <IconSymbol name="arrow.down.circle.fill" size={24} color={colors.primary} />
             </View>
-            <Text style={{ color: '#a3a3a3', fontSize: 11 }}>Expense</Text>
+            <Text style={{ color: colors.textSecondary, fontSize: 11 }}>Expense</Text>
           </Pressable>
           
           <Pressable 
             style={{ alignItems: 'center' }}
             onPress={() => router.push('/(tabs)/add')}
           >
-            <View style={{ width: 56, height: 56, borderRadius: 16, backgroundColor: '#262626', alignItems: 'center', justifyContent: 'center', marginBottom: 8 }}>
-              <IconSymbol name="arrow.up.circle.fill" size={24} color="#c8f542" />
+            <View style={{ width: 56, height: 56, borderRadius: 16, backgroundColor: colors.card, alignItems: 'center', justifyContent: 'center', marginBottom: 8 }}>
+              <IconSymbol name="arrow.up.circle.fill" size={24} color={colors.primary} />
             </View>
-            <Text style={{ color: '#a3a3a3', fontSize: 11 }}>Saving</Text>
+            <Text style={{ color: colors.textSecondary, fontSize: 11 }}>Saving</Text>
           </Pressable>
           
           <Pressable style={{ alignItems: 'center' }}>
-            <View style={{ width: 56, height: 56, borderRadius: 16, backgroundColor: '#c8f542', alignItems: 'center', justifyContent: 'center', marginBottom: 8 }}>
+            <View style={{ width: 56, height: 56, borderRadius: 16, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center', marginBottom: 8 }}>
               <IconSymbol name="camera.fill" size={24} color="#0a0a0a" />
             </View>
-            <Text style={{ color: '#ffffff', fontSize: 11, fontWeight: '600' }}>Scan</Text>
+            <Text style={{ color: colors.text, fontSize: 11, fontWeight: '600' }}>Scan</Text>
           </Pressable>
-        </View>
+        </View> */}
 
         {/* Summary Cards */}
         <View style={{ flexDirection: 'row', paddingHorizontal: 20, marginTop: 24, gap: 12 }}>
-          <View style={{ flex: 1, borderRadius: 16, padding: 16, backgroundColor: '#262626' }}>
-            <Text style={{ color: '#a3a3a3', fontSize: 11, marginBottom: 8 }}>Total Expense</Text>
-            <Text style={{ color: '#ffffff', fontSize: 20, fontWeight: 'bold', marginBottom: 6 }}>
+          <View style={{ flex: 1, borderRadius: 16, padding: 16, backgroundColor: colors.card }}>
+            <Text style={{ color: colors.textSecondary, fontSize: 11, marginBottom: 8 }}>Total Expense</Text>
+            <Text style={{ color: colors.text, fontSize: 20, fontWeight: 'bold', marginBottom: 6 }}>
               {loading ? '...' : formatCurrency(report?.summary.total_expense || 0)}
             </Text>
             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-              <IconSymbol name="arrow.down" size={10} color="#ef4444" />
-              <Text style={{ color: '#ef4444', fontSize: 11, marginLeft: 4 }}>Pengeluaran</Text>
+              <IconSymbol name="arrow.down" size={10} color={colors.error} />
+              <Text style={{ color: colors.error, fontSize: 11, marginLeft: 4 }}>Pengeluaran</Text>
             </View>
           </View>
           
-          <View style={{ flex: 1, borderRadius: 16, padding: 16, backgroundColor: '#262626' }}>
-            <Text style={{ color: '#a3a3a3', fontSize: 11, marginBottom: 8 }}>Total Saving</Text>
-            <Text style={{ color: '#ffffff', fontSize: 20, fontWeight: 'bold', marginBottom: 6 }}>
+          <View style={{ flex: 1, borderRadius: 16, padding: 16, backgroundColor: colors.card }}>
+            <Text style={{ color: colors.textSecondary, fontSize: 11, marginBottom: 8 }}>Total Saving</Text>
+            <Text style={{ color: colors.text, fontSize: 20, fontWeight: 'bold', marginBottom: 6 }}>
               {loading ? '...' : formatCurrency(report?.summary.total_money_saving || 0)}
             </Text>
             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-              <IconSymbol name="arrow.up" size={10} color="#22c55e" />
-              <Text style={{ color: '#22c55e', fontSize: 11, marginLeft: 4 }}>Tabungan</Text>
+              <IconSymbol name="arrow.up" size={10} color={colors.success} />
+              <Text style={{ color: colors.success, fontSize: 11, marginLeft: 4 }}>Tabungan</Text>
             </View>
           </View>
         </View>
@@ -214,28 +216,28 @@ export default function DashboardScreen() {
         {/* Recent Transactions */}
         <View style={{ paddingHorizontal: 20, marginTop: 24 }}>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-            <Text style={{ color: '#ffffff', fontSize: 18, fontWeight: 'bold' }}>Recent Transactions</Text>
+            <Text style={{ color: colors.text, fontSize: 18, fontWeight: 'bold' }}>Recent Transactions</Text>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
               <Pressable 
                 onPress={handleRefresh}
                 disabled={refreshing}
-                style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: '#262626', alignItems: 'center', justifyContent: 'center' }}
+                style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: colors.card, alignItems: 'center', justifyContent: 'center' }}
               >
                 {refreshing ? (
-                  <ActivityIndicator size="small" color="#c8f542" />
+                  <ActivityIndicator size="small" color={colors.primary} />
                 ) : (
-                  <IconSymbol name="arrow.clockwise" size={16} color="#c8f542" />
+                  <IconSymbol name="arrow.clockwise" size={16} color={colors.primary} />
                 )}
               </Pressable>
               <Pressable onPress={() => router.push('/(tabs)/history')}>
-                <Text style={{ color: '#c8f542', fontSize: 13, fontWeight: '500' }}>See all</Text>
+                <Text style={{ color: colors.primary, fontSize: 13, fontWeight: '500' }}>See all</Text>
               </Pressable>
             </View>
           </View>
 
           {loading ? (
             <View style={{ paddingVertical: 32, alignItems: 'center' }}>
-              <ActivityIndicator size="small" color="#c8f542" />
+              <ActivityIndicator size="small" color={colors.primary} />
             </View>
           ) : recentTransactions.length > 0 ? (
             recentTransactions.map((transaction, index) => (
@@ -246,7 +248,7 @@ export default function DashboardScreen() {
                   alignItems: 'center', 
                   paddingVertical: 12,
                   borderBottomWidth: index < recentTransactions.length - 1 ? 1 : 0, 
-                  borderBottomColor: '#262626' 
+                  borderBottomColor: colors.border
                 }}
               >
                 <View 
@@ -254,7 +256,7 @@ export default function DashboardScreen() {
                     width: 48, 
                     height: 48, 
                     borderRadius: 16, 
-                    backgroundColor: transaction.type === 'expense' ? '#1f1f1f' : '#1a2e1a',
+                    backgroundColor: transaction.type === 'expense' ? 'rgba(239, 68, 68, 0.1)' : 'rgba(34, 197, 94, 0.1)',
                     alignItems: 'center',
                     justifyContent: 'center',
                     marginRight: 12
@@ -263,24 +265,24 @@ export default function DashboardScreen() {
                   <IconSymbol 
                     name={transaction.type === 'expense' ? 'cart.fill' : 'heart.fill'} 
                     size={20} 
-                    color={transaction.type === 'expense' ? '#ef4444' : '#22c55e'} 
+                    color={transaction.type === 'expense' ? colors.error : colors.success} 
                   />
                 </View>
                 <View style={{ flex: 1 }}>
-                  <Text style={{ color: '#ffffff', fontWeight: '600', fontSize: 15, marginBottom: 2 }}>{transaction.merchant}</Text>
-                  <Text style={{ color: '#737373', fontSize: 12 }}>{transaction.category}</Text>
+                  <Text style={{ color: colors.text, fontWeight: '600', fontSize: 15, marginBottom: 2 }}>{transaction.merchant}</Text>
+                  <Text style={{ color: colors.textTertiary, fontSize: 12 }}>{transaction.category}</Text>
                 </View>
                 <View style={{ alignItems: 'flex-end' }}>
-                  <Text style={{ color: transaction.type === 'expense' ? '#ef4444' : '#22c55e', fontWeight: 'bold', fontSize: 15, marginBottom: 2 }}>
+                  <Text style={{ color: transaction.type === 'expense' ? colors.error : colors.success, fontWeight: 'bold', fontSize: 15, marginBottom: 2 }}>
                     {transaction.type === 'expense' ? '-' : '+'}{formatCurrency(transaction.total)}
                   </Text>
-                  <Text style={{ color: '#737373', fontSize: 11 }}>{transaction.transaction_date}</Text>
+                  <Text style={{ color: colors.textTertiary, fontSize: 11 }}>{transaction.transaction_date}</Text>
                 </View>
               </Pressable>
             ))
           ) : (
             <View style={{ paddingVertical: 32, alignItems: 'center' }}>
-              <Text style={{ color: '#737373' }}>Belum ada transaksi</Text>
+              <Text style={{ color: colors.textTertiary }}>Belum ada transaksi</Text>
             </View>
           )}
         </View>

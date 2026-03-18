@@ -1,4 +1,5 @@
 import { IconSymbol } from '@/components/ui/icon-symbol';
+import { useTheme } from '@/src/contexts/ThemeContext';
 import { dummyTransactions } from '@/src/lib/dummy-data';
 import { formatCurrency } from '@/src/lib/utils';
 import { fetchTransactions } from '@/src/services/transactionService';
@@ -9,6 +10,7 @@ import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, View } from 
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function HistoryScreen() {
+  const { colors } = useTheme();
   const [searchQuery, setSearchQuery] = useState('');
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
@@ -64,34 +66,34 @@ export default function HistoryScreen() {
   });
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: '#0a0a0a' }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
       {/* Header */}
       <View style={{ paddingHorizontal: 20, paddingTop: 16, paddingBottom: 8, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
         <View style={{ flex: 1 }}>
-          <Text style={{ color: '#ffffff', fontSize: 24, fontWeight: 'bold' }}>Transaction History</Text>
-          <Text style={{ color: '#737373', fontSize: 14, marginTop: 4 }}>All your expenses and savings</Text>
+          <Text style={{ color: colors.text, fontSize: 24, fontWeight: 'bold' }}>Transaction History</Text>
+          <Text style={{ color: colors.textTertiary, fontSize: 14, marginTop: 4 }}>All your expenses and savings</Text>
         </View>
         <Pressable 
           onPress={handleRefresh}
           disabled={refreshing}
-          style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: '#262626', alignItems: 'center', justifyContent: 'center' }}
+          style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: colors.card, alignItems: 'center', justifyContent: 'center' }}
         >
           {refreshing ? (
-            <ActivityIndicator size="small" color="#c8f542" />
+            <ActivityIndicator size="small" color={colors.primary} />
           ) : (
-            <IconSymbol name="arrow.clockwise" size={20} color="#c8f542" />
+            <IconSymbol name="arrow.clockwise" size={20} color={colors.primary} />
           )}
         </Pressable>
       </View>
 
       {/* Search Bar */}
       <View style={{ paddingHorizontal: 20, marginTop: 16 }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#262626', borderRadius: 16, paddingHorizontal: 16, paddingVertical: 12 }}>
-          <IconSymbol name="magnifyingglass" size={20} color="#737373" />
+        <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: colors.card, borderRadius: 16, paddingHorizontal: 16, paddingVertical: 12 }}>
+          <IconSymbol name="magnifyingglass" size={20} color={colors.textTertiary} />
           <TextInput
-            style={{ flex: 1, marginLeft: 12, fontSize: 15, color: '#ffffff' }}
+            style={{ flex: 1, marginLeft: 12, fontSize: 15, color: colors.text }}
             placeholder="Search transactions..."
-            placeholderTextColor="#737373"
+            placeholderTextColor={colors.textTertiary}
             value={searchQuery}
             onChangeText={setSearchQuery}
           />
@@ -102,25 +104,25 @@ export default function HistoryScreen() {
       <View style={{ flexDirection: 'row', paddingHorizontal: 20, marginTop: 16 }}>
         <Pressable 
           onPress={() => setActiveFilter('all')}
-          style={{ paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, backgroundColor: activeFilter === 'all' ? '#c8f542' : '#262626', marginRight: 8 }}
+          style={{ paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, backgroundColor: activeFilter === 'all' ? colors.primary : colors.card, marginRight: 8 }}
         >
-          <Text style={{ color: activeFilter === 'all' ? '#0a0a0a' : '#a3a3a3', fontWeight: activeFilter === 'all' ? '600' : '400', fontSize: 13 }}>
+          <Text style={{ color: activeFilter === 'all' ? '#0a0a0a' : colors.textSecondary, fontWeight: activeFilter === 'all' ? '600' : '400', fontSize: 13 }}>
             All
           </Text>
         </Pressable>
         <Pressable 
           onPress={() => setActiveFilter('expense')}
-          style={{ paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, backgroundColor: activeFilter === 'expense' ? '#c8f542' : '#262626', marginRight: 8 }}
+          style={{ paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, backgroundColor: activeFilter === 'expense' ? colors.primary : colors.card, marginRight: 8 }}
         >
-          <Text style={{ color: activeFilter === 'expense' ? '#0a0a0a' : '#a3a3a3', fontWeight: activeFilter === 'expense' ? '600' : '400', fontSize: 13 }}>
+          <Text style={{ color: activeFilter === 'expense' ? '#0a0a0a' : colors.textSecondary, fontWeight: activeFilter === 'expense' ? '600' : '400', fontSize: 13 }}>
             Expense
           </Text>
         </Pressable>
         <Pressable 
           onPress={() => setActiveFilter('money_saving')}
-          style={{ paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, backgroundColor: activeFilter === 'money_saving' ? '#c8f542' : '#262626' }}
+          style={{ paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, backgroundColor: activeFilter === 'money_saving' ? colors.primary : colors.card }}
         >
-          <Text style={{ color: activeFilter === 'money_saving' ? '#0a0a0a' : '#a3a3a3', fontWeight: activeFilter === 'money_saving' ? '600' : '400', fontSize: 13 }}>
+          <Text style={{ color: activeFilter === 'money_saving' ? '#0a0a0a' : colors.textSecondary, fontWeight: activeFilter === 'money_saving' ? '600' : '400', fontSize: 13 }}>
             Savings
           </Text>
         </Pressable>
@@ -134,43 +136,43 @@ export default function HistoryScreen() {
       >
         {loading ? (
           <View style={{ paddingVertical: 48, alignItems: 'center' }}>
-            <ActivityIndicator size="large" color="#c8f542" />
-            <Text style={{ color: '#737373', marginTop: 16 }}>Loading transactions...</Text>
+            <ActivityIndicator size="large" color={colors.primary} />
+            <Text style={{ color: colors.textTertiary, marginTop: 16 }}>Loading transactions...</Text>
           </View>
         ) : filteredTransactions.length > 0 ? (
           filteredTransactions.map((transaction) => (
             <Pressable 
               key={transaction.id} 
-              style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#262626' }}
+              style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: colors.border }}
             >
               <View 
-                style={{ width: 48, height: 48, borderRadius: 16, backgroundColor: transaction.type === 'expense' ? '#1f1f1f' : '#1a2e1a', alignItems: 'center', justifyContent: 'center', marginRight: 12 }}
+                style={{ width: 48, height: 48, borderRadius: 16, backgroundColor: transaction.type === 'expense' ? 'rgba(239, 68, 68, 0.1)' : 'rgba(34, 197, 94, 0.1)', alignItems: 'center', justifyContent: 'center', marginRight: 12 }}
               >
                 <IconSymbol 
                   name={transaction.type === 'expense' ? 'cart.fill' : 'heart.fill'} 
                   size={20} 
-                  color={transaction.type === 'expense' ? '#ef4444' : '#22c55e'} 
+                  color={transaction.type === 'expense' ? colors.error : colors.success} 
                 />
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={{ color: '#ffffff', fontWeight: '600', fontSize: 15, marginBottom: 2 }}>{transaction.merchant}</Text>
-                <Text style={{ color: '#737373', fontSize: 12 }}>{transaction.category}</Text>
+                <Text style={{ color: colors.text, fontWeight: '600', fontSize: 15, marginBottom: 2 }}>{transaction.merchant}</Text>
+                <Text style={{ color: colors.textTertiary, fontSize: 12 }}>{transaction.category}</Text>
               </View>
               <View style={{ alignItems: 'flex-end' }}>
-                <Text style={{ color: transaction.type === 'expense' ? '#ef4444' : '#22c55e', fontWeight: 'bold', fontSize: 15, marginBottom: 2 }}>
+                <Text style={{ color: transaction.type === 'expense' ? colors.error : colors.success, fontWeight: 'bold', fontSize: 15, marginBottom: 2 }}>
                   {transaction.type === 'expense' ? '-' : '+'}{formatCurrency(transaction.total)}
                 </Text>
-                <Text style={{ color: '#737373', fontSize: 11 }}>{transaction.transaction_date}</Text>
+                <Text style={{ color: colors.textTertiary, fontSize: 11 }}>{transaction.transaction_date}</Text>
               </View>
             </Pressable>
           ))
         ) : (
           <View style={{ paddingVertical: 48, alignItems: 'center' }}>
-            <View style={{ width: 64, height: 64, borderRadius: 32, backgroundColor: '#262626', alignItems: 'center', justifyContent: 'center', marginBottom: 16 }}>
-              <IconSymbol name="magnifyingglass" size={28} color="#737373" />
+            <View style={{ width: 64, height: 64, borderRadius: 32, backgroundColor: colors.card, alignItems: 'center', justifyContent: 'center', marginBottom: 16 }}>
+              <IconSymbol name="magnifyingglass" size={28} color={colors.textTertiary} />
             </View>
-            <Text style={{ color: '#ffffff', fontWeight: '600', fontSize: 18 }}>No transactions found</Text>
-            <Text style={{ color: '#737373', textAlign: 'center', marginTop: 8 }}>
+            <Text style={{ color: colors.text, fontWeight: '600', fontSize: 18 }}>No transactions found</Text>
+            <Text style={{ color: colors.textTertiary, textAlign: 'center', marginTop: 8 }}>
               {searchQuery ? "Try a different search term" : "Start adding your first transaction!"}
             </Text>
           </View>

@@ -1,4 +1,5 @@
 import { IconSymbol } from '@/components/ui/icon-symbol';
+import { useTheme } from '@/src/contexts/ThemeContext';
 import { createTransaction, extractTransaction, type ExtractedTransactionData } from '@/src/services/transactionService';
 import { Audio } from 'expo-av';
 import * as DocumentPicker from 'expo-document-picker';
@@ -20,6 +21,7 @@ type InlineAlert = {
 } | null;
 
 export default function AddScreen() {
+  const { colors } = useTheme();
   const [selectedType, setSelectedType] = useState<'expense' | 'money_saving'>('expense');
   const [uploadedFile, setUploadedFile] = useState<UploadedFile | null>(null);
   const [isExtracting, setIsExtracting] = useState(false);
@@ -284,7 +286,7 @@ export default function AddScreen() {
   };
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: '#0a0a0a' }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
       <ScrollView 
         style={{ flex: 1 }} 
         contentContainerStyle={{ paddingBottom: 100 }}
@@ -292,8 +294,8 @@ export default function AddScreen() {
       >
         {/* Header */}
         <View style={{ paddingHorizontal: 20, paddingTop: 16, paddingBottom: 8 }}>
-          <Text style={{ color: '#ffffff', fontSize: 24, fontWeight: 'bold' }}>Add Transaction</Text>
-          <Text style={{ color: '#737373', fontSize: 14, marginTop: 4 }}>Upload receipt or enter manually</Text>
+          <Text style={{ color: colors.text, fontSize: 24, fontWeight: 'bold' }}>Add Transaction</Text>
+          <Text style={{ color: colors.textTertiary, fontSize: 14, marginTop: 4 }}>Upload receipt or enter manually</Text>
         </View>
 
         {/* Inline Alert */}
@@ -305,37 +307,37 @@ export default function AddScreen() {
               flexDirection: 'row', 
               alignItems: 'center',
               backgroundColor: 
-                inlineAlert.type === 'success' ? 'rgba(34, 197, 94, 0.15)' :
-                inlineAlert.type === 'error' ? 'rgba(239, 68, 68, 0.15)' :
-                'rgba(200, 245, 66, 0.15)',
+                inlineAlert.type === 'success' ? 'rgba(34, 197, 94, 0.1)' : 
+                inlineAlert.type === 'error' ? 'rgba(239, 68, 68, 0.1)' : 
+                'rgba(59, 130, 246, 0.1)',
               borderWidth: 1,
               borderColor: 
-                inlineAlert.type === 'success' ? '#22c55e' :
-                inlineAlert.type === 'error' ? '#ef4444' :
-                '#c8f542'
+                inlineAlert.type === 'success' ? 'rgba(34, 197, 94, 0.3)' : 
+                inlineAlert.type === 'error' ? 'rgba(239, 68, 68, 0.3)' : 
+                'rgba(59, 130, 246, 0.3)',
             }}>
               <IconSymbol 
                 name={
-                  inlineAlert.type === 'success' ? 'checkmark.circle.fill' :
-                  inlineAlert.type === 'error' ? 'xmark.circle.fill' :
+                  inlineAlert.type === 'success' ? 'checkmark.circle.fill' : 
+                  inlineAlert.type === 'error' ? 'xmark.circle.fill' : 
                   'info.circle.fill'
                 }
                 size={20} 
                 color={
-                  inlineAlert.type === 'success' ? '#22c55e' :
-                  inlineAlert.type === 'error' ? '#ef4444' :
-                  '#c8f542'
+                  inlineAlert.type === 'success' ? colors.success : 
+                  inlineAlert.type === 'error' ? colors.error : 
+                  '#3b82f6'
                 }
               />
               <Text style={{ 
-                flex: 1, 
-                marginLeft: 12, 
-                fontSize: 13, 
                 color: 
-                  inlineAlert.type === 'success' ? '#22c55e' :
-                  inlineAlert.type === 'error' ? '#ef4444' :
-                  '#c8f542',
-                fontWeight: '500'
+                  inlineAlert.type === 'success' ? colors.success : 
+                  inlineAlert.type === 'error' ? colors.error : 
+                  '#3b82f6',
+                fontSize: 13,
+                marginLeft: 10,
+                flex: 1,
+                lineHeight: 18
               }}>
                 {inlineAlert.message}
               </Text>
@@ -348,21 +350,21 @@ export default function AddScreen() {
 
         {/* Transaction Type Selector */}
         <View style={{ paddingHorizontal: 20, marginTop: 16 }}>
-          <Text style={{ color: '#a3a3a3', fontSize: 11, fontWeight: '600', marginBottom: 12, letterSpacing: 0.5 }}>TRANSACTION TYPE</Text>
+          <Text style={{ color: colors.textSecondary, fontSize: 11, fontWeight: '600', marginBottom: 12, letterSpacing: 0.5 }}>TRANSACTION TYPE</Text>
           <View style={{ flexDirection: 'row' }}>
             <Pressable
               onPress={() => setSelectedType('expense')}
-              style={{ flex: 1, borderRadius: 16, padding: 16, backgroundColor: selectedType === 'expense' ? '#c8f542' : '#262626', marginRight: 12 }}
+              style={{ flex: 1, borderRadius: 16, padding: 16, backgroundColor: selectedType === 'expense' ? colors.primary : colors.card, marginRight: 12 }}
             >
               <View style={{ alignItems: 'center' }}>
-                <View style={{ width: 48, height: 48, borderRadius: 12, backgroundColor: selectedType === 'expense' ? 'rgba(10, 10, 10, 0.15)' : '#1a1a1a', alignItems: 'center', justifyContent: 'center', marginBottom: 8 }}>
+                <View style={{ width: 48, height: 48, borderRadius: 12, backgroundColor: selectedType === 'expense' ? 'rgba(10, 10, 10, 0.15)' : colors.cardSecondary, alignItems: 'center', justifyContent: 'center', marginBottom: 8 }}>
                   <IconSymbol 
                     name="arrow.down.circle.fill" 
                     size={24} 
-                    color={selectedType === 'expense' ? '#0a0a0a' : '#c8f542'} 
+                    color={selectedType === 'expense' ? colors.error : colors.textTertiary} 
                   />
                 </View>
-                <Text style={{ fontSize: 13, fontWeight: '600', color: selectedType === 'expense' ? '#0a0a0a' : '#ffffff' }}>
+                <Text style={{ color: selectedType === 'expense' ? '#0a0a0a' : colors.textSecondary, fontWeight: selectedType === 'expense' ? '600' : '400', fontSize: 14 }}>
                   Expense
                 </Text>
               </View>
@@ -370,18 +372,18 @@ export default function AddScreen() {
 
             <Pressable
               onPress={() => setSelectedType('money_saving')}
-              style={{ flex: 1, borderRadius: 16, padding: 16, backgroundColor: selectedType === 'money_saving' ? '#c8f542' : '#262626' }}
+              style={{ flex: 1, borderRadius: 16, padding: 16, backgroundColor: selectedType === 'money_saving' ? colors.primary : colors.card }}
             >
               <View style={{ alignItems: 'center' }}>
-                <View style={{ width: 48, height: 48, borderRadius: 12, backgroundColor: selectedType === 'money_saving' ? 'rgba(10, 10, 10, 0.15)' : '#1a1a1a', alignItems: 'center', justifyContent: 'center', marginBottom: 8 }}>
+                <View style={{ width: 48, height: 48, borderRadius: 12, backgroundColor: selectedType === 'money_saving' ? 'rgba(10, 10, 10, 0.15)' : colors.cardSecondary, alignItems: 'center', justifyContent: 'center', marginBottom: 8 }}>
                   <IconSymbol 
                     name="heart.circle.fill" 
                     size={24} 
-                    color={selectedType === 'money_saving' ? '#0a0a0a' : '#c8f542'} 
+                    color={selectedType === 'money_saving' ? colors.success : colors.textTertiary} 
                   />
                 </View>
-                <Text style={{ fontSize: 13, fontWeight: '600', color: selectedType === 'money_saving' ? '#0a0a0a' : '#ffffff' }}>
-                  Savings
+                <Text style={{ color: selectedType === 'money_saving' ? '#0a0a0a' : colors.textSecondary, fontWeight: selectedType === 'money_saving' ? '600' : '400', fontSize: 14 }}>
+                  Money Saving
                 </Text>
               </View>
             </Pressable>
@@ -390,12 +392,12 @@ export default function AddScreen() {
 
         {/* Input Methods */}
         <View style={{ paddingHorizontal: 20, marginTop: 24 }}>
-          <Text style={{ color: '#a3a3a3', fontSize: 11, fontWeight: '600', marginBottom: 12, letterSpacing: 0.5 }}>INPUT METHOD</Text>
+          <Text style={{ color: colors.textSecondary, fontSize: 11, fontWeight: '600', marginBottom: 12, letterSpacing: 0.5 }}>INPUT METHOD</Text>
           
           {/* Take Photo - Primary Action */}
           <Pressable 
             onPress={handleTakePhoto}
-            style={{ backgroundColor: '#c8f542', borderRadius: 16, padding: 20, marginBottom: 12 }}
+            style={{ backgroundColor: colors.primary, borderRadius: 16, padding: 20, marginBottom: 12 }}
           >
             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
               <View style={{ width: 56, height: 56, borderRadius: 12, backgroundColor: 'rgba(10, 10, 10, 0.15)', alignItems: 'center', justifyContent: 'center', marginRight: 16 }}>
@@ -403,7 +405,7 @@ export default function AddScreen() {
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={{ color: '#0a0a0a', fontSize: 17, fontWeight: 'bold', marginBottom: 2 }}>Take Photo</Text>
-                <Text style={{ color: '#404040', fontSize: 13 }}>Capture receipt with camera</Text>
+                <Text style={{ color: 'rgba(10, 10, 10, 0.7)', fontSize: 13 }}>Capture receipt with camera</Text>
               </View>
               <IconSymbol name="chevron.right" size={20} color="#0a0a0a" />
             </View>
@@ -412,15 +414,15 @@ export default function AddScreen() {
           {/* Upload Document */}
           <Pressable 
             onPress={handleUploadDocument}
-            style={{ backgroundColor: '#262626', borderRadius: 16, padding: 16, marginBottom: 12 }}
+            style={{ backgroundColor: colors.card, borderRadius: 16, padding: 16, marginBottom: 12 }}
           >
             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-              <View style={{ width: 48, height: 48, borderRadius: 12, backgroundColor: '#1a1a1a', alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
-                <IconSymbol name="photo.fill" size={24} color="#c8f542" />
+              <View style={{ width: 48, height: 48, borderRadius: 12, backgroundColor: colors.cardSecondary, alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
+                <IconSymbol name="photo.fill" size={24} color={colors.primary} />
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={{ color: '#ffffff', fontWeight: '600', fontSize: 15, marginBottom: 2 }}>Upload from Gallery</Text>
-                <Text style={{ color: '#737373', fontSize: 12 }}>Choose image from your device</Text>
+                <Text style={{ color: colors.text, fontWeight: '600', fontSize: 15, marginBottom: 2 }}>Upload from Gallery</Text>
+                <Text style={{ color: colors.textTertiary, fontSize: 12 }}>Choose image from your device</Text>
               </View>
               <IconSymbol name="chevron.right" size={16} color="#737373" />
             </View>
@@ -429,15 +431,15 @@ export default function AddScreen() {
           {/* Pick Document (PDF/Any File) */}
           <Pressable 
             onPress={handlePickDocument}
-            style={{ backgroundColor: '#262626', borderRadius: 16, padding: 16, marginBottom: 12 }}
+            style={{ backgroundColor: colors.card, borderRadius: 16, padding: 16, marginBottom: 12 }}
           >
             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-              <View style={{ width: 48, height: 48, borderRadius: 12, backgroundColor: '#1a1a1a', alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
-                <IconSymbol name="doc.fill" size={24} color="#c8f542" />
+              <View style={{ width: 48, height: 48, borderRadius: 12, backgroundColor: colors.cardSecondary, alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
+                <IconSymbol name="doc.fill" size={24} color={colors.primary} />
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={{ color: '#ffffff', fontWeight: '600', fontSize: 15, marginBottom: 2 }}>Upload Document</Text>
-                <Text style={{ color: '#737373', fontSize: 12 }}>PDF, image, or any file format</Text>
+                <Text style={{ color: colors.text, fontWeight: '600', fontSize: 15, marginBottom: 2 }}>Upload Document</Text>
+                <Text style={{ color: colors.textTertiary, fontSize: 12 }}>PDF, image, or any file format</Text>
               </View>
               <IconSymbol name="chevron.right" size={16} color="#737373" />
             </View>
@@ -446,15 +448,15 @@ export default function AddScreen() {
           {/* Manual Input */}
           <Pressable 
             onPress={handleManualEntry}
-            style={{ backgroundColor: '#262626', borderRadius: 16, padding: 16 }}
+            style={{ backgroundColor: colors.card, borderRadius: 16, padding: 16 }}
           >
             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-              <View style={{ width: 48, height: 48, borderRadius: 12, backgroundColor: '#1a1a1a', alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
-                <IconSymbol name="pencil" size={24} color="#c8f542" />
+              <View style={{ width: 48, height: 48, borderRadius: 12, backgroundColor: colors.cardSecondary, alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
+                <IconSymbol name="pencil" size={24} color={colors.primary} />
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={{ color: '#ffffff', fontWeight: '600', fontSize: 15, marginBottom: 2 }}>Manual Entry</Text>
-                <Text style={{ color: '#737373', fontSize: 12 }}>Fill in transaction details manually</Text>
+                <Text style={{ color: colors.text, fontWeight: '600', fontSize: 15, marginBottom: 2 }}>Manual Entry</Text>
+                <Text style={{ color: colors.textTertiary, fontSize: 12 }}>Fill in transaction details manually</Text>
               </View>
               <IconSymbol name="chevron.right" size={16} color="#737373" />
             </View>
@@ -464,21 +466,19 @@ export default function AddScreen() {
         {/* Preview Section */}
         {uploadedFile && (
           <View style={{ paddingHorizontal: 20, marginTop: 24 }}>
-            <Text style={{ color: '#a3a3a3', fontSize: 11, fontWeight: '600', marginBottom: 12, letterSpacing: 0.5 }}>PREVIEW</Text>
+            <Text style={{ color: colors.textSecondary, fontSize: 11, fontWeight: '600', marginBottom: 12, letterSpacing: 0.5 }}>PREVIEW</Text>
             
-            <View style={{ backgroundColor: '#262626', borderRadius: 16, padding: 16, marginBottom: 12 }}>
+            <View style={{ backgroundColor: colors.card, borderRadius: 16, padding: 16, marginBottom: 12 }}>
               {/* File Info */}
               <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
-                <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: '#c8f542', alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
-                  <IconSymbol name={uploadedFile.type === 'pdf' ? 'doc.fill' : 'photo.fill'} size={20} color="#0a0a0a" />
+                <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
+                  <IconSymbol name="doc.fill" size={20} color="#0a0a0a" />
                 </View>
                 <View style={{ flex: 1 }}>
-                  <Text style={{ color: '#ffffff', fontWeight: '600', fontSize: 14, marginBottom: 2 }} numberOfLines={1}>
+                  <Text style={{ color: colors.text, fontWeight: '600', fontSize: 14, marginBottom: 2 }} numberOfLines={1}>
                     {uploadedFile.name}
                   </Text>
-                  <Text style={{ color: '#737373', fontSize: 12 }}>
-                    {formatFileSize(uploadedFile.size)}
-                  </Text>
+                  <Text style={{ color: colors.textTertiary, fontSize: 12 }}>{formatFileSize(uploadedFile.size)}</Text>
                 </View>
               </View>
 
@@ -487,7 +487,7 @@ export default function AddScreen() {
                 <View style={{ borderRadius: 12, overflow: 'hidden', marginBottom: 12 }}>
                   <Image 
                     source={{ uri: uploadedFile.uri }} 
-                    style={{ width: '100%', height: 200, backgroundColor: '#1a1a1a' }}
+                    style={{ width: '100%', height: 200, backgroundColor: colors.cardSecondary }}
                     resizeMode="contain"
                   />
                 </View>
@@ -495,27 +495,27 @@ export default function AddScreen() {
 
               {/* PDF Placeholder */}
               {uploadedFile.type === 'pdf' && (
-                <View style={{ borderRadius: 12, backgroundColor: '#1a1a1a', padding: 32, alignItems: 'center', marginBottom: 12 }}>
-                  <IconSymbol name="doc.text.fill" size={48} color="#737373" />
-                  <Text style={{ color: '#737373', fontSize: 13, marginTop: 8 }}>PDF Document</Text>
+                <View style={{ borderRadius: 12, backgroundColor: colors.cardSecondary, padding: 32, alignItems: 'center', marginBottom: 12 }}>
+                  <IconSymbol name="doc.text.fill" size={48} color={colors.textTertiary} />
+                  <Text style={{ color: colors.textTertiary, fontSize: 13, marginTop: 8 }}>PDF Document</Text>
                 </View>
               )}
 
               {/* Action Buttons */}
               {!extractedData ? (
-                <View style={{ flexDirection: 'row', gap: 8 }}>
+                <View style={{ flexDirection: 'row', gap: 12 }}>
                   <Pressable 
                     onPress={handleCancelUpload}
                     disabled={isExtracting}
-                    style={{ flex: 1, backgroundColor: '#1a1a1a', borderRadius: 12, padding: 14, alignItems: 'center' }}
+                    style={{ flex: 1, backgroundColor: colors.cardSecondary, borderRadius: 12, padding: 14, alignItems: 'center' }}
                   >
-                    <Text style={{ color: '#ffffff', fontWeight: '600', fontSize: 14 }}>Cancel</Text>
+                    <Text style={{ color: colors.text, fontWeight: '600', fontSize: 14 }}>Cancel</Text>
                   </Pressable>
                   
                   <Pressable 
                     onPress={handleExtractTransaction}
                     disabled={isExtracting}
-                    style={{ flex: 1, backgroundColor: '#c8f542', borderRadius: 12, padding: 14, alignItems: 'center', flexDirection: 'row', justifyContent: 'center' }}
+                    style={{ flex: 1, backgroundColor: colors.primary, borderRadius: 12, padding: 14, alignItems: 'center', flexDirection: 'row', justifyContent: 'center' }}
                   >
                     {isExtracting ? (
                       <>
@@ -535,94 +535,92 @@ export default function AddScreen() {
         {/* Extracted Data Review */}
         {extractedData && (
           <View style={{ paddingHorizontal: 20, marginTop: 24 }}>
-            <Text style={{ color: '#a3a3a3', fontSize: 11, fontWeight: '600', marginBottom: 12, letterSpacing: 0.5 }}>EXTRACTED DATA</Text>
+            <Text style={{ color: colors.textSecondary, fontSize: 11, fontWeight: '600', marginBottom: 12, letterSpacing: 0.5 }}>EXTRACTED DATA</Text>
             
-            <View style={{ backgroundColor: '#262626', borderRadius: 16, padding: 16 }}>
+            <View style={{ backgroundColor: colors.card, borderRadius: 16, padding: 16 }}>
               {/* Success Badge */}
               <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 16, padding: 12, backgroundColor: 'rgba(34, 197, 94, 0.1)', borderRadius: 12 }}>
-                <IconSymbol name="checkmark.circle.fill" size={20} color="#22c55e" />
-                <Text style={{ color: '#22c55e', fontSize: 13, marginLeft: 8, fontWeight: '600' }}>
-                  Data extracted successfully! Please review and edit if needed.
-                </Text>
+                <IconSymbol name="checkmark.circle.fill" size={20} color={colors.success} />
+                <Text style={{ color: colors.success, fontSize: 13, marginLeft: 8, fontWeight: '500' }}>Data extracted successfully! Review and edit if needed.</Text>
               </View>
 
               {/* Merchant */}
               <View style={{ marginBottom: 12 }}>
-                <Text style={{ color: '#a3a3a3', fontSize: 11, marginBottom: 6, fontWeight: '600' }}>MERCHANT</Text>
+                <Text style={{ color: colors.textSecondary, fontSize: 12, marginBottom: 6, fontWeight: '500' }}>Merchant</Text>
                 <TextInput
                   value={extractedData.merchant}
                   onChangeText={(text) => setExtractedData({ ...extractedData, merchant: text })}
-                  style={{ backgroundColor: '#1a1a1a', borderRadius: 12, padding: 12, color: '#ffffff', fontSize: 15 }}
+                  style={{ backgroundColor: colors.cardSecondary, borderRadius: 12, padding: 12, color: colors.text, fontSize: 15 }}
                   placeholder="Merchant name"
-                  placeholderTextColor="#737373"
+                  placeholderTextColor={colors.textTertiary}
                 />
               </View>
 
               {/* Amount */}
               <View style={{ marginBottom: 12 }}>
-                <Text style={{ color: '#a3a3a3', fontSize: 11, marginBottom: 6, fontWeight: '600' }}>AMOUNT</Text>
+                <Text style={{ color: colors.textSecondary, fontSize: 12, marginBottom: 6, fontWeight: '500' }}>Amount</Text>
                 <TextInput
                   value={extractedData.total.toString()}
                   onChangeText={(text) => setExtractedData({ ...extractedData, total: parseFloat(text) || 0 })}
-                  style={{ backgroundColor: '#1a1a1a', borderRadius: 12, padding: 12, color: '#ffffff', fontSize: 15 }}
+                  style={{ backgroundColor: colors.cardSecondary, borderRadius: 12, padding: 12, color: colors.text, fontSize: 15 }}
                   placeholder="0"
-                  placeholderTextColor="#737373"
+                  placeholderTextColor={colors.textTertiary}
                   keyboardType="numeric"
                 />
               </View>
 
               {/* Category */}
               <View style={{ marginBottom: 12 }}>
-                <Text style={{ color: '#a3a3a3', fontSize: 11, marginBottom: 6, fontWeight: '600' }}>CATEGORY</Text>
+                <Text style={{ color: colors.textSecondary, fontSize: 12, marginBottom: 6, fontWeight: '500' }}>Category</Text>
                 <TextInput
                   value={extractedData.category}
                   onChangeText={(text) => setExtractedData({ ...extractedData, category: text })}
-                  style={{ backgroundColor: '#1a1a1a', borderRadius: 12, padding: 12, color: '#ffffff', fontSize: 15 }}
+                  style={{ backgroundColor: colors.cardSecondary, borderRadius: 12, padding: 12, color: colors.text, fontSize: 15 }}
                   placeholder="Category"
-                  placeholderTextColor="#737373"
+                  placeholderTextColor={colors.textTertiary}
                 />
               </View>
 
               {/* Date */}
               <View style={{ marginBottom: 12 }}>
-                <Text style={{ color: '#a3a3a3', fontSize: 11, marginBottom: 6, fontWeight: '600' }}>DATE</Text>
+                <Text style={{ color: colors.textSecondary, fontSize: 12, marginBottom: 6, fontWeight: '500' }}>Date</Text>
                 <TextInput
                   value={extractedData.transaction_date}
                   onChangeText={(text) => setExtractedData({ ...extractedData, transaction_date: text })}
-                  style={{ backgroundColor: '#1a1a1a', borderRadius: 12, padding: 12, color: '#ffffff', fontSize: 15 }}
+                  style={{ backgroundColor: colors.cardSecondary, borderRadius: 12, padding: 12, color: colors.text, fontSize: 15 }}
                   placeholder="YYYY-MM-DD"
-                  placeholderTextColor="#737373"
+                  placeholderTextColor={colors.textTertiary}
                 />
               </View>
 
               {/* Notes */}
               <View style={{ marginBottom: 16 }}>
-                <Text style={{ color: '#a3a3a3', fontSize: 11, marginBottom: 6, fontWeight: '600' }}>NOTES (OPTIONAL)</Text>
+                <Text style={{ color: colors.textSecondary, fontSize: 12, marginBottom: 6, fontWeight: '500' }}>Notes</Text>
                 <TextInput
                   value={extractedData.notes || ''}
                   onChangeText={(text) => setExtractedData({ ...extractedData, notes: text })}
-                  style={{ backgroundColor: '#1a1a1a', borderRadius: 12, padding: 12, color: '#ffffff', fontSize: 15, minHeight: 80 }}
+                  style={{ backgroundColor: colors.cardSecondary, borderRadius: 12, padding: 12, color: colors.text, fontSize: 15, minHeight: 80 }}
                   placeholder="Add notes..."
-                  placeholderTextColor="#737373"
+                  placeholderTextColor={colors.textTertiary}
                   multiline
-                  numberOfLines={3}
+                  textAlignVertical="top"
                 />
               </View>
 
-              {/* Save Buttons */}
-              <View style={{ flexDirection: 'row', gap: 8 }}>
+              {/* Action Buttons */}
+              <View style={{ flexDirection: 'row', gap: 12 }}>
                 <Pressable 
                   onPress={handleCancelUpload}
                   disabled={isSaving}
-                  style={{ flex: 1, backgroundColor: '#1a1a1a', borderRadius: 12, padding: 14, alignItems: 'center' }}
+                  style={{ flex: 1, backgroundColor: colors.cardSecondary, borderRadius: 12, padding: 14, alignItems: 'center' }}
                 >
-                  <Text style={{ color: '#ffffff', fontWeight: '600', fontSize: 14 }}>Cancel</Text>
+                  <Text style={{ color: colors.text, fontWeight: '600', fontSize: 14 }}>Cancel</Text>
                 </Pressable>
                 
                 <Pressable 
                   onPress={handleSaveTransaction}
                   disabled={isSaving}
-                  style={{ flex: 1, backgroundColor: '#c8f542', borderRadius: 12, padding: 14, alignItems: 'center', flexDirection: 'row', justifyContent: 'center' }}
+                  style={{ flex: 1, backgroundColor: colors.primary, borderRadius: 12, padding: 14, alignItems: 'center', flexDirection: 'row', justifyContent: 'center' }}
                 >
                   {isSaving ? (
                     <>
@@ -641,17 +639,15 @@ export default function AddScreen() {
         {/* Tips Section */}
         {!uploadedFile && (
           <View style={{ paddingHorizontal: 20, marginTop: 24 }}>
-            <View style={{ backgroundColor: '#262626', borderRadius: 16, padding: 16 }}>
-              <View style={{ flexDirection: 'row', alignItems: 'flex-start' }}>
-                <View style={{ width: 32, height: 32, borderRadius: 8, backgroundColor: 'rgba(200, 245, 66, 0.15)', alignItems: 'center', justifyContent: 'center', marginRight: 12, marginTop: 2 }}>
-                  <IconSymbol name="lightbulb.fill" size={16} color="#c8f542" />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={{ color: '#ffffff', fontWeight: '600', fontSize: 14, marginBottom: 4 }}>Pro Tip</Text>
-                  <Text style={{ color: '#737373', fontSize: 13, lineHeight: 18 }}>
-                    For best results, make sure the receipt is well-lit and all text is clearly visible when scanning.
-                  </Text>
-                </View>
+            <View style={{ backgroundColor: colors.card, borderRadius: 16, padding: 16, flexDirection: 'row', alignItems: 'flex-start' }}>
+              <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: colors.cardSecondary, alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
+                <IconSymbol name="lightbulb.fill" size={16} color={colors.primary} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={{ color: colors.text, fontWeight: '600', fontSize: 14, marginBottom: 4 }}>Pro Tip</Text>
+                <Text style={{ color: colors.textTertiary, fontSize: 13, lineHeight: 18 }}>
+                  For best results, make sure the receipt is well-lit and all text is clearly visible when scanning.
+                </Text>
               </View>
             </View>
           </View>
@@ -666,19 +662,19 @@ export default function AddScreen() {
         onRequestClose={() => setShowSuccessModal(false)}
       >
         <View style={{ flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.75)', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
-          <View style={{ backgroundColor: '#1a1a1a', borderRadius: 24, padding: 32, alignItems: 'center', width: '100%', maxWidth: 320, borderWidth: 1, borderColor: '#262626' }}>
+          <View style={{ backgroundColor: colors.card, borderRadius: 24, padding: 32, alignItems: 'center', width: '100%', maxWidth: 320, borderWidth: 1, borderColor: colors.border }}>
             {/* Success Icon with Animation */}
             <View style={{ width: 80, height: 80, borderRadius: 40, backgroundColor: 'rgba(34, 197, 94, 0.15)', alignItems: 'center', justifyContent: 'center', marginBottom: 20 }}>
               <View style={{ width: 64, height: 64, borderRadius: 32, backgroundColor: 'rgba(34, 197, 94, 0.25)', alignItems: 'center', justifyContent: 'center' }}>
-                <IconSymbol name="checkmark.circle.fill" size={48} color="#22c55e" />
+                <IconSymbol name="checkmark.circle.fill" size={48} color={colors.success} />
               </View>
             </View>
 
             {/* Success Message */}
-            <Text style={{ color: '#ffffff', fontSize: 22, fontWeight: 'bold', marginBottom: 8, textAlign: 'center' }}>
+            <Text style={{ color: colors.text, fontSize: 22, fontWeight: 'bold', marginBottom: 8, textAlign: 'center' }}>
               {selectedType === 'money_saving' ? 'Money Saved!' : 'Expense Recorded!'}
             </Text>
-            <Text style={{ color: '#737373', fontSize: 14, textAlign: 'center', lineHeight: 20 }}>
+            <Text style={{ color: colors.textTertiary, fontSize: 14, textAlign: 'center', lineHeight: 20 }}>
               {selectedType === 'money_saving' 
                 ? 'Your savings have been successfully recorded. Keep up the good work!' 
                 : 'Your expense has been successfully recorded and added to your history.'}
@@ -686,9 +682,9 @@ export default function AddScreen() {
 
             {/* Amount Badge */}
             {extractedData && (
-              <View style={{ marginTop: 20, backgroundColor: '#262626', borderRadius: 12, paddingVertical: 12, paddingHorizontal: 20 }}>
-                <Text style={{ color: '#a3a3a3', fontSize: 11, marginBottom: 4, textAlign: 'center' }}>AMOUNT</Text>
-                <Text style={{ color: '#c8f542', fontSize: 24, fontWeight: 'bold', textAlign: 'center' }}>
+              <View style={{ marginTop: 20, backgroundColor: colors.cardSecondary, borderRadius: 12, paddingVertical: 12, paddingHorizontal: 20 }}>
+                <Text style={{ color: colors.textSecondary, fontSize: 11, marginBottom: 4, textAlign: 'center' }}>AMOUNT</Text>
+                <Text style={{ color: colors.primary, fontSize: 24, fontWeight: 'bold', textAlign: 'center' }}>
                   Rp {extractedData.total.toLocaleString('id-ID')}
                 </Text>
               </View>
