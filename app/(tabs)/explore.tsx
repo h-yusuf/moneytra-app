@@ -19,21 +19,12 @@ export default function ExploreScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [selectedPeriod, setSelectedPeriod] = useState<'week' | 'month' | 'year'>('month');
 
-  useEffect(() => {
-    loadReport();
-  }, []);
-
-  // Auto-fetch saat navigasi ke halaman ini
+  // Auto-fetch saat navigasi ke halaman ini atau saat period berubah
   useFocusEffect(
     useCallback(() => {
       loadReport();
-    }, [])
+    }, [selectedPeriod])
   );
-
-  // Refetch saat period berubah
-  useEffect(() => {
-    loadReport();
-  }, [selectedPeriod]);
 
   const loadReport = async (isRefresh = false) => {
     try {

@@ -21,9 +21,7 @@ export default function HistoryScreen() {
   const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
 
-  useEffect(() => {
-    loadTransactions();
-  }, []);
+  
 
   // Auto-fetch saat navigasi ke halaman ini
   useFocusEffect(
