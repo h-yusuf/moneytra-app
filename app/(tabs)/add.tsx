@@ -40,8 +40,8 @@ export default function AddScreen() {
     try {
       const { sound } = await Audio.Sound.createAsync(
         type === 'money_saving' 
-          ? require('@/public/mp3/Cash Register Sound Effect.mp3')
-          : require('@/public/mp3/Vintage Cash Register Sound.mp3')
+          ? require('@/assets/sounds/Cash Register Sound Effect.mp3')
+          : require('@/assets/sounds/Vintage Cash Register Sound.mp3')
       );
       
       await sound.playAsync();

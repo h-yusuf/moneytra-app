@@ -1,7 +1,7 @@
 // Fallback for using MaterialIcons on Android and web.
 
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
-import { SymbolWeight, SymbolViewProps } from 'expo-symbols';
+import { SymbolViewProps, SymbolWeight } from 'expo-symbols';
 import { ComponentProps } from 'react';
 import { OpaqueColorValue, type StyleProp, type TextStyle } from 'react-native';
 
@@ -14,10 +14,54 @@ type IconSymbolName = keyof typeof MAPPING;
  * - see SF Symbols in the [SF Symbols](https://developer.apple.com/sf-symbols/) app.
  */
 const MAPPING = {
+  // Navigation
   'house.fill': 'home',
   'paperplane.fill': 'send',
   'chevron.left.forwardslash.chevron.right': 'code',
   'chevron.right': 'chevron-right',
+  'chevron.left': 'chevron-left',
+  
+  // Dashboard & Common
+  'bell.fill': 'notifications',
+  'plus.circle.fill': 'add-circle',
+  'chart.bar.fill': 'bar-chart',
+  'gear': 'settings',
+  'clock.fill': 'schedule',
+  'calendar': 'calendar-today',
+  'arrow.clockwise': 'autorenew',
+  
+  // Transaction & Money
+  'arrow.down.circle.fill': 'arrow-circle-down',
+  'arrow.up.circle.fill': 'arrow-circle-up',
+  'arrow.down': 'arrow-downward',
+  'arrow.up': 'arrow-upward',
+  'arrow.up.right': 'trending-up',
+  'heart.circle.fill': 'favorite',
+  'dollarsign.circle.fill': 'monetization-on',
+  
+  // Camera & Upload
+  'camera.fill': 'camera-alt',
+  'photo.fill': 'photo-library',
+  'doc.fill': 'description',
+  'doc.text.fill': 'article',
+  'pencil': 'edit',
+  
+  // Actions
+  'checkmark.circle.fill': 'check-circle',
+  'xmark.circle.fill': 'cancel',
+  'xmark': 'close',
+  'trash.fill': 'delete',
+  'square.and.arrow.up': 'share',
+  
+  // Info & Alerts
+  'info.circle.fill': 'info',
+  'exclamationmark.triangle.fill': 'warning',
+  'lightbulb.fill': 'lightbulb',
+  
+  // Search & Filter
+  'magnifyingglass': 'search',
+  'line.3.horizontal.decrease': 'filter-list',
+  'slider.horizontal.3': 'tune',
 } as IconMapping;
 
 /**
@@ -37,5 +81,6 @@ export function IconSymbol({
   style?: StyleProp<TextStyle>;
   weight?: SymbolWeight;
 }) {
-  return <MaterialIcons color={color} size={size} name={MAPPING[name]} style={style} />;
+  const mapped = (MAPPING as any)[name] || 'help-outline';
+  return <MaterialIcons color={color} size={size} name={mapped} style={style} />;
 }
