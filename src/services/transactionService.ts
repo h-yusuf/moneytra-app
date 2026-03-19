@@ -18,6 +18,18 @@ export interface FetchMonthlyReportParams {
   month?: number;
 }
 
+export interface FetchSpendingOverviewParams {
+  year: number;
+  month?: number;
+}
+
+export interface SpendingOverviewRecord {
+  period: string;
+  user_id: string;
+  total_expense: number;
+  total_income: number;
+}
+
 export interface UploadReceiptParams {
   file: File | Blob;
   user_id: string;
@@ -82,6 +94,27 @@ export const fetchMonthlyReport = async (
   
   console.log('fetchMonthlyReport - API response:', response.data);
   return response.data;
+};
+
+/**
+ * Fetch spending overview (aggregated per user per period)
+ * GET /webhook/report/spending-overview
+ */
+export const fetchSpendingOverview = async (
+  params: FetchSpendingOverviewParams
+): Promise<SpendingOverviewRecord[]> => {
+  const queryParams = new URLSearchParams();
+  queryParams.append('year', params.year.toString());
+  if (params.month) queryParams.append('month', params.month.toString());
+
+  console.log('fetchSpendingOverview - API call:', `/webhook/report/spending-overview?${queryParams.toString()}`);
+
+  const response = await apiClient.get<{ data: SpendingOverviewRecord[] }>(
+    `/webhook/report/spending-overview?${queryParams.toString()}`
+  );
+  
+  console.log('fetchSpendingOverview - API response:', response.data);
+  return response.data.data || [];
 };
 
 /**
