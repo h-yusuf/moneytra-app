@@ -69,17 +69,26 @@ export default function DashboardScreen() {
       } else {
         setLoading(true);
       }
+
+      if (!profile?.user_id) {
+        console.warn('User ID not set, skipping data fetch');
+        setLoading(false);
+        setRefreshing(false);
+        return;
+      }
+
+      console.log('Loading dashboard data for user_id:', profile.user_id);
       const currentYear = currentDate.getFullYear();
       const currentMonth = currentDate.getMonth() + 1;
 
       const [reportData, transactionsData] = await Promise.all([
         fetchMonthlyReport({
-          user_id: profile?.user_id || 'user-456',
+          user_id: profile.user_id,
           year: currentYear,
           month: currentMonth,
         }),
         fetchTransactions({
-          user_id: profile?.user_id || 'user-456',
+          user_id: profile.user_id,
           limit: 5,
         }),
       ]);
@@ -90,7 +99,7 @@ export default function DashboardScreen() {
       console.error('Failed to load dashboard data:', err);
       setReport({
         success: true,
-        user_id: 'test-user-123',
+        user_id: profile?.user_id || 'unknown',
         year: new Date().getFullYear(),
         month: new Date().getMonth() + 1,
         summary: {

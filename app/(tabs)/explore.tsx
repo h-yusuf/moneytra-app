@@ -1,7 +1,6 @@
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { useTheme } from '@/src/contexts/ThemeContext';
 import { useUser } from '@/src/contexts/UserContext';
-import { dummySummary } from '@/src/lib/dummy-data';
 import { formatCurrency } from '@/src/lib/utils';
 import { fetchMonthlyReport, fetchSpendingOverview, SpendingOverviewRecord } from '@/src/services/transactionService';
 import type { MonthlyReportResponse } from '@/src/types';
@@ -75,22 +74,18 @@ export default function ExploreScreen() {
       console.error('Failed to load report:', err);
       setReport({
         success: true,
-        user_id: 'test-user-123',
+        user_id: profile?.user_id || 'unknown',
         year: new Date().getFullYear(),
         month: null,
         summary: {
-          total_expense: dummySummary.total_expense,
-          total_money_saving: dummySummary.total_money_saving,
-          total_transactions: dummySummary.total_transactions,
+          total_expense: 0,
+          total_money_saving: 0,
+          total_transactions: 0,
         },
         monthly_report: [],
-        category_breakdown: [
-          { category: 'Food & Drinks', total: 1500000, count: 15 },
-          { category: 'Shopping', total: 800000, count: 8 },
-          { category: 'Transport', total: 500000, count: 20 },
-          { category: 'Entertainment', total: 300000, count: 5 },
-        ],
+        category_breakdown: [],
       });
+      setSpendingData([]);
     } finally {
       setLoading(false);
       setRefreshing(false);

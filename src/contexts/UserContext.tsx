@@ -20,7 +20,7 @@ const UserContext = createContext<UserContextType | undefined>(undefined);
 const USER_STORAGE_KEY = '@monetra_user_profile';
 
 const DEFAULT_PROFILE: UserProfile = {
-  user_id: 'user-456',
+  user_id: '',
   name: 'User',
   email: 'user@example.com',
 };
