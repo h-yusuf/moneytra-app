@@ -8,6 +8,11 @@
     "scheme": "monetraapp",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
+    "assetBundlePatterns": [
+      "**/*",
+      "assets/**/*",
+      "public/**/*"
+    ],
     "ios": {
       "supportsTablet": true,
       "infoPlist": {
