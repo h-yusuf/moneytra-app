@@ -1,26 +1,53 @@
 import { IconSymbol } from '@/components/ui/icon-symbol';
+import { useBudget } from '@/src/contexts/BudgetContext';
+import { useNotification } from '@/src/contexts/NotificationContext';
 import { useTheme } from '@/src/contexts/ThemeContext';
 import { useUser } from '@/src/contexts/UserContext';
 import { formatCurrency } from '@/src/lib/utils';
-import React, { useState } from 'react';
+import { fetchMonthlyReport, fetchTransactions } from '@/src/services/transactionService';
+import type { MonthlyReportResponse } from '@/src/types';
+import { useFocusEffect } from 'expo-router';
+import React, { useCallback, useEffect, useState } from 'react';
 import { Alert, Modal, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function SettingsScreen() {
   const { theme, isDark, setTheme, colors } = useTheme();
   const { profile, updateProfile } = useUser();
+  const { budgets, addBudget, updateBudget, deleteBudget } = useBudget();
+  const { settings: notifSettings, updateSettings: updateNotifSettings } = useNotification();
   const [showThemeModal, setShowThemeModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [showBudgetModal, setShowBudgetModal] = useState(false);
+  const [showNotificationModal, setShowNotificationModal] = useState(false);
+  const [editingBudget, setEditingBudget] = useState<string | null>(null);
   const [editForm, setEditForm] = useState({
     name: profile?.name || '',
     email: profile?.email || '',
     phone: profile?.phone || '',
     user_id: profile?.user_id || '',
   });
+  const [budgetForm, setBudgetForm] = useState({
+    category: '',
+    amount: '',
+    period: 'monthly' as 'daily' | 'weekly' | 'monthly',
+  });
+  const [showCategoryPicker, setShowCategoryPicker] = useState(false);
+  const [monthlyReport, setMonthlyReport] = useState<MonthlyReportResponse | null>(null);
+  const [categorySpending, setCategorySpending] = useState<Record<string, number>>({});
   
-  const targetSavings = 50000000;
-  const currentSavings = 5000000;
-  const progress = (currentSavings / targetSavings) * 100;
+  const standardCategories = [
+    'Belanja Harian',
+    'Makanan & Minuman',
+    'Transportasi',
+    'Kesehatan',
+    'Hiburan',
+    'Pakaian',
+    'Elektronik',
+    'Pendidikan',
+    'Tagihan',
+    'Lainnya',
+  ];
   
   const getThemeLabel = () => {
     if (theme === 'light') return 'Light Mode';
@@ -32,6 +59,89 @@ export default function SettingsScreen() {
     if (theme === 'light') return 'sun.max.fill';
     if (theme === 'dark') return 'moon.fill';
     return 'circle.lefthalf.filled';
+  };
+
+  useEffect(() => {
+    loadMonthlyReport();
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadMonthlyReport();
+    }, [])
+  );
+
+  const loadMonthlyReport = async () => {
+    try {
+      const currentDate = new Date();
+      const reportData = await fetchMonthlyReport({
+        ...(profile?.user_id ? { user_id: profile.user_id } : {}),
+        year: currentDate.getFullYear(),
+        month: currentDate.getMonth() + 1,
+      });
+      console.log('Settings - Monthly report data:', reportData);
+      setMonthlyReport(reportData);
+
+      const hasBreakdown = reportData?.category_breakdown?.length;
+      if (hasBreakdown) {
+        const map: Record<string, number> = {};
+        reportData.category_breakdown.forEach((item) => {
+          if (!item?.category) return;
+          map[item.category.toLowerCase()] = item.total || 0;
+        });
+        setCategorySpending(map);
+      } else {
+        await loadCategorySpendingFromTransactions(currentDate.getFullYear(), currentDate.getMonth() + 1);
+      }
+    } catch (error) {
+      console.error('Failed to load monthly report:', error);
+    }
+  };
+
+  const loadCategorySpendingFromTransactions = async (year: number, month: number) => {
+    try {
+      const response = await fetchTransactions({
+        ...(profile?.user_id ? { user_id: profile.user_id } : {}),
+        type: 'expense',
+        limit: 500,
+      });
+
+      const map = response.data.reduce<Record<string, number>>((acc, txn) => {
+        if (!txn?.transaction_date) return acc;
+        const date = new Date(txn.transaction_date);
+        if (date.getFullYear() !== year || date.getMonth() + 1 !== month) return acc;
+
+        const key = (txn.category || 'uncategorized').toLowerCase();
+        acc[key] = (acc[key] || 0) + (txn.total || 0);
+        return acc;
+      }, {});
+
+      setCategorySpending(map);
+    } catch (error) {
+      console.error('Failed to load transactions for category spending:', error);
+      setCategorySpending({});
+    }
+  };
+
+  const getCategorySpending = (category: string) => {
+    const key = category?.toLowerCase();
+    if (categorySpending[key] != null) {
+      return categorySpending[key];
+    }
+
+    if (!monthlyReport?.category_breakdown) return 0;
+
+    const categoryData = monthlyReport.category_breakdown.find(
+      (item) => item.category?.toLowerCase() === key
+    );
+
+    return categoryData?.total || 0;
+  };
+
+  const getProgressColor = (percentage: number) => {
+    if (percentage >= 100) return '#ef4444'; // Red
+    if (percentage >= 80) return '#f59e0b'; // Orange/Yellow
+    return colors.primary; // Green/Primary
   };
 
   return (
@@ -79,32 +189,128 @@ export default function SettingsScreen() {
           </View>
         </View>
 
-        {/* Savings Target Card */}
+        {/* Budget Management Card */}
         <View style={{ marginHorizontal: 20, marginTop: 12, backgroundColor: colors.card, borderRadius: 16, padding: 20 }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-            <Text style={{ color: colors.text, fontSize: 17, fontWeight: 'bold' }}>Savings Target</Text>
-            <IconSymbol name="heart.fill" size={20} color={colors.primary} />
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <IconSymbol name="chart.bar.fill" size={20} color={colors.primary} style={{ marginRight: 8 }} />
+              <Text style={{ color: colors.text, fontSize: 17, fontWeight: 'bold' }}>Budget Management</Text>
+            </View>
+            <Pressable 
+              onPress={() => {
+                setBudgetForm({ category: '', amount: '', period: 'monthly' });
+                setEditingBudget(null);
+                setShowBudgetModal(true);
+              }}
+              style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center' }}
+            >
+              <IconSymbol name="plus" size={16} color="#0a0a0a" />
+            </Pressable>
           </View>
           
-          <Text style={{ color: colors.primary, fontSize: 32, fontWeight: 'bold', marginBottom: 12 }}>
-            {formatCurrency(targetSavings)}
-          </Text>
-          
-          <View style={{ marginBottom: 12 }}>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 }}>
-              <Text style={{ color: colors.textTertiary, fontSize: 12 }}>Progress</Text>
-              <Text style={{ color: colors.text, fontSize: 12, fontWeight: '600' }}>{progress.toFixed(1)}%</Text>
+          {budgets.filter(b => b.user_id === profile?.user_id).length > 0 ? (
+            <View style={{ gap: 8 }}>
+              {budgets.filter(b => b.user_id === profile?.user_id).map((budget) => {
+                const spent = getCategorySpending(budget.category);
+                const remaining = budget.amount - spent;
+                const percentage = (spent / budget.amount) * 100;
+                const progressColor = getProgressColor(percentage);
+
+                return (
+                  <View key={budget.id} style={{ backgroundColor: colors.background, borderRadius: 12, padding: 16, borderWidth: 1, borderColor: colors.border }}>
+                    {/* Header with category name and actions */}
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                      <Text style={{ color: colors.text, fontSize: 15, fontWeight: '600' }}>{budget.category}</Text>
+                      <View style={{ flexDirection: 'row', gap: 8 }}>
+                        <Pressable 
+                          onPress={() => {
+                            setBudgetForm({
+                              category: budget.category,
+                              amount: budget.amount.toString(),
+                              period: budget.period,
+                            });
+                            setEditingBudget(budget.id);
+                            setShowBudgetModal(true);
+                          }}
+                          style={{ width: 24, height: 24, borderRadius: 12, backgroundColor: colors.cardSecondary, alignItems: 'center', justifyContent: 'center' }}
+                        >
+                          <IconSymbol name="pencil" size={10} color={colors.primary} />
+                        </Pressable>
+                        <Pressable 
+                          onPress={() => {
+                            Alert.alert(
+                              'Delete Budget',
+                              `Are you sure you want to delete budget for ${budget.category}?`,
+                              [
+                                { text: 'Cancel', style: 'cancel' },
+                                { 
+                                  text: 'Delete', 
+                                  style: 'destructive',
+                                  onPress: () => deleteBudget(budget.id)
+                                }
+                              ]
+                            );
+                          }}
+                          style={{ width: 24, height: 24, borderRadius: 12, backgroundColor: 'rgba(239, 68, 68, 0.1)', alignItems: 'center', justifyContent: 'center' }}
+                        >
+                          <IconSymbol name="trash" size={10} color="#ef4444" />
+                        </Pressable>
+                      </View>
+                    </View>
+
+                    {/* Budget, Spent, Remaining */}
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                      <View>
+                        <Text style={{ color: colors.textTertiary, fontSize: 11, marginBottom: 2 }}>Budget</Text>
+                        <Text style={{ color: colors.text, fontSize: 16, fontWeight: '600' }}>
+                          {formatCurrency(budget.amount)}
+                        </Text>
+                      </View>
+                      <View style={{ alignItems: 'center' }}>
+                        <Text style={{ color: colors.textTertiary, fontSize: 11, marginBottom: 2 }}>Spent</Text>
+                        <Text style={{ color: '#3b82f6', fontSize: 16, fontWeight: '600' }}>
+                          {formatCurrency(spent)}
+                        </Text>
+                      </View>
+                      <View style={{ alignItems: 'flex-end' }}>
+                        <Text style={{ color: colors.textTertiary, fontSize: 11, marginBottom: 2 }}>Remaining</Text>
+                        <Text style={{ color: remaining < 0 ? '#ef4444' : colors.text, fontSize: 16, fontWeight: '600' }}>
+                          {remaining < 0 ? '-' : ''}{formatCurrency(Math.abs(remaining))}
+                        </Text>
+                      </View>
+                    </View>
+
+                    {/* Progress Bar */}
+                    <View style={{ marginBottom: 8 }}>
+                      <View style={{ height: 8, backgroundColor: colors.cardSecondary, borderRadius: 4, overflow: 'hidden' }}>
+                        <View 
+                          style={{ 
+                            height: '100%', 
+                            width: `${Math.min(percentage, 100)}%`, 
+                            backgroundColor: progressColor,
+                            borderRadius: 4
+                          }}
+                        />
+                      </View>
+                    </View>
+
+                    {/* Percentage */}
+                    <View style={{ flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'center' }}>
+                      <Text style={{ color: progressColor, fontSize: 14, fontWeight: 'bold' }}>
+                        {percentage.toFixed(0)}%
+                      </Text>
+                    </View>
+                  </View>
+                );
+              })}
             </View>
-            <View style={{ height: 8, backgroundColor: colors.cardSecondary, borderRadius: 4, overflow: 'hidden' }}>
-              <View 
-                style={{ height: '100%', borderRadius: 4, width: `${progress}%`, backgroundColor: colors.primary }}
-              />
+          ) : (
+            <View style={{ paddingVertical: 16, alignItems: 'center' }}>
+              <Text style={{ color: colors.textTertiary, fontSize: 13, textAlign: 'center' }}>
+                No budgets set yet. Tap + to add your first budget.
+              </Text>
             </View>
-          </View>
-          
-          <Text style={{ color: colors.textTertiary, fontSize: 12 }}>
-            Collected: {formatCurrency(currentSavings)}
-          </Text>
+          )}
         </View>
 
         {/* Preferences Section */}
@@ -141,14 +347,19 @@ export default function SettingsScreen() {
               <IconSymbol name="chevron.right" size={16} color={colors.textTertiary} />
             </Pressable>
 
-            <Pressable style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 16 }}>
+            <Pressable 
+              onPress={() => setShowNotificationModal(true)}
+              style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 16 }}
+            >
               <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
                 <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: colors.cardSecondary, alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
                   <IconSymbol name="bell.fill" size={20} color={colors.primary} />
                 </View>
                 <View style={{ flex: 1 }}>
                   <Text style={{ color: colors.text, fontWeight: '600', fontSize: 15, marginBottom: 2 }}>Notifications</Text>
-                  <Text style={{ color: colors.textTertiary, fontSize: 12 }}>Manage app notifications</Text>
+                  <Text style={{ color: colors.textTertiary, fontSize: 12 }}>
+                    {notifSettings.enabled ? 'Enabled' : 'Disabled'}
+                  </Text>
                 </View>
               </View>
               <IconSymbol name="chevron.right" size={16} color={colors.textTertiary} />
@@ -410,6 +621,427 @@ export default function SettingsScreen() {
                 <Text style={{ color: '#0a0a0a', fontWeight: '600', fontSize: 15 }}>Save Changes</Text>
               </Pressable>
             </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+      {/* Budget Modal */}
+      <Modal
+        visible={showBudgetModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowBudgetModal(false)}
+      >
+        <Pressable 
+          style={{ flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.5)', justifyContent: 'flex-end' }}
+          onPress={() => setShowBudgetModal(false)}
+        >
+          <Pressable 
+            style={{ backgroundColor: colors.card, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24, paddingBottom: 40 }}
+            onPress={(e) => e.stopPropagation()}
+          >
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
+              <Text style={{ color: colors.text, fontSize: 20, fontWeight: 'bold' }}>
+                {editingBudget ? 'Edit Budget' : 'Add Budget'}
+              </Text>
+              <Pressable onPress={() => setShowBudgetModal(false)}>
+                <IconSymbol name="xmark" size={24} color={colors.textSecondary} />
+              </Pressable>
+            </View>
+
+            {/* Category Picker */}
+            <View style={{ marginBottom: 16 }}>
+              <Text style={{ color: colors.textSecondary, fontSize: 13, fontWeight: '600', marginBottom: 8 }}>CATEGORY</Text>
+              <Pressable
+                onPress={() => setShowCategoryPicker(!showCategoryPicker)}
+                style={{ 
+                  backgroundColor: colors.background, 
+                  borderRadius: 12, 
+                  padding: 14, 
+                  borderWidth: 1,
+                  borderColor: colors.border,
+                  flexDirection: 'row',
+                  justifyContent: 'space-between',
+                  alignItems: 'center'
+                }}
+              >
+                <Text style={{ color: budgetForm.category ? colors.text : colors.textTertiary, fontSize: 15 }}>
+                  {budgetForm.category || 'Select category'}
+                </Text>
+                <IconSymbol name={showCategoryPicker ? 'chevron.up' : 'chevron.down'} size={16} color={colors.textSecondary} />
+              </Pressable>
+              
+              {showCategoryPicker && (
+                <View style={{ marginTop: 8, backgroundColor: colors.background, borderRadius: 12, borderWidth: 1, borderColor: colors.border, maxHeight: 200 }}>
+                  <ScrollView showsVerticalScrollIndicator={false}>
+                    {standardCategories.map((category) => (
+                      <Pressable
+                        key={category}
+                        onPress={() => {
+                          setBudgetForm({ ...budgetForm, category });
+                          setShowCategoryPicker(false);
+                        }}
+                        style={{ 
+                          padding: 14, 
+                          borderBottomWidth: 1, 
+                          borderBottomColor: colors.border,
+                          backgroundColor: budgetForm.category === category ? colors.cardSecondary : 'transparent'
+                        }}
+                      >
+                        <Text style={{ color: colors.text, fontSize: 15 }}>{category}</Text>
+                      </Pressable>
+                    ))}
+                  </ScrollView>
+                </View>
+              )}
+            </View>
+
+            {/* Amount Input */}
+            <View style={{ marginBottom: 16 }}>
+              <Text style={{ color: colors.textSecondary, fontSize: 13, fontWeight: '600', marginBottom: 8 }}>BUDGET AMOUNT</Text>
+              <TextInput
+                value={budgetForm.amount}
+                onChangeText={(text) => setBudgetForm({ ...budgetForm, amount: text.replace(/[^0-9]/g, '') })}
+                placeholder="Enter amount"
+                placeholderTextColor={colors.textTertiary}
+                keyboardType="numeric"
+                style={{ 
+                  backgroundColor: colors.background, 
+                  borderRadius: 12, 
+                  padding: 14, 
+                  color: colors.text,
+                  fontSize: 15,
+                  borderWidth: 1,
+                  borderColor: colors.border
+                }}
+              />
+            </View>
+
+            {/* Period Selection */}
+            <View style={{ marginBottom: 24 }}>
+              <Text style={{ color: colors.textSecondary, fontSize: 13, fontWeight: '600', marginBottom: 8 }}>PERIOD</Text>
+              <View style={{ flexDirection: 'row', gap: 8 }}>
+                {(['daily', 'weekly', 'monthly'] as const).map((period) => (
+                  <Pressable
+                    key={period}
+                    onPress={() => setBudgetForm({ ...budgetForm, period })}
+                    style={{ 
+                      flex: 1, 
+                      paddingVertical: 12, 
+                      borderRadius: 12, 
+                      backgroundColor: budgetForm.period === period ? colors.primary : colors.background,
+                      alignItems: 'center',
+                      borderWidth: 1,
+                      borderColor: budgetForm.period === period ? colors.primary : colors.border
+                    }}
+                  >
+                    <Text style={{ 
+                      color: budgetForm.period === period ? '#0a0a0a' : colors.text, 
+                      fontWeight: budgetForm.period === period ? '600' : '400',
+                      fontSize: 14,
+                      textTransform: 'capitalize'
+                    }}>
+                      {period}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
+            </View>
+
+            {/* Action Buttons */}
+            <View style={{ flexDirection: 'row', gap: 12 }}>
+              <Pressable
+                onPress={() => setShowBudgetModal(false)}
+                style={{ flex: 1, backgroundColor: colors.background, borderRadius: 12, padding: 14, alignItems: 'center', borderWidth: 1, borderColor: colors.border }}
+              >
+                <Text style={{ color: colors.text, fontWeight: '600', fontSize: 15 }}>Cancel</Text>
+              </Pressable>
+              <Pressable
+                onPress={async () => {
+                  if (!budgetForm.category.trim() || !budgetForm.amount.trim()) {
+                    Alert.alert('Error', 'Please fill in all fields');
+                    return;
+                  }
+
+                  try {
+                    if (editingBudget) {
+                      await updateBudget(editingBudget, {
+                        category: budgetForm.category.trim(),
+                        amount: parseFloat(budgetForm.amount),
+                        period: budgetForm.period,
+                      });
+                      Alert.alert('Success', 'Budget updated successfully!');
+                    } else {
+                      await addBudget({
+                        category: budgetForm.category.trim(),
+                        amount: parseFloat(budgetForm.amount),
+                        period: budgetForm.period,
+                        user_id: profile?.user_id || 'user-456',
+                      });
+                      Alert.alert('Success', 'Budget added successfully!');
+                    }
+                    setShowBudgetModal(false);
+                    setBudgetForm({ category: '', amount: '', period: 'monthly' });
+                    setEditingBudget(null);
+                  } catch (error) {
+                    Alert.alert('Error', 'Failed to save budget');
+                  }
+                }}
+                style={{ flex: 1, backgroundColor: colors.primary, borderRadius: 12, padding: 14, alignItems: 'center' }}
+              >
+                <Text style={{ color: '#0a0a0a', fontWeight: '600', fontSize: 15 }}>
+                  {editingBudget ? 'Update' : 'Add Budget'}
+                </Text>
+              </Pressable>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+      {/* Notification Settings Modal */}
+      <Modal
+        visible={showNotificationModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowNotificationModal(false)}
+      >
+        <Pressable 
+          style={{ flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.5)', justifyContent: 'flex-end' }}
+          onPress={() => setShowNotificationModal(false)}
+        >
+          <Pressable 
+            style={{ backgroundColor: colors.card, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24, paddingBottom: 40 }}
+            onPress={(e) => e.stopPropagation()}
+          >
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
+              <Text style={{ color: colors.text, fontSize: 20, fontWeight: 'bold' }}>Notification Settings</Text>
+              <Pressable onPress={() => setShowNotificationModal(false)}>
+                <IconSymbol name="xmark" size={24} color={colors.textSecondary} />
+              </Pressable>
+            </View>
+
+            <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: 400 }}>
+              {/* Master Toggle */}
+              <View style={{ marginBottom: 24 }}>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ color: colors.text, fontSize: 16, fontWeight: '600', marginBottom: 4 }}>Enable Notifications</Text>
+                    <Text style={{ color: colors.textTertiary, fontSize: 13 }}>Turn on/off all notifications</Text>
+                  </View>
+                  <Pressable
+                    onPress={() => updateNotifSettings({ enabled: !notifSettings.enabled })}
+                    style={{ 
+                      width: 52, 
+                      height: 32, 
+                      borderRadius: 16, 
+                      backgroundColor: notifSettings.enabled ? colors.primary : colors.cardSecondary,
+                      padding: 2,
+                      justifyContent: 'center'
+                    }}
+                  >
+                    <View style={{ 
+                      width: 28, 
+                      height: 28, 
+                      borderRadius: 14, 
+                      backgroundColor: '#fff',
+                      transform: [{ translateX: notifSettings.enabled ? 20 : 0 }]
+                    }} />
+                  </Pressable>
+                </View>
+              </View>
+
+              {/* Divider */}
+              <View style={{ height: 1, backgroundColor: colors.border, marginBottom: 20 }} />
+
+              {/* Notification Types */}
+              <Text style={{ color: colors.textSecondary, fontSize: 12, fontWeight: '600', marginBottom: 16, letterSpacing: 0.5 }}>NOTIFICATION TYPES</Text>
+
+              {/* Budget Alerts */}
+              <View style={{ marginBottom: 20, opacity: notifSettings.enabled ? 1 : 0.5 }}>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ color: colors.text, fontSize: 15, fontWeight: '600', marginBottom: 4 }}>Budget Alerts</Text>
+                    <Text style={{ color: colors.textTertiary, fontSize: 13 }}>Get notified when approaching or exceeding budget</Text>
+                  </View>
+                  <Pressable
+                    disabled={!notifSettings.enabled}
+                    onPress={() => updateNotifSettings({ budgetAlerts: !notifSettings.budgetAlerts })}
+                    style={{ 
+                      width: 52, 
+                      height: 32, 
+                      borderRadius: 16, 
+                      backgroundColor: notifSettings.budgetAlerts && notifSettings.enabled ? colors.primary : colors.cardSecondary,
+                      padding: 2,
+                      justifyContent: 'center'
+                    }}
+                  >
+                    <View style={{ 
+                      width: 28, 
+                      height: 28, 
+                      borderRadius: 14, 
+                      backgroundColor: '#fff',
+                      transform: [{ translateX: notifSettings.budgetAlerts ? 20 : 0 }]
+                    }} />
+                  </Pressable>
+                </View>
+              </View>
+
+              {/* Transaction Reminders */}
+              <View style={{ marginBottom: 20, opacity: notifSettings.enabled ? 1 : 0.5 }}>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ color: colors.text, fontSize: 15, fontWeight: '600', marginBottom: 4 }}>Transaction Reminders</Text>
+                    <Text style={{ color: colors.textTertiary, fontSize: 13 }}>Remind to log daily transactions</Text>
+                  </View>
+                  <Pressable
+                    disabled={!notifSettings.enabled}
+                    onPress={() => updateNotifSettings({ transactionReminders: !notifSettings.transactionReminders })}
+                    style={{ 
+                      width: 52, 
+                      height: 32, 
+                      borderRadius: 16, 
+                      backgroundColor: notifSettings.transactionReminders && notifSettings.enabled ? colors.primary : colors.cardSecondary,
+                      padding: 2,
+                      justifyContent: 'center'
+                    }}
+                  >
+                    <View style={{ 
+                      width: 28, 
+                      height: 28, 
+                      borderRadius: 14, 
+                      backgroundColor: '#fff',
+                      transform: [{ translateX: notifSettings.transactionReminders ? 20 : 0 }]
+                    }} />
+                  </Pressable>
+                </View>
+              </View>
+
+              {/* Weekly Reports */}
+              <View style={{ marginBottom: 20, opacity: notifSettings.enabled ? 1 : 0.5 }}>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ color: colors.text, fontSize: 15, fontWeight: '600', marginBottom: 4 }}>Weekly Reports</Text>
+                    <Text style={{ color: colors.textTertiary, fontSize: 13 }}>Receive weekly spending summary</Text>
+                  </View>
+                  <Pressable
+                    disabled={!notifSettings.enabled}
+                    onPress={() => updateNotifSettings({ weeklyReports: !notifSettings.weeklyReports })}
+                    style={{ 
+                      width: 52, 
+                      height: 32, 
+                      borderRadius: 16, 
+                      backgroundColor: notifSettings.weeklyReports && notifSettings.enabled ? colors.primary : colors.cardSecondary,
+                      padding: 2,
+                      justifyContent: 'center'
+                    }}
+                  >
+                    <View style={{ 
+                      width: 28, 
+                      height: 28, 
+                      borderRadius: 14, 
+                      backgroundColor: '#fff',
+                      transform: [{ translateX: notifSettings.weeklyReports ? 20 : 0 }]
+                    }} />
+                  </Pressable>
+                </View>
+              </View>
+
+              {/* Monthly Reports */}
+              <View style={{ marginBottom: 20, opacity: notifSettings.enabled ? 1 : 0.5 }}>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ color: colors.text, fontSize: 15, fontWeight: '600', marginBottom: 4 }}>Monthly Reports</Text>
+                    <Text style={{ color: colors.textTertiary, fontSize: 13 }}>Receive monthly financial summary</Text>
+                  </View>
+                  <Pressable
+                    disabled={!notifSettings.enabled}
+                    onPress={() => updateNotifSettings({ monthlyReports: !notifSettings.monthlyReports })}
+                    style={{ 
+                      width: 52, 
+                      height: 32, 
+                      borderRadius: 16, 
+                      backgroundColor: notifSettings.monthlyReports && notifSettings.enabled ? colors.primary : colors.cardSecondary,
+                      padding: 2,
+                      justifyContent: 'center'
+                    }}
+                  >
+                    <View style={{ 
+                      width: 28, 
+                      height: 28, 
+                      borderRadius: 14, 
+                      backgroundColor: '#fff',
+                      transform: [{ translateX: notifSettings.monthlyReports ? 20 : 0 }]
+                    }} />
+                  </Pressable>
+                </View>
+              </View>
+
+              {/* Divider */}
+              <View style={{ height: 1, backgroundColor: colors.border, marginBottom: 20 }} />
+
+              {/* Sound & Vibration */}
+              <Text style={{ color: colors.textSecondary, fontSize: 12, fontWeight: '600', marginBottom: 16, letterSpacing: 0.5 }}>ALERTS</Text>
+
+              {/* Sound */}
+              <View style={{ marginBottom: 20, opacity: notifSettings.enabled ? 1 : 0.5 }}>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ color: colors.text, fontSize: 15, fontWeight: '600', marginBottom: 4 }}>Sound</Text>
+                    <Text style={{ color: colors.textTertiary, fontSize: 13 }}>Play sound for notifications</Text>
+                  </View>
+                  <Pressable
+                    disabled={!notifSettings.enabled}
+                    onPress={() => updateNotifSettings({ soundEnabled: !notifSettings.soundEnabled })}
+                    style={{ 
+                      width: 52, 
+                      height: 32, 
+                      borderRadius: 16, 
+                      backgroundColor: notifSettings.soundEnabled && notifSettings.enabled ? colors.primary : colors.cardSecondary,
+                      padding: 2,
+                      justifyContent: 'center'
+                    }}
+                  >
+                    <View style={{ 
+                      width: 28, 
+                      height: 28, 
+                      borderRadius: 14, 
+                      backgroundColor: '#fff',
+                      transform: [{ translateX: notifSettings.soundEnabled ? 20 : 0 }]
+                    }} />
+                  </Pressable>
+                </View>
+              </View>
+
+              {/* Vibration */}
+              <View style={{ marginBottom: 8, opacity: notifSettings.enabled ? 1 : 0.5 }}>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ color: colors.text, fontSize: 15, fontWeight: '600', marginBottom: 4 }}>Vibration</Text>
+                    <Text style={{ color: colors.textTertiary, fontSize: 13 }}>Vibrate for notifications</Text>
+                  </View>
+                  <Pressable
+                    disabled={!notifSettings.enabled}
+                    onPress={() => updateNotifSettings({ vibrationEnabled: !notifSettings.vibrationEnabled })}
+                    style={{ 
+                      width: 52, 
+                      height: 32, 
+                      borderRadius: 16, 
+                      backgroundColor: notifSettings.vibrationEnabled && notifSettings.enabled ? colors.primary : colors.cardSecondary,
+                      padding: 2,
+                      justifyContent: 'center'
+                    }}
+                  >
+                    <View style={{ 
+                      width: 28, 
+                      height: 28, 
+                      borderRadius: 14, 
+                      backgroundColor: '#fff',
+                      transform: [{ translateX: notifSettings.vibrationEnabled ? 20 : 0 }]
+                    }} />
+                  </Pressable>
+                </View>
+              </View>
+            </ScrollView>
           </Pressable>
         </Pressable>
       </Modal>

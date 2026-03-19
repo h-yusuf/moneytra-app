@@ -13,7 +13,7 @@ export interface FetchTransactionsParams {
 }
 
 export interface FetchMonthlyReportParams {
-  user_id: string;
+  user_id?: string;
   year?: number;
   month?: number;
 }
@@ -70,14 +70,17 @@ export const fetchMonthlyReport = async (
 ): Promise<MonthlyReportResponse> => {
   const queryParams = new URLSearchParams();
   
-  queryParams.append('user_id', params.user_id);
+  if (params.user_id) queryParams.append('user_id', params.user_id);
   if (params.year) queryParams.append('year', params.year.toString());
   if (params.month) queryParams.append('month', params.month.toString());
+
+  console.log('fetchMonthlyReport - API call:', `/webhook/report/monthly?${queryParams.toString()}`);
 
   const response = await apiClient.get<MonthlyReportResponse>(
     `/webhook/report/monthly?${queryParams.toString()}`
   );
   
+  console.log('fetchMonthlyReport - API response:', response.data);
   return response.data;
 };
 

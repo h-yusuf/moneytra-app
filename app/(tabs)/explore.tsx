@@ -54,7 +54,9 @@ export default function ExploreScreen() {
       }
       // For week and year, we use the same endpoint but interpret data differently
       
+      console.log('Fetching monthly report with params:', params);
       const reportData = await fetchMonthlyReport(params);
+      console.log('Monthly report data:', reportData);
       setReport(reportData);
     } catch (err) {
       console.error('Failed to load report:', err);
