@@ -1,5 +1,6 @@
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { useTheme } from '@/src/contexts/ThemeContext';
+import { useUser } from '@/src/contexts/UserContext';
 import { dummySummary } from '@/src/lib/dummy-data';
 import { formatCurrency } from '@/src/lib/utils';
 import { fetchMonthlyReport } from '@/src/services/transactionService';
@@ -11,6 +12,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function ExploreScreen() {
   const { colors } = useTheme();
+  const { profile } = useUser();
   const [report, setReport] = useState<MonthlyReportResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -42,8 +44,8 @@ export default function ExploreScreen() {
       const currentDate = new Date();
       
       // Adjust params based on selected period
+      // Get all data tanpa filter user_id
       const params: any = {
-        user_id: 'test-user-123',
         year: currentDate.getFullYear(),
       };
       
@@ -84,8 +86,8 @@ export default function ExploreScreen() {
     loadReport(true);
   };
 
-  const totalSpent = report?.summary.total_expense || 0;
-  const totalSaved = report?.summary.total_money_saving || 0;
+  const totalSpent = report?.summary?.total_expense || 0;
+  const totalSaved = report?.summary?.total_money_saving || 0;
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
@@ -207,8 +209,8 @@ export default function ExploreScreen() {
             <View style={{ paddingHorizontal: 20, marginTop: 24 }}>
               <Text style={{ color: colors.text, fontWeight: 'bold', marginBottom: 16, fontSize: 16 }}>Category Breakdown</Text>
               
-              {report?.category_breakdown.slice(0, 5).map((category, index) => {
-                const maxTotal = Math.max(...(report?.category_breakdown.map(c => c.total) || [1]));
+              {(report?.category_breakdown || []).slice(0, 5).map((category, index) => {
+                const maxTotal = Math.max(...(report?.category_breakdown?.map(c => c.total) || [1]));
                 const percentage = (category.total / maxTotal) * 100;
                 const chartColors = [colors.primary, colors.success, '#3b82f6', '#f59e0b', colors.error];
                 
@@ -254,7 +256,7 @@ export default function ExploreScreen() {
                   <View style={{ flex: 1 }}>
                     <Text style={{ color: colors.text, fontWeight: '600', fontSize: 15, marginBottom: 4 }}>Tip</Text>
                     <Text style={{ color: colors.textTertiary, fontSize: 13, lineHeight: 18 }}>
-                      Your top spending category is {report?.category_breakdown[0]?.category || 'Food & Drinks'}. Consider setting a budget limit.
+                      Your top spending category is {report?.category_breakdown?.[0]?.category || 'Food & Drinks'}. Consider setting a budget limit.
                     </Text>
                   </View>
                 </View>

@@ -1,17 +1,19 @@
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { useTheme } from '@/src/contexts/ThemeContext';
+import { useUser } from '@/src/contexts/UserContext';
 import { dummySummary, dummyTransactions } from '@/src/lib/dummy-data';
 import { formatCurrency } from '@/src/lib/utils';
 import { fetchMonthlyReport, fetchTransactions } from '@/src/services/transactionService';
 import type { MonthlyReportResponse, Transaction } from '@/src/types';
 import { useFocusEffect, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Image, Pressable, ScrollView, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function DashboardScreen() {
   const router = useRouter();
   const { colors, theme } = useTheme();
+  const { profile } = useUser();
   const [report, setReport] = useState<MonthlyReportResponse | null>(null);
   const [recentTransactions, setRecentTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
@@ -47,12 +49,12 @@ export default function DashboardScreen() {
 
       const [reportData, transactionsData] = await Promise.all([
         fetchMonthlyReport({
-          user_id: 'test-user-123',
+          user_id: profile?.user_id || 'user-456',
           year: currentYear,
           month: currentMonth,
         }),
         fetchTransactions({
-          user_id: 'test-user-123',
+          user_id: profile?.user_id || 'user-456',
           limit: 5,
         }),
       ]);
@@ -91,7 +93,7 @@ export default function DashboardScreen() {
     loadDashboardData(true);
   };
 
-  const totalBalance = report 
+  const totalBalance = report?.summary
     ? report.summary.total_money_saving - report.summary.total_expense 
     : 0;
 
@@ -139,7 +141,7 @@ export default function DashboardScreen() {
                     color={totalBalance >= 0 ? "#16a34a" : "#dc2626"} 
                   />
                   <Text style={{ color: totalBalance >= 0 ? '#15803d' : '#dc2626', fontSize: 14, marginLeft: 4, fontWeight: '500' }}>
-                    {totalBalance >= 0 ? '+' : ''}{((totalBalance / (report?.summary.total_money_saving || 1)) * 100).toFixed(1)}%
+                    {totalBalance >= 0 ? '+' : ''}{((totalBalance / (report?.summary?.total_money_saving || 1)) * 100).toFixed(1)}%
                   </Text>
                 </View>
               </>
@@ -193,7 +195,7 @@ export default function DashboardScreen() {
           <View style={{ flex: 1, borderRadius: 16, padding: 16, backgroundColor: colors.card }}>
             <Text style={{ color: colors.textSecondary, fontSize: 11, marginBottom: 8 }}>Total Expense</Text>
             <Text style={{ color: colors.text, fontSize: 20, fontWeight: 'bold', marginBottom: 6 }}>
-              {loading ? '...' : formatCurrency(report?.summary.total_expense || 0)}
+              {loading ? '...' : formatCurrency(report?.summary?.total_expense || 0)}
             </Text>
             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
               <IconSymbol name="arrow.down" size={10} color={colors.error} />
@@ -204,7 +206,7 @@ export default function DashboardScreen() {
           <View style={{ flex: 1, borderRadius: 16, padding: 16, backgroundColor: colors.card }}>
             <Text style={{ color: colors.textSecondary, fontSize: 11, marginBottom: 8 }}>Total Saving</Text>
             <Text style={{ color: colors.text, fontSize: 20, fontWeight: 'bold', marginBottom: 6 }}>
-              {loading ? '...' : formatCurrency(report?.summary.total_money_saving || 0)}
+              {loading ? '...' : formatCurrency(report?.summary?.total_money_saving || 0)}
             </Text>
             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
               <IconSymbol name="arrow.up" size={10} color={colors.success} />
@@ -239,7 +241,7 @@ export default function DashboardScreen() {
             <View style={{ paddingVertical: 32, alignItems: 'center' }}>
               <ActivityIndicator size="small" color={colors.primary} />
             </View>
-          ) : recentTransactions.length > 0 ? (
+          ) : recentTransactions?.length > 0 ? (
             recentTransactions.map((transaction, index) => (
               <Pressable 
                 key={transaction.id} 

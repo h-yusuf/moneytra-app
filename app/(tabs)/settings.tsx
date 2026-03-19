@@ -1,13 +1,22 @@
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { useTheme } from '@/src/contexts/ThemeContext';
+import { useUser } from '@/src/contexts/UserContext';
 import { formatCurrency } from '@/src/lib/utils';
 import React, { useState } from 'react';
-import { Modal, Pressable, ScrollView, Text, View } from 'react-native';
+import { Alert, Modal, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function SettingsScreen() {
   const { theme, isDark, setTheme, colors } = useTheme();
+  const { profile, updateProfile } = useUser();
   const [showThemeModal, setShowThemeModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editForm, setEditForm] = useState({
+    name: profile?.name || '',
+    email: profile?.email || '',
+    phone: profile?.phone || '',
+    user_id: profile?.user_id || '',
+  });
   
   const targetSavings = 50000000;
   const currentSavings = 5000000;
@@ -42,13 +51,29 @@ export default function SettingsScreen() {
         <View style={{ marginHorizontal: 20, marginTop: 16, backgroundColor: colors.card, borderRadius: 16, padding: 20 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
             <View style={{ width: 64, height: 64, borderRadius: 32, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center', marginRight: 16 }}>
-              <Text style={{ color: '#0a0a0a', fontSize: 24, fontWeight: 'bold' }}>U</Text>
+              <Text style={{ color: '#0a0a0a', fontSize: 24, fontWeight: 'bold' }}>
+                {profile?.name?.charAt(0).toUpperCase() || 'U'}
+              </Text>
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={{ color: colors.text, fontSize: 18, fontWeight: 'bold', marginBottom: 2 }}>User Name</Text>
-              <Text style={{ color: colors.textTertiary, fontSize: 13 }}>user@example.com</Text>
+              <Text style={{ color: colors.text, fontSize: 18, fontWeight: 'bold', marginBottom: 2 }}>{profile?.name || 'User Name'}</Text>
+              <Text style={{ color: colors.textTertiary, fontSize: 13 }}>{profile?.email || 'user@example.com'}</Text>
+              {profile?.phone && (
+                <Text style={{ color: colors.textTertiary, fontSize: 12, marginTop: 2 }}>{profile.phone}</Text>
+              )}
             </View>
-            <Pressable style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: colors.cardSecondary, alignItems: 'center', justifyContent: 'center' }}>
+            <Pressable 
+              onPress={() => {
+                setEditForm({
+                  name: profile?.name || '',
+                  email: profile?.email || '',
+                  phone: profile?.phone || '',
+                  user_id: profile?.user_id || '',
+                });
+                setShowEditModal(true);
+              }}
+              style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: colors.cardSecondary, alignItems: 'center', justifyContent: 'center' }}
+            >
               <IconSymbol name="pencil" size={16} color={colors.primary} />
             </Pressable>
           </View>
@@ -249,6 +274,142 @@ export default function SettingsScreen() {
                 <IconSymbol name="checkmark.circle.fill" size={24} color={colors.primary} />
               )}
             </Pressable>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+      {/* Edit Profile Modal */}
+      <Modal
+        visible={showEditModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowEditModal(false)}
+      >
+        <Pressable 
+          style={{ flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.5)', justifyContent: 'center', alignItems: 'center', padding: 20 }}
+          onPress={() => setShowEditModal(false)}
+        >
+          <Pressable 
+            style={{ width: '100%', maxWidth: 400, backgroundColor: colors.card, borderRadius: 20, padding: 24 }}
+            onPress={(e) => e.stopPropagation()}
+          >
+            <Text style={{ color: colors.text, fontSize: 20, fontWeight: 'bold', marginBottom: 20 }}>Edit Profile</Text>
+            
+            {/* Name Input */}
+            <View style={{ marginBottom: 16 }}>
+              <Text style={{ color: colors.textSecondary, fontSize: 13, fontWeight: '600', marginBottom: 8 }}>NAME</Text>
+              <TextInput
+                value={editForm.name}
+                onChangeText={(text) => setEditForm({ ...editForm, name: text })}
+                placeholder="Enter your name"
+                placeholderTextColor={colors.textTertiary}
+                style={{ 
+                  backgroundColor: colors.background, 
+                  borderRadius: 12, 
+                  padding: 14, 
+                  color: colors.text,
+                  fontSize: 15,
+                  borderWidth: 1,
+                  borderColor: colors.border
+                }}
+              />
+            </View>
+
+            {/* Email Input */}
+            <View style={{ marginBottom: 16 }}>
+              <Text style={{ color: colors.textSecondary, fontSize: 13, fontWeight: '600', marginBottom: 8 }}>EMAIL</Text>
+              <TextInput
+                value={editForm.email}
+                onChangeText={(text) => setEditForm({ ...editForm, email: text })}
+                placeholder="Enter your email"
+                placeholderTextColor={colors.textTertiary}
+                keyboardType="email-address"
+                autoCapitalize="none"
+                style={{ 
+                  backgroundColor: colors.background, 
+                  borderRadius: 12, 
+                  padding: 14, 
+                  color: colors.text,
+                  fontSize: 15,
+                  borderWidth: 1,
+                  borderColor: colors.border
+                }}
+              />
+            </View>
+
+            {/* Phone Input */}
+            <View style={{ marginBottom: 16 }}>
+              <Text style={{ color: colors.textSecondary, fontSize: 13, fontWeight: '600', marginBottom: 8 }}>PHONE (Optional)</Text>
+              <TextInput
+                value={editForm.phone}
+                onChangeText={(text) => setEditForm({ ...editForm, phone: text })}
+                placeholder="Enter your phone number"
+                placeholderTextColor={colors.textTertiary}
+                keyboardType="phone-pad"
+                style={{ 
+                  backgroundColor: colors.background, 
+                  borderRadius: 12, 
+                  padding: 14, 
+                  color: colors.text,
+                  fontSize: 15,
+                  borderWidth: 1,
+                  borderColor: colors.border
+                }}
+              />
+            </View>
+
+            {/* User ID Input */}
+            <View style={{ marginBottom: 24 }}>
+              <Text style={{ color: colors.textSecondary, fontSize: 13, fontWeight: '600', marginBottom: 8 }}>USER ID</Text>
+              <TextInput
+                value={editForm.user_id}
+                onChangeText={(text) => setEditForm({ ...editForm, user_id: text })}
+                placeholder="Enter your user ID"
+                placeholderTextColor={colors.textTertiary}
+                autoCapitalize="none"
+                style={{ 
+                  backgroundColor: colors.background, 
+                  borderRadius: 12, 
+                  padding: 14, 
+                  color: colors.text,
+                  fontSize: 15,
+                  borderWidth: 1,
+                  borderColor: colors.border
+                }}
+              />
+              <Text style={{ color: colors.textTertiary, fontSize: 11, marginTop: 6 }}>
+                This ID will be used for all API requests
+              </Text>
+            </View>
+
+            {/* Action Buttons */}
+            <View style={{ flexDirection: 'row', gap: 12 }}>
+              <Pressable
+                onPress={() => setShowEditModal(false)}
+                style={{ flex: 1, backgroundColor: colors.cardSecondary, borderRadius: 12, padding: 14, alignItems: 'center' }}
+              >
+                <Text style={{ color: colors.text, fontWeight: '600', fontSize: 15 }}>Cancel</Text>
+              </Pressable>
+              <Pressable
+                onPress={async () => {
+                  try {
+                    await updateProfile({
+                      name: editForm.name,
+                      email: editForm.email,
+                      phone: editForm.phone,
+                      user_id: editForm.user_id,
+                    });
+                    setShowEditModal(false);
+                    Alert.alert('Success', 'Profile updated successfully!');
+                  } catch (error) {
+                    Alert.alert('Error', 'Failed to update profile');
+                  }
+                }}
+                style={{ flex: 1, backgroundColor: colors.primary, borderRadius: 12, padding: 14, alignItems: 'center' }}
+              >
+                <Text style={{ color: '#0a0a0a', fontWeight: '600', fontSize: 15 }}>Save Changes</Text>
+              </Pressable>
+            </View>
           </Pressable>
         </Pressable>
       </Modal>

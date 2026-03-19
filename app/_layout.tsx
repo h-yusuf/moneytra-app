@@ -5,6 +5,7 @@ import 'react-native-reanimated';
 import '../global.css';
 
 import { ThemeProvider, useTheme } from '@/src/contexts/ThemeContext';
+import { UserProvider } from '@/src/contexts/UserContext';
 
 export const unstable_settings = {
   anchor: '(tabs)',
@@ -27,7 +28,9 @@ function RootNavigator() {
 export default function RootLayout() {
   return (
     <ThemeProvider>
-      <RootNavigator />
+      <UserProvider>
+        <RootNavigator />
+      </UserProvider>
     </ThemeProvider>
   );
 }
