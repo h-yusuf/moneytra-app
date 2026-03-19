@@ -20,7 +20,12 @@ const MAPPING = {
   'chevron.left.forwardslash.chevron.right': 'code',
   'chevron.right': 'chevron-right',
   'chevron.left': 'chevron-left',
-  
+
+  // Tab Bar
+  'square.grid.2x2.fill': 'dashboard',
+  'gearshape.fill': 'settings',
+  'chart.line.uptrend.xyaxis': 'trending-up',
+
   // Dashboard & Common
   'bell.fill': 'notifications',
   'plus.circle.fill': 'add-circle',
@@ -29,39 +34,51 @@ const MAPPING = {
   'clock.fill': 'schedule',
   'calendar': 'calendar-today',
   'arrow.clockwise': 'autorenew',
-  
+
   // Transaction & Money
   'arrow.down.circle.fill': 'arrow-circle-down',
   'arrow.up.circle.fill': 'arrow-circle-up',
   'arrow.down': 'arrow-downward',
   'arrow.up': 'arrow-upward',
   'arrow.up.right': 'trending-up',
+  'arrow.down.right': 'trending-down',
   'heart.circle.fill': 'favorite',
+  'heart.fill': 'favorite',
+  'cart.fill': 'shopping-cart',
   'dollarsign.circle.fill': 'monetization-on',
-  
+
   // Camera & Upload
   'camera.fill': 'camera-alt',
   'photo.fill': 'photo-library',
   'doc.fill': 'description',
   'doc.text.fill': 'article',
   'pencil': 'edit',
-  
+
   // Actions
+  'plus': 'add',
   'checkmark.circle.fill': 'check-circle',
   'xmark.circle.fill': 'cancel',
   'xmark': 'close',
   'trash.fill': 'delete',
+  'trash': 'delete-outline',
   'square.and.arrow.up': 'share',
-  
+
   // Info & Alerts
   'info.circle.fill': 'info',
   'exclamationmark.triangle.fill': 'warning',
   'lightbulb.fill': 'lightbulb',
-  
+  'questionmark.circle.fill': 'help',
+
   // Search & Filter
   'magnifyingglass': 'search',
   'line.3.horizontal.decrease': 'filter-list',
   'slider.horizontal.3': 'tune',
+
+  // Theme & Settings
+  'sun.max.fill': 'wb-sunny',
+  'moon.fill': 'nightlight-round',
+  'circle.lefthalf.filled': 'brightness-medium',
+  'rectangle.portrait.and.arrow.right': 'logout',
 } as IconMapping;
 
 /**

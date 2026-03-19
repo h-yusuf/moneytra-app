@@ -14,7 +14,7 @@ export const dummyTransactions: Transaction[] = [
     created_at: '2026-03-16T10:30:00Z',
   },
   {
-    id: '5',
+    id: '2',
     user_id: 'user-1',
     type: 'money_saving',
     transaction_date: '2024-03-10',

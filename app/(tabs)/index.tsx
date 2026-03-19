@@ -47,11 +47,7 @@ export default function DashboardScreen() {
     router.push('/settings');
   };
 
-  useEffect(() => {
-    if (profile?.user_id) {
-      loadDashboardData();
-    }
-  }, [profile?.user_id]);
+  
 
   // Auto-fetch saat navigasi ke halaman ini
   useFocusEffect(
@@ -284,7 +280,7 @@ export default function DashboardScreen() {
           ) : recentTransactions?.length > 0 ? (
             recentTransactions.map((transaction, index) => (
               <Pressable 
-                key={transaction.id} 
+                key={`${transaction.id}-${index}`} 
                 style={{ 
                   flexDirection: 'row', 
                   alignItems: 'center', 
