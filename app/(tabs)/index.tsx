@@ -111,8 +111,8 @@ export default function DashboardScreen() {
             <Text style={{ color: colors.textTertiary, fontSize: 14, marginTop: 4 }}>{formattedDate}</Text>
           </View>
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-            <Pressable style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: colors.backgroundSecondary, alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
-              <IconSymbol name="bell.fill" size={20} color={colors.icon} />
+            <Pressable style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: colors.cardSecondary, alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
+              <IconSymbol name="bell.fill" size={20} color={colors.text} />
             </Pressable>
             <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center' }}>
               <Text style={{ color: colors.text, fontWeight: 'bold', fontSize: 16 }}>U</Text>
