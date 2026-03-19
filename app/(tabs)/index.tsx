@@ -7,7 +7,7 @@ import { fetchMonthlyReport, fetchTransactions } from '@/src/services/transactio
 import type { MonthlyReportResponse, Transaction } from '@/src/types';
 import { useFocusEffect, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function DashboardScreen() {
@@ -26,15 +26,40 @@ export default function DashboardScreen() {
     year: 'numeric',
   });
 
+  const getGreeting = () => {
+    const hour = currentDate.getHours();
+    if (hour < 12) return 'Good Morning 👋';
+    if (hour < 18) return 'Good Afternoon 👋';
+    return 'Good Evening 👋';
+  };
+
+  const getUserInitial = () => {
+    if (!profile?.name) return 'U';
+    return profile.name.charAt(0).toUpperCase();
+  };
+
+  const handleNotificationPress = () => {
+    // TODO: Navigate to notifications screen
+    Alert.alert('Notifications', 'Notification feature coming soon!');
+  };
+
+  const handleAvatarPress = () => {
+    router.push('/settings');
+  };
+
   useEffect(() => {
-    loadDashboardData();
-  }, []);
+    if (profile?.user_id) {
+      loadDashboardData();
+    }
+  }, [profile?.user_id]);
 
   // Auto-fetch saat navigasi ke halaman ini
   useFocusEffect(
     useCallback(() => {
-      loadDashboardData();
-    }, [])
+      if (profile?.user_id) {
+        loadDashboardData();
+      }
+    }, [profile?.user_id])
   );
 
   const loadDashboardData = async (isRefresh = false) => {
@@ -107,16 +132,22 @@ export default function DashboardScreen() {
         {/* Header */}
         <View style={{ paddingHorizontal: 20, paddingTop: 16, paddingBottom: 8, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
           <View>
-            <Text style={{ color: colors.text, fontSize: 24, fontWeight: 'bold' }}>Good Morning 👋</Text>
+            <Text style={{ color: colors.text, fontSize: 24, fontWeight: 'bold' }}>{getGreeting()}</Text>
             <Text style={{ color: colors.textTertiary, fontSize: 14, marginTop: 4 }}>{formattedDate}</Text>
           </View>
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-            <Pressable style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: colors.cardSecondary, alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
+            <Pressable 
+              onPress={handleNotificationPress}
+              style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: colors.cardSecondary, alignItems: 'center', justifyContent: 'center', marginRight: 12 }}
+            >
               <IconSymbol name="bell.fill" size={20} color={colors.text} />
             </Pressable>
-            <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center' }}>
-              <Text style={{ color: colors.text, fontWeight: 'bold', fontSize: 16 }}>U</Text>
-            </View>
+            <Pressable 
+              onPress={handleAvatarPress}
+              style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center' }}
+            >
+              <Text style={{ color: '#0a0a0a', fontWeight: 'bold', fontSize: 16 }}>{getUserInitial()}</Text>
+            </Pressable>
           </View>
         </View>
 
