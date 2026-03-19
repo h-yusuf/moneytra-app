@@ -1,5 +1,6 @@
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { useTheme } from '@/src/contexts/ThemeContext';
+import { useUser } from '@/src/contexts/UserContext';
 import { createTransaction, extractTransaction, type ExtractedTransactionData } from '@/src/services/transactionService';
 import { Audio } from 'expo-av';
 import * as DocumentPicker from 'expo-document-picker';
@@ -22,6 +23,7 @@ type InlineAlert = {
 
 export default function AddScreen() {
   const { colors } = useTheme();
+  const { profile } = useUser();
   const [selectedType, setSelectedType] = useState<'expense' | 'money_saving'>('expense');
   const [uploadedFile, setUploadedFile] = useState<UploadedFile | null>(null);
   const [isExtracting, setIsExtracting] = useState(false);
@@ -192,7 +194,7 @@ export default function AddScreen() {
       // Extract transaction data from image
       const extracted = await extractTransaction({
         file: fileToUpload,
-        user_id: 'test-user-123',
+        user_id: profile?.user_id || 'user-456',
         transaction_type: selectedType,
       });
 
@@ -242,7 +244,7 @@ export default function AddScreen() {
 
       // Save transaction to database
       await createTransaction({
-        user_id: 'test-user-123',
+        user_id: profile?.user_id || 'user-456',
         type: selectedType,
         text: textData,
         source_name: uploadedFile?.name || 'manual-entry',
