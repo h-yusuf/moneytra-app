@@ -1,4 +1,5 @@
 import { IconSymbol } from '@/components/ui/icon-symbol';
+import { useBudget } from '@/src/contexts/BudgetContext';
 import { useTheme } from '@/src/contexts/ThemeContext';
 import { useUser } from '@/src/contexts/UserContext';
 import { createTransaction, extractTransaction, type ExtractedTransactionData } from '@/src/services/transactionService';
@@ -24,6 +25,7 @@ type InlineAlert = {
 export default function AddScreen() {
   const { colors } = useTheme();
   const { profile } = useUser();
+  const { checkBudgetAlert } = useBudget();
   const [selectedType, setSelectedType] = useState<'expense' | 'money_saving'>('expense');
   const [uploadedFile, setUploadedFile] = useState<UploadedFile | null>(null);
   const [isExtracting, setIsExtracting] = useState(false);
@@ -252,6 +254,29 @@ export default function AddScreen() {
 
       // Play sound effect based on transaction type
       await playSuccessSound(selectedType);
+
+      // Check budget alert for expense transactions
+      if (selectedType === 'expense' && extractedData.category) {
+        const budgetCheck = checkBudgetAlert(
+          extractedData.category,
+          profile?.user_id || 'user-456',
+          extractedData.total
+        );
+
+        if (budgetCheck.isOverLimit) {
+          Alert.alert(
+            '⚠️ Budget Exceeded!',
+            `You have exceeded your ${budgetCheck.budget?.period} budget for ${extractedData.category}!\n\nBudget: Rp ${budgetCheck.budget?.amount.toLocaleString()}\nSpent: ${budgetCheck.percentage.toFixed(1)}%`,
+            [{ text: 'OK', style: 'destructive' }]
+          );
+        } else if (budgetCheck.isNearLimit) {
+          Alert.alert(
+            '⚠️ Budget Warning',
+            `You are approaching your ${budgetCheck.budget?.period} budget limit for ${extractedData.category}.\n\nBudget: Rp ${budgetCheck.budget?.amount.toLocaleString()}\nSpent: ${budgetCheck.percentage.toFixed(1)}%`,
+            [{ text: 'OK' }]
+          );
+        }
+      }
 
       // Show SweetAlert style modal
       setIsSaving(false);

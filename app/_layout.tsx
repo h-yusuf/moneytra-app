@@ -4,6 +4,8 @@ import { StatusBar } from 'expo-status-bar';
 import 'react-native-reanimated';
 import '../global.css';
 
+import { BudgetProvider } from '@/src/contexts/BudgetContext';
+import { NotificationProvider } from '@/src/contexts/NotificationContext';
 import { ThemeProvider, useTheme } from '@/src/contexts/ThemeContext';
 import { UserProvider } from '@/src/contexts/UserContext';
 
@@ -29,7 +31,11 @@ export default function RootLayout() {
   return (
     <ThemeProvider>
       <UserProvider>
-        <RootNavigator />
+        <BudgetProvider>
+          <NotificationProvider>
+            <RootNavigator />
+          </NotificationProvider>
+        </BudgetProvider>
       </UserProvider>
     </ThemeProvider>
   );
