@@ -6,6 +6,7 @@ import { createTransaction, extractTransaction, type ExtractedTransactionData } 
 import { Audio } from 'expo-av';
 import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
+import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import { ActivityIndicator, Alert, Image, Modal, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -23,6 +24,7 @@ type InlineAlert = {
 } | null;
 
 export default function AddScreen() {
+  const router = useRouter();
   const { colors } = useTheme();
   const { profile } = useUser();
   const { checkBudgetAlert } = useBudget();
@@ -173,7 +175,20 @@ export default function AddScreen() {
       return;
     }
 
+    if (!profile?.user_id) {
+      Alert.alert(
+        'User ID Required',
+        'Please set your User ID in Settings before extracting transactions.',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Go to Settings', onPress: () => router.push('/settings') }
+        ]
+      );
+      return;
+    }
+
     console.log('Starting extraction...', uploadedFile);
+    console.log('Extracting with user_id:', profile.user_id);
     
     setInlineAlert({
       type: 'info',
@@ -196,7 +211,7 @@ export default function AddScreen() {
       // Extract transaction data from image
       const extracted = await extractTransaction({
         file: fileToUpload,
-        user_id: profile?.user_id || 'user-456',
+        user_id: profile.user_id,
         transaction_type: selectedType,
       });
 
@@ -232,6 +247,22 @@ export default function AddScreen() {
     setIsSaving(true);
     
     try {
+      console.log('Current profile:', profile);
+      console.log('User ID from profile:', profile?.user_id);
+      
+      if (!profile?.user_id) {
+        Alert.alert(
+          'User ID Required',
+          'Please set your User ID in Settings before adding transactions.',
+          [
+            { text: 'Cancel', style: 'cancel' },
+            { text: 'Go to Settings', onPress: () => router.push('/settings') }
+          ]
+        );
+        setIsSaving(false);
+        return;
+      }
+
       // Format text dari extracted data
       const textData = [
         extractedData.merchant ? `Merchant: ${extractedData.merchant}` : '',
@@ -243,10 +274,11 @@ export default function AddScreen() {
       ].filter(Boolean).join('\n');
 
       console.log('Saving transaction with text format:', textData);
+      console.log('Saving with user_id:', profile.user_id);
 
       // Save transaction to database
       await createTransaction({
-        user_id: profile?.user_id || 'user-456',
+        user_id: profile.user_id,
         type: selectedType,
         text: textData,
         source_name: uploadedFile?.name || 'manual-entry',
@@ -259,7 +291,7 @@ export default function AddScreen() {
       if (selectedType === 'expense' && extractedData.category) {
         const budgetCheck = checkBudgetAlert(
           extractedData.category,
-          profile?.user_id || 'user-456',
+          profile.user_id,
           extractedData.total
         );
 
