@@ -8,7 +8,7 @@ import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
-import { ActivityIndicator, Alert, Image, Modal, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Alert, Image, Modal, Pressable, RefreshControl, ScrollView, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 type UploadedFile = {
@@ -35,6 +35,7 @@ export default function AddScreen() {
   const [isSaving, setIsSaving] = useState(false);
   const [inlineAlert, setInlineAlert] = useState<InlineAlert>(null);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [showManualEntry, setShowManualEntry] = useState(false);
   const [manualForm, setManualForm] = useState({
     merchant: '',
@@ -158,6 +159,24 @@ export default function AddScreen() {
       console.error('Document picker error:', error);
       Alert.alert('Error', 'Failed to pick document. Please try again.');
     }
+  };
+
+  const handleRefreshPage = () => {
+    setIsRefreshing(true);
+    setUploadedFile(null);
+    setExtractedData(null);
+    setInlineAlert(null);
+    setShowManualEntry(false);
+    setSelectedType('expense');
+    setManualForm({
+      merchant: '',
+      total: '',
+      category: '',
+      transaction_date: new Date().toISOString().split('T')[0],
+      payment_method: '',
+      notes: '',
+    });
+    setTimeout(() => setIsRefreshing(false), 600);
   };
 
   const handleManualEntry = () => {
@@ -471,6 +490,14 @@ export default function AddScreen() {
         style={{ flex: 1 }} 
         contentContainerStyle={{ paddingBottom: 100 }}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={isRefreshing}
+            onRefresh={handleRefreshPage}
+            tintColor={colors.primary}
+            colors={[colors.primary]}
+          />
+        }
       >
         {/* Header */}
         <View style={{ paddingHorizontal: 20, paddingTop: 16, paddingBottom: 8 }}>
