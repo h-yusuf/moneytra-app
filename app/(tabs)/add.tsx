@@ -35,6 +35,15 @@ export default function AddScreen() {
   const [isSaving, setIsSaving] = useState(false);
   const [inlineAlert, setInlineAlert] = useState<InlineAlert>(null);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [showManualEntry, setShowManualEntry] = useState(false);
+  const [manualForm, setManualForm] = useState({
+    merchant: '',
+    total: '',
+    category: '',
+    transaction_date: new Date().toISOString().split('T')[0],
+    payment_method: '',
+    notes: '',
+  });
 
   const playSuccessSound = async (type: 'expense' | 'money_saving') => {
     try {
@@ -152,17 +161,129 @@ export default function AddScreen() {
   };
 
   const handleManualEntry = () => {
-    setInlineAlert({
-      type: 'info',
-      message: 'Manual transaction entry form will be available soon.'
-    });
-    setTimeout(() => setInlineAlert(null), 3000);
+    setShowManualEntry((prev) => !prev);
+    setUploadedFile(null);
+    setExtractedData(null);
+    setInlineAlert(null);
   };
 
   const handleCancelUpload = () => {
     setUploadedFile(null);
     setExtractedData(null);
     setInlineAlert(null);
+    setShowManualEntry(false);
+    setManualForm({
+      merchant: '',
+      total: '',
+      category: '',
+      transaction_date: new Date().toISOString().split('T')[0],
+      payment_method: '',
+      notes: '',
+    });
+  };
+
+  const handleSaveManualEntry = async () => {
+    if (!manualForm.merchant.trim()) {
+      setInlineAlert({ type: 'error', message: 'Merchant name is required.' });
+      return;
+    }
+    if (!manualForm.total || isNaN(parseFloat(manualForm.total)) || parseFloat(manualForm.total) <= 0) {
+      setInlineAlert({ type: 'error', message: 'Please enter a valid amount.' });
+      return;
+    }
+    if (!manualForm.category.trim()) {
+      setInlineAlert({ type: 'error', message: 'Category is required.' });
+      return;
+    }
+    if (!manualForm.transaction_date.trim()) {
+      setInlineAlert({ type: 'error', message: 'Date is required.' });
+      return;
+    }
+
+    if (!profile?.user_id) {
+      Alert.alert(
+        'User ID Required',
+        'Please set your User ID in Settings before adding transactions.',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Go to Settings', onPress: () => router.push('/settings') },
+        ]
+      );
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      const amount = parseFloat(manualForm.total);
+      const textData = [
+        `Merchant: ${manualForm.merchant}`,
+        `Amount: Rp ${amount.toLocaleString('id-ID')}`,
+        `Category: ${manualForm.category}`,
+        `Date: ${manualForm.transaction_date}`,
+        manualForm.payment_method ? `Payment: ${manualForm.payment_method}` : '',
+        manualForm.notes ? `Notes: ${manualForm.notes}` : '',
+      ].filter(Boolean).join('\n');
+
+      await createTransaction({
+        user_id: profile.user_id,
+        type: selectedType,
+        text: textData,
+        source_name: 'manual-entry',
+      });
+
+      // Set extractedData so the success modal shows the amount
+      setExtractedData({
+        merchant: manualForm.merchant,
+        total: amount,
+        category: manualForm.category,
+        transaction_date: manualForm.transaction_date,
+        payment_method: manualForm.payment_method,
+        notes: manualForm.notes,
+      } as any);
+
+      await playSuccessSound(selectedType);
+
+      if (selectedType === 'expense' && manualForm.category) {
+        const budgetCheck = checkBudgetAlert(manualForm.category, profile.user_id, amount);
+        if (budgetCheck.isOverLimit) {
+          Alert.alert(
+            '⚠️ Budget Exceeded!',
+            `You have exceeded your ${budgetCheck.budget?.period} budget for ${manualForm.category}!\n\nBudget: Rp ${budgetCheck.budget?.amount.toLocaleString()}\nSpent: ${budgetCheck.percentage.toFixed(1)}%`,
+            [{ text: 'OK', style: 'destructive' }]
+          );
+        } else if (budgetCheck.isNearLimit) {
+          Alert.alert(
+            '⚠️ Budget Warning',
+            `You are approaching your ${budgetCheck.budget?.period} budget limit for ${manualForm.category}.\n\nBudget: Rp ${budgetCheck.budget?.amount.toLocaleString()}\nSpent: ${budgetCheck.percentage.toFixed(1)}%`,
+            [{ text: 'OK' }]
+          );
+        }
+      }
+
+      setIsSaving(false);
+      setShowSuccessModal(true);
+      setTimeout(() => {
+        setShowSuccessModal(false);
+        setShowManualEntry(false);
+        setManualForm({
+          merchant: '',
+          total: '',
+          category: '',
+          transaction_date: new Date().toISOString().split('T')[0],
+          payment_method: '',
+          notes: '',
+        });
+        setExtractedData(null);
+        setInlineAlert(null);
+      }, 2500);
+    } catch (error: any) {
+      setIsSaving(false);
+      const errorMessage =
+        error.response?.data?.message ||
+        error.message ||
+        'Failed to save transaction. Please try again.';
+      setInlineAlert({ type: 'error', message: errorMessage });
+    }
   };
 
   const handleExtractTransaction = async () => {
@@ -507,20 +628,155 @@ export default function AddScreen() {
           {/* Manual Input */}
           <Pressable 
             onPress={handleManualEntry}
-            style={{ backgroundColor: colors.card, borderRadius: 16, padding: 16 }}
+            style={{ backgroundColor: showManualEntry ? colors.primary : colors.card, borderRadius: 16, padding: 16 }}
           >
             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-              <View style={{ width: 48, height: 48, borderRadius: 12, backgroundColor: colors.cardSecondary, alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
-                <IconSymbol name="pencil" size={24} color={colors.primary} />
+              <View style={{ width: 48, height: 48, borderRadius: 12, backgroundColor: showManualEntry ? 'rgba(10,10,10,0.15)' : colors.cardSecondary, alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
+                <IconSymbol name="pencil" size={24} color={showManualEntry ? '#0a0a0a' : colors.primary} />
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={{ color: colors.text, fontWeight: '600', fontSize: 15, marginBottom: 2 }}>Manual Entry</Text>
-                <Text style={{ color: colors.textTertiary, fontSize: 12 }}>Fill in transaction details manually</Text>
+                <Text style={{ color: showManualEntry ? '#0a0a0a' : colors.text, fontWeight: '600', fontSize: 15, marginBottom: 2 }}>Manual Entry</Text>
+                <Text style={{ color: showManualEntry ? 'rgba(10,10,10,0.6)' : colors.textTertiary, fontSize: 12 }}>{showManualEntry ? 'Tap to close form' : 'Fill in transaction details manually'}</Text>
               </View>
-              <IconSymbol name="chevron.right" size={16} color="#737373" />
+              <IconSymbol name={showManualEntry ? 'chevron.left' : 'chevron.right'} size={16} color={showManualEntry ? '#0a0a0a' : '#737373'} />
             </View>
           </Pressable>
         </View>
+
+        {/* Manual Entry Form */}
+        {showManualEntry && (
+          <View style={{ paddingHorizontal: 20, marginTop: 24 }}>
+            <Text style={{ color: colors.textSecondary, fontSize: 11, fontWeight: '600', marginBottom: 12, letterSpacing: 0.5 }}>MANUAL ENTRY FORM</Text>
+            <View style={{ backgroundColor: colors.card, borderRadius: 16, padding: 16 }}>
+              
+              {/* Merchant */}
+              <View style={{ marginBottom: 12 }}>
+                <Text style={{ color: colors.textSecondary, fontSize: 12, marginBottom: 6, fontWeight: '500' }}>Merchant / Store Name *</Text>
+                <TextInput
+                  value={manualForm.merchant}
+                  onChangeText={(text) => setManualForm({ ...manualForm, merchant: text })}
+                  style={{ backgroundColor: colors.cardSecondary, borderRadius: 12, padding: 12, color: colors.text, fontSize: 15 }}
+                  placeholder="e.g. Indomaret, Grab, PLN"
+                  placeholderTextColor={colors.textTertiary}
+                />
+              </View>
+
+              {/* Amount */}
+              <View style={{ marginBottom: 12 }}>
+                <Text style={{ color: colors.textSecondary, fontSize: 12, marginBottom: 6, fontWeight: '500' }}>Amount (Rp) *</Text>
+                <TextInput
+                  value={manualForm.total}
+                  onChangeText={(text) => setManualForm({ ...manualForm, total: text.replace(/[^0-9]/g, '') })}
+                  style={{ backgroundColor: colors.cardSecondary, borderRadius: 12, padding: 12, color: colors.text, fontSize: 15 }}
+                  placeholder="0"
+                  placeholderTextColor={colors.textTertiary}
+                  keyboardType="numeric"
+                />
+              </View>
+
+              {/* Category */}
+              <View style={{ marginBottom: 12 }}>
+                <Text style={{ color: colors.textSecondary, fontSize: 12, marginBottom: 6, fontWeight: '500' }}>Category *</Text>
+                <TextInput
+                  value={manualForm.category}
+                  onChangeText={(text) => setManualForm({ ...manualForm, category: text })}
+                  style={{ backgroundColor: colors.cardSecondary, borderRadius: 12, padding: 12, color: colors.text, fontSize: 15 }}
+                  placeholder="e.g. Food, Transport, Bills"
+                  placeholderTextColor={colors.textTertiary}
+                />
+                {/* Quick-select chips */}
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 8 }}>
+                  {['Makanan & Minuman', 'Belanja Harian', 'Wedding', 'Lainnya'].map((cat) => (
+                    <Pressable
+                      key={cat}
+                      onPress={() => setManualForm({ ...manualForm, category: cat })}
+                      style={{
+                        paddingHorizontal: 12,
+                        paddingVertical: 6,
+                        borderRadius: 20,
+                        borderWidth: 1,
+                        borderColor: manualForm.category === cat ? colors.primary : colors.border,
+                        backgroundColor: manualForm.category === cat ? colors.primary : colors.cardSecondary,
+                      }}
+                    >
+                      <Text style={{
+                        fontSize: 12,
+                        fontWeight: '500',
+                        color: manualForm.category === cat ? '#0a0a0a' : colors.textSecondary,
+                      }}>
+                        {cat}
+                      </Text>
+                    </Pressable>
+                  ))}
+                </View>
+              </View>
+
+
+              {/* Date */}
+              <View style={{ marginBottom: 12 }}>
+                <Text style={{ color: colors.textSecondary, fontSize: 12, marginBottom: 6, fontWeight: '500' }}>Date *</Text>
+                <TextInput
+                  value={manualForm.transaction_date}
+                  onChangeText={(text) => setManualForm({ ...manualForm, transaction_date: text })}
+                  style={{ backgroundColor: colors.cardSecondary, borderRadius: 12, padding: 12, color: colors.text, fontSize: 15 }}
+                  placeholder="YYYY-MM-DD"
+                  placeholderTextColor={colors.textTertiary}
+                />
+              </View>
+
+              {/* Payment Method */}
+              <View style={{ marginBottom: 12 }}>
+                <Text style={{ color: colors.textSecondary, fontSize: 12, marginBottom: 6, fontWeight: '500' }}>Payment Method</Text>
+                <TextInput
+                  value={manualForm.payment_method}
+                  onChangeText={(text) => setManualForm({ ...manualForm, payment_method: text })}
+                  style={{ backgroundColor: colors.cardSecondary, borderRadius: 12, padding: 12, color: colors.text, fontSize: 15 }}
+                  placeholder="e.g. Cash, QRIS, Transfer, E-Wallet"
+                  placeholderTextColor={colors.textTertiary}
+                />
+              </View>
+
+              {/* Notes */}
+              <View style={{ marginBottom: 16 }}>
+                <Text style={{ color: colors.textSecondary, fontSize: 12, marginBottom: 6, fontWeight: '500' }}>Notes</Text>
+                <TextInput
+                  value={manualForm.notes}
+                  onChangeText={(text) => setManualForm({ ...manualForm, notes: text })}
+                  style={{ backgroundColor: colors.cardSecondary, borderRadius: 12, padding: 12, color: colors.text, fontSize: 15, minHeight: 80 }}
+                  placeholder="Add additional notes..."
+                  placeholderTextColor={colors.textTertiary}
+                  multiline
+                  textAlignVertical="top"
+                />
+              </View>
+
+              {/* Action Buttons */}
+              <View style={{ flexDirection: 'row', gap: 12 }}>
+                <Pressable
+                  onPress={handleCancelUpload}
+                  disabled={isSaving}
+                  style={{ flex: 1, backgroundColor: colors.cardSecondary, borderRadius: 12, padding: 14, alignItems: 'center' }}
+                >
+                  <Text style={{ color: colors.text, fontWeight: '600', fontSize: 14 }}>Cancel</Text>
+                </Pressable>
+                <Pressable
+                  onPress={handleSaveManualEntry}
+                  disabled={isSaving}
+                  style={{ flex: 2, backgroundColor: colors.primary, borderRadius: 12, padding: 14, alignItems: 'center', flexDirection: 'row', justifyContent: 'center' }}
+                >
+                  {isSaving ? (
+                    <>
+                      <ActivityIndicator size="small" color="#0a0a0a" style={{ marginRight: 8 }} />
+                      <Text style={{ color: '#0a0a0a', fontWeight: 'bold', fontSize: 14 }}>Saving...</Text>
+                    </>
+                  ) : (
+                    <Text style={{ color: '#0a0a0a', fontWeight: 'bold', fontSize: 14 }}>Save Transaction</Text>
+                  )}
+                </Pressable>
+              </View>
+            </View>
+          </View>
+        )}
 
         {/* Preview Section */}
         {uploadedFile && (
@@ -638,7 +894,33 @@ export default function AddScreen() {
                   placeholder="Category"
                   placeholderTextColor={colors.textTertiary}
                 />
+                {/* Quick-select chips */}
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 8 }}>
+                  {['Makanan & Minuman', 'Belanja Harian', 'Wedding', 'Lainnya'].map((cat) => (
+                    <Pressable
+                      key={cat}
+                      onPress={() => setExtractedData({ ...extractedData, category: cat })}
+                      style={{
+                        paddingHorizontal: 12,
+                        paddingVertical: 6,
+                        borderRadius: 20,
+                        borderWidth: 1,
+                        borderColor: extractedData.category === cat ? colors.primary : colors.border,
+                        backgroundColor: extractedData.category === cat ? colors.primary : colors.cardSecondary,
+                      }}
+                    >
+                      <Text style={{
+                        fontSize: 12,
+                        fontWeight: '500',
+                        color: extractedData.category === cat ? '#0a0a0a' : colors.textSecondary,
+                      }}>
+                        {cat}
+                      </Text>
+                    </Pressable>
+                  ))}
+                </View>
               </View>
+
 
               {/* Date */}
               <View style={{ marginBottom: 12 }}>
