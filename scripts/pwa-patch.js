@@ -16,9 +16,9 @@ const PWA_TAGS = `
 <meta name="apple-mobile-web-app-capable" content="yes"/>
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
 <meta name="apple-mobile-web-app-title" content="Monetra"/>
-<link rel="manifest" href="/manifest.json"/>
-<link rel="apple-touch-icon" sizes="180x180" href="/icons/apple-touch-icon.png"/>
-<link rel="apple-touch-icon" sizes="192x192" href="/icons/icon-192.png"/>
+<link rel="manifest" href="/manifest.json?v=2"/>
+<link rel="apple-touch-icon" href="/icons/apple-touch-icon.png?v=2"/>
+<link rel="apple-touch-icon" sizes="192x192" href="/icons/icon-192.png?v=2"/>
 <meta name="description" content="Track your expenses, savings, and financial goals with Monetra."/>
 <meta name="application-name" content="Monetra"/>
 `;

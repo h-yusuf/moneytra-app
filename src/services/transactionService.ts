@@ -143,13 +143,32 @@ export const extractTransaction = async (
 
   const formData = new FormData();
   
-  // React Native FormData requires specific format
-  // @ts-ignore - React Native FormData typing
-  formData.append('file', {
-    uri: params.file.uri,
-    type: params.file.type,
-    name: params.file.name,
-  });
+  // Detect web platform
+  const isWeb = typeof window !== 'undefined' && typeof document !== 'undefined';
+
+  if (isWeb) {
+    // On web: URI is a blob: or data: URL — fetch it and convert to File
+    try {
+      const response = await fetch((params.file as any).uri);
+      const blob = await response.blob();
+      const mimeType = (params.file as any).type || blob.type || 'image/jpeg';
+      const fileName = (params.file as any).name || `upload_${Date.now()}.jpg`;
+      const file = new File([blob], fileName, { type: mimeType });
+      formData.append('file', file);
+    } catch (fetchErr) {
+      console.error('Web blob fetch error:', fetchErr);
+      throw new Error('Failed to read file on web. Please try again.');
+    }
+  } else {
+    // React Native: use the {uri, type, name} object format
+    // @ts-ignore - React Native FormData typing
+    formData.append('file', {
+      uri: (params.file as any).uri,
+      type: (params.file as any).type || 'image/jpeg',
+      name: (params.file as any).name || 'upload.jpg',
+    });
+  }
+
   formData.append('user_id', params.user_id);
   formData.append('transaction_type', params.transaction_type);
 
@@ -157,7 +176,8 @@ export const extractTransaction = async (
     endpoint: '/webhook/uploadDoc',
     user_id: params.user_id,
     transaction_type: params.transaction_type,
-    file: params.file.name,
+    file: (params.file as any).name,
+    isWeb,
   });
 
   try {
@@ -173,12 +193,16 @@ export const extractTransaction = async (
     );
     
     console.log('API Response:', response.data);
-    return response.data;
+
+    // n8n sometimes returns an array — handle both cases
+    const data = Array.isArray(response.data) ? response.data[0] : response.data;
+    return data;
   } catch (error: any) {
     console.error('API Error:', error.response?.data || error.message);
     throw error;
   }
 };
+
 
 export interface CreateTransactionParams {
   user_id: string;
