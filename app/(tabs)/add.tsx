@@ -8,7 +8,7 @@ import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
-import { ActivityIndicator, Alert, Image, Modal, Pressable, RefreshControl, ScrollView, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Alert, Image, Modal, Platform, Pressable, RefreshControl, ScrollView, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 type UploadedFile = {
@@ -104,25 +104,38 @@ export default function AddScreen() {
   };
 
   const handleUploadDocument = async () => {
+    // Web: use native file input
+    if (Platform.OS === 'web') {
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = 'image/*';
+      input.onchange = (e: any) => {
+        const file: File = e.target.files[0];
+        if (!file) return;
+        const blobUrl = URL.createObjectURL(file);
+        setUploadedFile({
+          uri: blobUrl,
+          type: 'image',
+          name: file.name,
+          size: file.size,
+        });
+      };
+      input.click();
+      return;
+    }
+
+    // Native: use ImagePicker
     try {
-      // Request media library permission
       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      
       if (status !== 'granted') {
-        Alert.alert(
-          'Permission Required',
-          'Please allow photo library access in your device settings.',
-          [{ text: 'OK' }]
-        );
+        Alert.alert('Permission Required', 'Please allow photo library access in your device settings.', [{ text: 'OK' }]);
         return;
       }
-
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ['images'],
         allowsEditing: false,
         quality: 1,
       });
-
       if (!result.canceled) {
         const asset = result.assets[0];
         setUploadedFile({
@@ -139,12 +152,33 @@ export default function AddScreen() {
   };
 
   const handlePickDocument = async () => {
+    // Web: use native file input for both images and PDFs
+    if (Platform.OS === 'web') {
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = 'image/*,application/pdf';
+      input.onchange = (e: any) => {
+        const file: File = e.target.files[0];
+        if (!file) return;
+        const blobUrl = URL.createObjectURL(file);
+        const isPdf = file.type === 'application/pdf';
+        setUploadedFile({
+          uri: blobUrl,
+          type: isPdf ? 'pdf' : 'image',
+          name: file.name,
+          size: file.size,
+        });
+      };
+      input.click();
+      return;
+    }
+
+    // Native: use DocumentPicker
     try {
       const result = await DocumentPicker.getDocumentAsync({
         type: ['application/pdf', 'image/*'],
         copyToCacheDirectory: true,
       });
-
       if (!result.canceled) {
         const asset = result.assets[0];
         const isPdf = asset.mimeType === 'application/pdf';

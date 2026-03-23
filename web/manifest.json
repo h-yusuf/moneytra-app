@@ -2,7 +2,7 @@
   "name": "Monetra - Personal Finance Tracker",
   "short_name": "Monetra",
   "description": "Track your expenses, savings, and financial goals with Monetra.",
-  "start_url": "/",
+  "start_url": "/?source=pwa",
   "scope": "/",
   "display": "standalone",
   "orientation": "portrait",
