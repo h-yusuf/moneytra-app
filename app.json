@@ -40,7 +40,14 @@
     },
     "web": {
       "output": "static",
-      "favicon": "./public/image/light-logo-app.png"
+      "favicon": "./public/image/light-logo-app.png",
+      "name": "Monetra",
+      "shortName": "Monetra",
+      "description": "Track your expenses, savings, and financial goals with Monetra.",
+      "themeColor": "#c8f542",
+      "backgroundColor": "#0a0a0a",
+      "lang": "id",
+      "scope": "/"
     },
     "plugins": [
       "expo-router",

@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="id">
+  <head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no" />
+
+    <!-- Primary Meta Tags -->
+    <title>Monetra - Personal Finance Tracker</title>
+    <meta name="title" content="Monetra - Personal Finance Tracker" />
+    <meta name="description" content="Track your expenses, savings, and financial goals with Monetra." />
+    <meta name="application-name" content="Monetra" />
+    <meta name="keywords" content="finance, expense tracker, savings, budgeting, monetra" />
+    <meta name="author" content="Monetra" />
+
+    <!-- Theme -->
+    <meta name="theme-color" content="#c8f542" />
+    <meta name="msapplication-TileColor" content="#0a0a0a" />
+    <meta name="msapplication-TileImage" content="/icons/icon-192.png" />
+
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="/manifest.json" />
+
+    <!-- Icons -->
+    <link rel="icon" type="image/png" sizes="32x32" href="/icons/icon-192.png" />
+    <link rel="icon" type="image/png" sizes="16x16" href="/icons/icon-192.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/icons/apple-touch-icon.png" />
+
+    <!-- Apple PWA Meta Tags -->
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Monetra" />
+
+    <!-- Open Graph -->
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Monetra - Personal Finance Tracker" />
+    <meta property="og:description" content="Track your expenses, savings, and financial goals." />
+    <meta property="og:image" content="/icons/icon-512.png" />
+
+    <!-- Splash screens for iOS -->
+    <link
+      rel="apple-touch-startup-image"
+      href="/icons/icon-512.png"
+      media="(device-width: 390px) and (device-height: 844px) and (-webkit-device-pixel-ratio: 3)"
+    />
+
+    <!-- Service Worker Registration -->
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', function () {
+          navigator.serviceWorker.register('/sw.js')
+            .then(function (registration) {
+              console.log('[Monetra SW] Registered:', registration.scope);
+            })
+            .catch(function (err) {
+              console.warn('[Monetra SW] Registration failed:', err);
+            });
+        });
+      }
+    </script>
+  </head>
+  <body>
+    <noscript>
+      <div style="
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        height: 100vh;
+        background: #0a0a0a;
+        color: #c8f542;
+        font-family: sans-serif;
+        font-size: 18px;
+        text-align: center;
+        padding: 20px;
+      ">
+        Monetra requires JavaScript to run. Please enable JavaScript in your browser.
+      </div>
+    </noscript>
+  </body>
+</html>
