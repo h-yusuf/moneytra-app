@@ -1,0 +1,109 @@
+{
+  "name": "Monetra - Register Push Token",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "register-token",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-register-token",
+      "name": "Webhook Register Token",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [240, 300],
+      "webhookId": "monetra-register-push-token"
+    },
+    {
+      "parameters": {
+        "jsCode": "const body = $json.body ?? $json;\n\nconst user_id = String(body.user_id || '').trim();\nconst push_token = String(body.push_token || '').trim();\n\nif (!user_id) throw new Error('user_id is required');\nif (!push_token) throw new Error('push_token is required');\n\nreturn [{ json: { user_id, push_token, updated_at: new Date().toISOString() } }];"
+      },
+      "id": "parse-register-body",
+      "name": "Parse Register Body",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [480, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{$env.SUPABASE_URL}}/rest/v1/push_tokens",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{$env.SUPABASE_ANON_KEY}}"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer {{$env.SUPABASE_ANON_KEY}}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "resolution=merge-duplicates"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"user_id\": {{ $json.user_id }},\n  \"push_token\": {{ $json.push_token }},\n  \"updated_at\": {{ $json.updated_at }}\n}",
+        "options": {}
+      },
+      "id": "upsert-token-supabase",
+      "name": "Upsert Token to Supabase",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [720, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{ json: { success: true, user_id: $('Parse Register Body').first().json.user_id } }];"
+      },
+      "id": "build-success-response",
+      "name": "Build Success Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [960, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {}
+      },
+      "id": "respond-to-webhook",
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [1200, 300]
+    }
+  ],
+  "connections": {
+    "Webhook Register Token": {
+      "main": [[{"node": "Parse Register Body", "type": "main", "index": 0}]]
+    },
+    "Parse Register Body": {
+      "main": [[{"node": "Upsert Token to Supabase", "type": "main", "index": 0}]]
+    },
+    "Upsert Token to Supabase": {
+      "main": [[{"node": "Build Success Response", "type": "main", "index": 0}]]
+    },
+    "Build Success Response": {
+      "main": [[{"node": "Respond to Webhook", "type": "main", "index": 0}]]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "meta": {
+    "instanceId": "monetra-register-push-token"
+  },
+  "tags": []
+}
