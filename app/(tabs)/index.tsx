@@ -81,7 +81,6 @@ export default function DashboardScreen() {
         fetchMonthlyReport({
           user_id: profile.user_id,
           year: currentYear,
-          month: currentMonth,
         }),
         fetchTransactions({
           user_id: profile.user_id,
@@ -123,9 +122,13 @@ export default function DashboardScreen() {
     loadDashboardData(true);
   };
 
-  const totalBalance = report?.summary
-    ? report.summary.total_money_saving - report.summary.total_expense 
-    : 0;
+  const totalTransactions = report?.summary?.total_transactions || 0;
+  const savingsRate = (() => {
+    const exp = report?.summary?.total_expense || 0;
+    const sav = report?.summary?.total_money_saving || 0;
+    const total = exp + sav;
+    return total > 0 ? Math.round((sav / total) * 100) : 0;
+  })();
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
@@ -156,33 +159,30 @@ export default function DashboardScreen() {
           </View>
         </View>
 
-        {/* Balance Card */}
+        {/* Year Summary Card */}
         <View style={{ marginHorizontal: 20, marginTop: 16, backgroundColor: colors.primary, borderRadius: 20, padding: 20 }}>
           <View style={{ position: 'relative' }}>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
-              <Text style={{ color: '#0a0a0a', fontSize: 13, fontWeight: '500', opacity: 0.7 }}>Total Balance</Text>
-            </View>
-            
+            <Text style={{ color: '#0a0a0a', fontSize: 12, fontWeight: '500', opacity: 0.6, marginBottom: 4 }}>
+              {currentDate.getFullYear()} Overview
+            </Text>
+
             {loading ? (
-              <ActivityIndicator size="small" color="#0a0a0a" />
+              <ActivityIndicator size="small" color="#0a0a0a" style={{ alignSelf: 'flex-start', marginVertical: 8 }} />
             ) : (
               <>
-                <Text style={{ color: '#0a0a0a', fontSize: 40, fontWeight: 'bold', marginBottom: 8, marginTop: 4 }}>
-                  {formatCurrency(Math.abs(totalBalance))}
+                <Text style={{ color: '#0a0a0a', fontSize: 32, fontWeight: '800', marginBottom: 6, letterSpacing: -0.5 }}>
+                  {totalTransactions} transaksi
                 </Text>
-                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                  <IconSymbol 
-                    name={totalBalance >= 0 ? "arrow.up.right" : "arrow.down.right"} 
-                    size={14} 
-                    color={totalBalance >= 0 ? "#16a34a" : "#dc2626"} 
-                  />
-                  <Text style={{ color: totalBalance >= 0 ? '#15803d' : '#dc2626', fontSize: 14, marginLeft: 4, fontWeight: '500' }}>
-                    {totalBalance >= 0 ? '+' : ''}{((totalBalance / (report?.summary?.total_money_saving || 1)) * 100).toFixed(1)}%
-                  </Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                  <View style={{ backgroundColor: 'rgba(0,0,0,0.15)', borderRadius: 20, paddingHorizontal: 10, paddingVertical: 4 }}>
+                    <Text style={{ color: '#0a0a0a', fontSize: 12, fontWeight: '600' }}>
+                      💰 Savings rate {savingsRate}%
+                    </Text>
+                  </View>
                 </View>
               </>
             )}
-            
+
             {/* Dotted pattern decoration */}
             <View style={{ position: 'absolute', right: 0, top: 0, bottom: 0, width: 80, opacity: 0.15 }}>
               {[...Array(6)].map((_, i) => (
@@ -229,7 +229,7 @@ export default function DashboardScreen() {
         {/* Summary Cards */}
         <View style={{ flexDirection: 'row', paddingHorizontal: 20, marginTop: 24, gap: 12 }}>
           <View style={{ flex: 1, borderRadius: 16, padding: 16, backgroundColor: colors.card }}>
-            <Text style={{ color: colors.textSecondary, fontSize: 11, marginBottom: 8 }}>Total Expense</Text>
+            <Text style={{ color: colors.textSecondary, fontSize: 11, marginBottom: 8 }}>Total Expense {currentDate.getFullYear()}</Text>
             <Text style={{ color: colors.text, fontSize: 20, fontWeight: 'bold', marginBottom: 6 }}>
               {loading ? '...' : formatCurrency(report?.summary?.total_expense || 0)}
             </Text>
@@ -240,7 +240,7 @@ export default function DashboardScreen() {
           </View>
           
           <View style={{ flex: 1, borderRadius: 16, padding: 16, backgroundColor: colors.card }}>
-            <Text style={{ color: colors.textSecondary, fontSize: 11, marginBottom: 8 }}>Total Saving</Text>
+            <Text style={{ color: colors.textSecondary, fontSize: 11, marginBottom: 8 }}>Total Saving {currentDate.getFullYear()}</Text>
             <Text style={{ color: colors.text, fontSize: 20, fontWeight: 'bold', marginBottom: 6 }}>
               {loading ? '...' : formatCurrency(report?.summary?.total_money_saving || 0)}
             </Text>
