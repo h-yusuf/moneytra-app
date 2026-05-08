@@ -1,5 +1,8 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import * as Notifications from 'expo-notifications';
+import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
+import { Platform } from 'react-native';
+import { registerPushToken, storePushToken } from '@/src/services/notificationService';
 
 export interface NotificationSettings {
   enabled: boolean;
@@ -15,6 +18,9 @@ interface NotificationContextType {
   settings: NotificationSettings;
   isLoading: boolean;
   updateSettings: (updates: Partial<NotificationSettings>) => Promise<void>;
+  pushToken: string | null;
+  isRegistered: boolean;
+  requestPermissionAndRegister: (userId: string) => Promise<void>;
 }
 
 const NotificationContext = createContext<NotificationContextType | undefined>(undefined);
@@ -34,9 +40,28 @@ const defaultSettings: NotificationSettings = {
 export function NotificationProvider({ children }: { children: React.ReactNode }) {
   const [settings, setSettings] = useState<NotificationSettings>(defaultSettings);
   const [isLoading, setIsLoading] = useState(true);
+  const [pushToken, setPushToken] = useState<string | null>(null);
+  const [isRegistered, setIsRegistered] = useState(false);
+  const settingsRef = useRef(settings);
+
+  useEffect(() => {
+    settingsRef.current = settings;
+  }, [settings]);
 
   useEffect(() => {
     loadSettings();
+  }, []);
+
+  useEffect(() => {
+    if (Platform.OS === 'web') return;
+    Notifications.setNotificationHandler({
+      handleNotification: async () => ({
+        shouldShowBanner: settingsRef.current.enabled,
+        shouldShowList: settingsRef.current.enabled,
+        shouldPlaySound: settingsRef.current.soundEnabled,
+        shouldSetBadge: false,
+      }),
+    });
   }, []);
 
   const loadSettings = async () => {
@@ -63,12 +88,50 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
     }
   };
 
+  const requestPermissionAndRegister = async (userId: string) => {
+    if (Platform.OS === 'web') return;
+    if (!userId) return;
+
+    try {
+      const { status: existing } = await Notifications.getPermissionsAsync();
+      let finalStatus = existing;
+
+      if (existing !== 'granted') {
+        const { status } = await Notifications.requestPermissionsAsync();
+        finalStatus = status;
+      }
+
+      if (finalStatus !== 'granted') {
+        await updateSettings({ enabled: false });
+        console.warn('Push notification permission denied');
+        return;
+      }
+
+      const tokenData = await Notifications.getExpoPushTokenAsync({
+        projectId: '0f7b789b-9b59-44cd-95c0-748d0885ef39',
+      });
+
+      const token = tokenData.data;
+      await storePushToken(token);
+      setPushToken(token);
+
+      await registerPushToken(userId, token);
+      setIsRegistered(true);
+      console.log('Push token registered:', token);
+    } catch (error) {
+      console.error('Push notification registration failed:', error);
+    }
+  };
+
   return (
     <NotificationContext.Provider
       value={{
         settings,
         isLoading,
         updateSettings,
+        pushToken,
+        isRegistered,
+        requestPermissionAndRegister,
       }}
     >
       {children}
