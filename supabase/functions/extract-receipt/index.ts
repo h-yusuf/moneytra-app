@@ -4,6 +4,7 @@ import { callGemini } from './providers/gemini.ts';
 import { callOpenAI } from './providers/openai.ts';
 import { callGroq } from './providers/groq.ts';
 import { callDeepSeek } from './providers/deepseek.ts';
+import { callAnthropic } from './providers/anthropic.ts';
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SUPABASE_SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -16,10 +17,11 @@ async function extractWithProvider(
   const provider = Deno.env.get('PROVIDER') ?? 'gemini';
   const prompt = buildExtractionPrompt(transactionType);
   switch (provider) {
-    case 'gemini':   return callGemini(imageBase64, mimeType, prompt);
-    case 'openai':   return callOpenAI(imageBase64, mimeType, prompt);
-    case 'groq':     return callGroq(imageBase64, mimeType, prompt);
-    case 'deepseek': return callDeepSeek(imageBase64, mimeType, prompt);
+    case 'gemini':    return callGemini(imageBase64, mimeType, prompt);
+    case 'openai':    return callOpenAI(imageBase64, mimeType, prompt);
+    case 'groq':      return callGroq(imageBase64, mimeType, prompt);
+    case 'deepseek':  return callDeepSeek(imageBase64, mimeType, prompt);
+    case 'anthropic': return callAnthropic(imageBase64, mimeType, prompt);
     default: throw new Error(`Unknown provider: ${provider}`);
   }
 }
