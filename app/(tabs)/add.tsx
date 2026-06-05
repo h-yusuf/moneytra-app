@@ -268,19 +268,16 @@ export default function AddScreen() {
     setIsSaving(true);
     try {
       const amount = parseFloat(manualForm.total);
-      const textData = [
-        `Merchant: ${manualForm.merchant}`,
-        `Amount: Rp ${amount.toLocaleString('id-ID')}`,
-        `Category: ${manualForm.category}`,
-        `Date: ${manualForm.transaction_date}`,
-        manualForm.payment_method ? `Payment: ${manualForm.payment_method}` : '',
-        manualForm.notes ? `Notes: ${manualForm.notes}` : '',
-      ].filter(Boolean).join('\n');
 
       await createTransaction({
         user_id: profile.user_id,
         type: selectedType,
-        text: textData,
+        merchant: manualForm.merchant,
+        total: amount,
+        category: manualForm.category,
+        transaction_date: manualForm.transaction_date,
+        payment_method: manualForm.payment_method || undefined,
+        notes: manualForm.notes || undefined,
         source_name: 'manual-entry',
       });
 
@@ -437,25 +434,18 @@ export default function AddScreen() {
         return;
       }
 
-      // Format text dari extracted data
-      const textData = [
-        extractedData.merchant ? `Merchant: ${extractedData.merchant}` : '',
-        `Amount: Rp ${extractedData.total.toLocaleString('id-ID')}`,
-        `Category: ${extractedData.category}`,
-        `Date: ${extractedData.transaction_date}`,
-        extractedData.notes ? `Notes: ${extractedData.notes}` : '',
-        extractedData.payment_method ? `Payment: ${extractedData.payment_method}` : '',
-      ].filter(Boolean).join('\n');
-
-      console.log('Saving transaction with text format:', textData);
-      console.log('Saving with user_id:', profile.user_id);
-
-      // Save transaction to database
+      // Save transaction to database (via create-transaction Edge Function — dual-write Supabase + Sheets)
       await createTransaction({
         user_id: profile.user_id,
         type: selectedType,
-        text: textData,
+        merchant: extractedData.merchant,
+        total: extractedData.total,
+        category: extractedData.category,
+        transaction_date: extractedData.transaction_date,
+        payment_method: extractedData.payment_method || undefined,
+        notes: extractedData.notes || undefined,
         source_name: uploadedFile?.name || 'manual-entry',
+        file_url: extractedData.file_url || undefined,
       });
 
       // Play sound effect based on transaction type
