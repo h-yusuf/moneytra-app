@@ -3,10 +3,13 @@ export async function callOpenAI(
   mimeType: string,
   prompt: string
 ): Promise<Record<string, unknown>> {
-  const apiKey = Deno.env.get('OPENAI_API_KEY');
+  const apiKey = Deno.env.get('OPENAI_API_KEY') ?? Deno.env.get('ANTHROPIC_AUTH_TOKEN');
   if (!apiKey) throw new Error('OPENAI_API_KEY not set');
 
-  const response = await fetch('https://api.openai.com/v1/chat/completions', {
+  const baseUrl = Deno.env.get('OPENAI_BASE_URL') ?? Deno.env.get('ANTHROPIC_BASE_URL') ?? 'https://api.openai.com/v1';
+  const url = `${baseUrl.replace(/\/$/, '')}/chat/completions`;
+
+  const response = await fetch(url, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
