@@ -46,6 +46,22 @@ export interface CreateTransactionParams {
   file_url?: string;
 }
 
+export interface ExtractedTransactionData {
+  merchant: string;
+  total: number;
+  category: string;
+  transaction_date: string;
+  notes?: string;
+  payment_method?: string;
+  file_url?: string;
+}
+
+export interface ExtractTransactionParams {
+  file: File | { uri: string; type: string; name: string };
+  user_id: string;
+  transaction_type: 'expense' | 'money_saving';
+}
+
 // ─── fetchTransactions ───────────────────────────────────────────────────────
 
 export async function fetchTransactions(
@@ -181,6 +197,55 @@ export async function fetchMonthlyReport(
     monthly_report: monthlyReport,
     category_breakdown: categoryBreakdown,
   };
+}
+
+// ─── extractTransaction ──────────────────────────────────────────────────────
+
+export async function extractTransaction(
+  params: ExtractTransactionParams
+): Promise<ExtractedTransactionData> {
+  const apiUrl = process.env.EXPO_PUBLIC_API_URL!;
+  const isWeb = typeof window !== 'undefined' && typeof document !== 'undefined';
+
+  const formData = new FormData();
+  formData.append('user_id', params.user_id);
+  formData.append('type', params.transaction_type);
+
+  if (isWeb) {
+    const response = await fetch((params.file as any).uri);
+    const blob = await response.blob();
+    const mimeType = (params.file as any).type || blob.type || 'image/jpeg';
+    const fileName = (params.file as any).name || `upload_${Date.now()}.jpg`;
+    const file = new File([blob], fileName, { type: mimeType });
+    formData.append('file', file);
+  } else {
+    // @ts-ignore - React Native FormData typing
+    formData.append('file', {
+      uri: (params.file as any).uri,
+      type: (params.file as any).type || 'image/jpeg',
+      name: (params.file as any).name || 'upload.jpg',
+    });
+  }
+
+  const response = await fetch(`${apiUrl}/webhook/uploadDoc`, {
+    method: 'POST',
+    body: formData,
+  });
+
+  if (!response.ok) {
+    const errText = await response.text();
+    throw new Error(`Extraction failed: ${errText}`);
+  }
+
+  const data = await response.json();
+  return {
+    merchant: data.merchant ?? '',
+    total: Number(data.total) || 0,
+    category: data.category ?? 'Lainnya',
+    transaction_date: data.transaction_date ?? new Date().toISOString().split('T')[0],
+    notes: data.notes ?? '',
+    payment_method: data.payment_method ?? '',
+  } as ExtractedTransactionData;
 }
 
 // ─── createTransaction ───────────────────────────────────────────────────────
