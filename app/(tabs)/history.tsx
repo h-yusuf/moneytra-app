@@ -20,6 +20,7 @@ export default function HistoryScreen() {
   const [activeFilter, setActiveFilter] = useState<'all' | 'expense' | 'money_saving'>('all');
   const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
+  const [showReceiptModal, setShowReceiptModal] = useState(false);
 
   
 
@@ -242,17 +243,18 @@ export default function HistoryScreen() {
                   </Text>
                 </View>
 
-                {/* Receipt Image */}
+                {/* Receipt image — tap to fullscreen */}
                 {selectedTransaction.file_url && (
-                  <Pressable
-                    onPress={() => {}}
-                    style={{ marginBottom: 20, borderRadius: 12, overflow: 'hidden' }}
-                  >
+                  <Pressable onPress={() => setShowReceiptModal(true)} style={{ marginBottom: 4, borderRadius: 12, overflow: 'hidden' }}>
                     <Image
                       source={{ uri: selectedTransaction.file_url }}
-                      style={{ width: '100%', height: 200, borderRadius: 12 }}
+                      style={{ width: '100%', height: 180, borderRadius: 12 }}
                       resizeMode="cover"
                     />
+                    <View style={{ position: 'absolute', bottom: 8, right: 8, backgroundColor: 'rgba(0,0,0,0.5)', borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4, flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                      <IconSymbol name="arrow.up.left.and.arrow.down.right" size={12} color="#fff" />
+                      <Text style={{ color: '#fff', fontSize: 11 }}>Tap to expand</Text>
+                    </View>
                   </Pressable>
                 )}
 
@@ -314,6 +316,41 @@ export default function HistoryScreen() {
             )}
           </Pressable>
         </Pressable>
+      </Modal>
+
+      {/* Full-screen receipt viewer */}
+      <Modal
+        visible={showReceiptModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowReceiptModal(false)}
+      >
+        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.95)' }}>
+          {/* Header */}
+          <SafeAreaView>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingVertical: 12 }}>
+              <Text style={{ color: '#fff', fontSize: 16, fontWeight: '600' }}>Nota / Struk</Text>
+              <Pressable onPress={() => setShowReceiptModal(false)} style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(255,255,255,0.15)', alignItems: 'center', justifyContent: 'center' }}>
+                <IconSymbol name="xmark" size={16} color="#fff" />
+              </Pressable>
+            </View>
+          </SafeAreaView>
+
+          {/* Scrollable image — full height, pan vertically */}
+          <ScrollView
+            contentContainerStyle={{ flexGrow: 1, alignItems: 'center', paddingHorizontal: 16, paddingBottom: 40 }}
+            showsVerticalScrollIndicator={false}
+            bounces
+          >
+            {selectedTransaction?.file_url && (
+              <Image
+                source={{ uri: selectedTransaction.file_url }}
+                style={{ width: '100%', aspectRatio: 0.55, borderRadius: 8 }}
+                resizeMode="contain"
+              />
+            )}
+          </ScrollView>
+        </View>
       </Modal>
     </SafeAreaView>
   );
