@@ -55,10 +55,10 @@ export default function HistoryScreen() {
   };
 
   const filteredTransactions = (transactions || []).filter((transaction) => {
-    const matchesSearch = 
-      transaction.merchant.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      transaction.category.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (transaction.notes?.toLowerCase().includes(searchQuery.toLowerCase()) ?? false);
+    const matchesSearch =
+      (transaction.merchant ?? '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (transaction.category ?? '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (transaction.notes ?? '').toLowerCase().includes(searchQuery.toLowerCase());
     
     const matchesFilter = 
       activeFilter === 'all' || transaction.type === activeFilter;
