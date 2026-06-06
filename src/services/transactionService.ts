@@ -33,17 +33,6 @@ export interface SpendingOverviewRecord {
   total_income: number;
 }
 
-export interface ExtractedTransactionData {
-  merchant: string;
-  total: number;
-  category: string;
-  transaction_date: string;
-  notes?: string;
-  payment_method?: string;
-  file_url?: string;
-  confidence?: number;
-}
-
 export interface CreateTransactionParams {
   user_id: string;
   type: 'expense' | 'money_saving';
@@ -55,12 +44,6 @@ export interface CreateTransactionParams {
   notes?: string;
   source_name?: string;
   file_url?: string;
-}
-
-export interface ExtractTransactionParams {
-  file: File | { uri: string; type: string; name: string };
-  user_id: string;
-  transaction_type: 'expense' | 'money_saving';
 }
 
 // ─── fetchTransactions ───────────────────────────────────────────────────────
@@ -198,53 +181,6 @@ export async function fetchMonthlyReport(
     monthly_report: monthlyReport,
     category_breakdown: categoryBreakdown,
   };
-}
-
-// ─── extractTransaction ──────────────────────────────────────────────────────
-
-export async function extractTransaction(
-  params: ExtractTransactionParams
-): Promise<ExtractedTransactionData> {
-  const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL!;
-  const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY!;
-  const isWeb = typeof window !== 'undefined' && typeof document !== 'undefined';
-
-  const formData = new FormData();
-  formData.append('user_id', params.user_id);
-  formData.append('transaction_type', params.transaction_type);
-
-  if (isWeb) {
-    const response = await fetch((params.file as any).uri);
-    const blob = await response.blob();
-    const mimeType = (params.file as any).type || blob.type || 'image/jpeg';
-    const fileName = (params.file as any).name || `upload_${Date.now()}.jpg`;
-    const file = new File([blob], fileName, { type: mimeType });
-    formData.append('file', file);
-  } else {
-    // @ts-ignore - React Native FormData typing
-    formData.append('file', {
-      uri: (params.file as any).uri,
-      type: (params.file as any).type || 'image/jpeg',
-      name: (params.file as any).name || 'upload.jpg',
-    });
-  }
-
-  const response = await fetch(
-    `${supabaseUrl}/functions/v1/extract-receipt`,
-    {
-      method: 'POST',
-      headers: { apikey: supabaseAnonKey },
-      body: formData,
-    }
-  );
-
-  if (!response.ok) {
-    const errText = await response.text();
-    throw new Error(`Extraction failed: ${errText}`);
-  }
-
-  const data = await response.json();
-  return data as ExtractedTransactionData;
 }
 
 // ─── createTransaction ───────────────────────────────────────────────────────
