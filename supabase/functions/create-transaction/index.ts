@@ -89,20 +89,16 @@ async function appendToSheets(
   dbId: string
 ): Promise<void> {
   const sheetTab = body.type === 'expense' ? 'Expense' : 'Wedding_Savings';
-  const range = `${sheetTab}!A:K`;
+  const range = `${sheetTab}!A:G`;
 
   const row = [
-    body.user_id,
-    body.type,
-    body.merchant,
-    body.total,
-    body.category,
     body.transaction_date,
+    body.user_id,
+    body.category,
+    body.merchant,
     body.payment_method ?? '',
     body.notes ?? '',
-    body.source_name ?? '',
-    body.file_url ?? '',
-    dbId,
+    body.total,
   ];
 
   const sheetsRes = await fetch(
