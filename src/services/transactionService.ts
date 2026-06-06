@@ -208,26 +208,36 @@ export async function fetchMonthlyReport(
 
 export async function uploadReceiptImage(uri: string, userId: string): Promise<string | null> {
   try {
-    let finalUri = uri;
-    if (Platform.OS !== 'web') {
-      const result = await ImageManipulator.manipulateAsync(
+    const fileName = `${userId}/${Date.now()}.jpg`;
+
+    if (Platform.OS === 'web') {
+      // Web: fetch blob URI → Blob → upload
+      const response = await fetch(uri);
+      const blob = await response.blob();
+      const { error } = await supabase.storage
+        .from('receipts')
+        .upload(fileName, blob, { contentType: 'image/jpeg', upsert: false });
+      if (error) { console.error('[uploadReceiptImage] web upload error:', error); return null; }
+    } else {
+      // Native: resize first, then fetch as arrayBuffer
+      const manipulated = await ImageManipulator.manipulateAsync(
         uri,
         [{ resize: { width: 1200 } }],
         { compress: 0.75, format: ImageManipulator.SaveFormat.JPEG }
       );
-      finalUri = result.uri;
+      const response = await fetch(manipulated.uri);
+      const arrayBuffer = await response.arrayBuffer();
+      const { error } = await supabase.storage
+        .from('receipts')
+        .upload(fileName, arrayBuffer, { contentType: 'image/jpeg', upsert: false });
+      if (error) { console.error('[uploadReceiptImage] native upload error:', error); return null; }
     }
-    const response = await fetch(finalUri);
-    const arrayBuffer = await response.arrayBuffer();
-    const fileName = `${userId}/${Date.now()}.jpg`;
-    const { error } = await supabase.storage
-      .from('receipts')
-      .upload(fileName, arrayBuffer, { contentType: 'image/jpeg', upsert: false });
-    if (error) { console.error('Upload receipt error:', error); return null; }
+
     const { data } = supabase.storage.from('receipts').getPublicUrl(fileName);
+    console.log('[uploadReceiptImage] success:', data.publicUrl);
     return data.publicUrl;
   } catch (err) {
-    console.error('uploadReceiptImage failed:', err);
+    console.error('[uploadReceiptImage] exception:', err);
     return null;
   }
 }

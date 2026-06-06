@@ -253,9 +253,10 @@ export default function AddScreen() {
         uploadReceiptImage(uploadedFile.uri, profile.user_id),
       ]);
 
+      console.log('[add] uploadReceiptImage result:', fileUrl);
       setExtractedData({ ...extracted, file_url: fileUrl ?? undefined });
       setIsExtracting(false);
-      setInlineAlert({ type: 'success', message: 'Extraction complete! Please review and edit if needed.' });
+      setInlineAlert({ type: 'success', message: `Extraction complete! Receipt ${fileUrl ? 'uploaded ✓' : 'upload failed (no image saved)'}` });
       setTimeout(() => setInlineAlert(null), 4000);
     } catch (error: any) {
       setIsExtracting(false);
