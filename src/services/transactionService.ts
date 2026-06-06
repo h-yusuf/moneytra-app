@@ -131,10 +131,12 @@ export async function fetchMonthlyReport(
 
   if (params.user_id) query = query.eq('user_id', params.user_id);
   if (params.month) {
-    const monthStr = String(params.month).padStart(2, '0');
+    const monthStart = new Date(year, params.month - 1, 1);
+    const monthEnd = new Date(year, params.month, 0); // day 0 = last day of prev month
+    const fmt = (d: Date) => d.toISOString().split('T')[0];
     query = query
-      .gte('transaction_date', `${year}-${monthStr}-01`)
-      .lte('transaction_date', `${year}-${monthStr}-31`);
+      .gte('transaction_date', fmt(monthStart))
+      .lte('transaction_date', fmt(monthEnd));
   }
 
   const { data, error } = await query;
