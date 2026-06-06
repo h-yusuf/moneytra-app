@@ -7,7 +7,7 @@ import { fetchTransactions } from '@/src/services/transactionService';
 import type { Transaction } from '@/src/types';
 import { useFocusEffect } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Modal, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Image, Modal, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function HistoryScreen() {
@@ -241,6 +241,20 @@ export default function HistoryScreen() {
                     {selectedTransaction.type === 'expense' ? '-' : '+'}{formatCurrency(selectedTransaction.total)}
                   </Text>
                 </View>
+
+                {/* Receipt Image */}
+                {selectedTransaction.file_url && (
+                  <Pressable
+                    onPress={() => {}}
+                    style={{ marginBottom: 20, borderRadius: 12, overflow: 'hidden' }}
+                  >
+                    <Image
+                      source={{ uri: selectedTransaction.file_url }}
+                      style={{ width: '100%', height: 200, borderRadius: 12 }}
+                      resizeMode="cover"
+                    />
+                  </Pressable>
+                )}
 
                 {/* Details */}
                 <View style={{ gap: 16 }}>
