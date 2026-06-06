@@ -4,6 +4,8 @@
 
 [build.environment]
   NODE_VERSION = "20"
+  EXPO_PUBLIC_SUPABASE_URL = "https://hzhnvlaudcjntkiqctrs.supabase.co"
+  EXPO_PUBLIC_API_URL = "https://n8n.pullstack.cloud"
 
 # Handle SPA routing — semua route diarahkan ke index.html
 [[redirects]]
