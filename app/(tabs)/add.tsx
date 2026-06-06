@@ -35,6 +35,7 @@ export default function AddScreen() {
   const [isSaving, setIsSaving] = useState(false);
   const [inlineAlert, setInlineAlert] = useState<InlineAlert>(null);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [savedAmount, setSavedAmount] = useState(0);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [showManualEntry, setShowManualEntry] = useState(false);
   const [manualForm, setManualForm] = useState({
@@ -49,14 +50,11 @@ export default function AddScreen() {
   const playSuccessSound = async (type: 'expense' | 'money_saving') => {
     try {
       const { sound } = await Audio.Sound.createAsync(
-        type === 'money_saving' 
+        type === 'money_saving'
           ? require('@/assets/sounds/Cash Register Sound Effect.mp3')
           : require('@/assets/sounds/Vintage Cash Register Sound.mp3')
       );
-      
       await sound.playAsync();
-      
-      // Unload sound after playing
       sound.setOnPlaybackStatusUpdate((status) => {
         if (status.isLoaded && status.didJustFinish) {
           sound.unloadAsync();
@@ -69,33 +67,20 @@ export default function AddScreen() {
 
   const handleTakePhoto = async () => {
     try {
-      // Request camera permission
       const { status } = await ImagePicker.requestCameraPermissionsAsync();
-      
       if (status !== 'granted') {
-        Alert.alert(
-          'Camera Permission Required',
-          'Please allow camera access in your device settings to take photos.',
-          [{ text: 'OK' }]
-        );
+        Alert.alert('Camera Permission Required', 'Please allow camera access in your device settings.', [{ text: 'OK' }]);
         return;
       }
-
       const result = await ImagePicker.launchCameraAsync({
         mediaTypes: ['images'],
         allowsEditing: false,
         quality: 0.8,
         exif: false,
       });
-
       if (!result.canceled) {
         const asset = result.assets[0];
-        setUploadedFile({
-          uri: asset.uri,
-          type: 'image',
-          name: `receipt_${Date.now()}.jpg`,
-          size: asset.fileSize,
-        });
+        setUploadedFile({ uri: asset.uri, type: 'image', name: `receipt_${Date.now()}.jpg`, size: asset.fileSize });
       }
     } catch (error) {
       console.error('Camera error:', error);
@@ -104,7 +89,6 @@ export default function AddScreen() {
   };
 
   const handleUploadDocument = async () => {
-    // Web: use native file input
     if (Platform.OS === 'web') {
       const input = document.createElement('input');
       input.type = 'file';
@@ -112,38 +96,21 @@ export default function AddScreen() {
       input.onchange = (e: any) => {
         const file: File = e.target.files[0];
         if (!file) return;
-        const blobUrl = URL.createObjectURL(file);
-        setUploadedFile({
-          uri: blobUrl,
-          type: 'image',
-          name: file.name,
-          size: file.size,
-        });
+        setUploadedFile({ uri: URL.createObjectURL(file), type: 'image', name: file.name, size: file.size });
       };
       input.click();
       return;
     }
-
-    // Native: use ImagePicker
     try {
       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (status !== 'granted') {
-        Alert.alert('Permission Required', 'Please allow photo library access in your device settings.', [{ text: 'OK' }]);
+        Alert.alert('Permission Required', 'Please allow photo library access.', [{ text: 'OK' }]);
         return;
       }
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ['images'],
-        allowsEditing: false,
-        quality: 1,
-      });
+      const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], allowsEditing: false, quality: 1 });
       if (!result.canceled) {
         const asset = result.assets[0];
-        setUploadedFile({
-          uri: asset.uri,
-          type: 'image',
-          name: asset.fileName || `upload_${Date.now()}.jpg`,
-          size: asset.fileSize,
-        });
+        setUploadedFile({ uri: asset.uri, type: 'image', name: asset.fileName || `upload_${Date.now()}.jpg`, size: asset.fileSize });
       }
     } catch (error) {
       console.error('Image picker error:', error);
@@ -152,7 +119,6 @@ export default function AddScreen() {
   };
 
   const handlePickDocument = async () => {
-    // Web: use native file input for both images and PDFs
     if (Platform.OS === 'web') {
       const input = document.createElement('input');
       input.type = 'file';
@@ -160,34 +126,18 @@ export default function AddScreen() {
       input.onchange = (e: any) => {
         const file: File = e.target.files[0];
         if (!file) return;
-        const blobUrl = URL.createObjectURL(file);
         const isPdf = file.type === 'application/pdf';
-        setUploadedFile({
-          uri: blobUrl,
-          type: isPdf ? 'pdf' : 'image',
-          name: file.name,
-          size: file.size,
-        });
+        setUploadedFile({ uri: URL.createObjectURL(file), type: isPdf ? 'pdf' : 'image', name: file.name, size: file.size });
       };
       input.click();
       return;
     }
-
-    // Native: use DocumentPicker
     try {
-      const result = await DocumentPicker.getDocumentAsync({
-        type: ['application/pdf', 'image/*'],
-        copyToCacheDirectory: true,
-      });
+      const result = await DocumentPicker.getDocumentAsync({ type: ['application/pdf', 'image/*'], copyToCacheDirectory: true });
       if (!result.canceled) {
         const asset = result.assets[0];
         const isPdf = asset.mimeType === 'application/pdf';
-        setUploadedFile({
-          uri: asset.uri,
-          type: isPdf ? 'pdf' : 'image',
-          name: asset.name,
-          size: asset.size,
-        });
+        setUploadedFile({ uri: asset.uri, type: isPdf ? 'pdf' : 'image', name: asset.name, size: asset.size });
       }
     } catch (error) {
       console.error('Document picker error:', error);
@@ -202,14 +152,7 @@ export default function AddScreen() {
     setInlineAlert(null);
     setShowManualEntry(false);
     setSelectedType('expense');
-    setManualForm({
-      merchant: '',
-      total: '',
-      category: '',
-      transaction_date: new Date().toISOString().split('T')[0],
-      payment_method: '',
-      notes: '',
-    });
+    setManualForm({ merchant: '', total: '', category: '', transaction_date: new Date().toISOString().split('T')[0], payment_method: '', notes: '' });
     setTimeout(() => setIsRefreshing(false), 600);
   };
 
@@ -225,91 +168,47 @@ export default function AddScreen() {
     setExtractedData(null);
     setInlineAlert(null);
     setShowManualEntry(false);
-    setManualForm({
-      merchant: '',
-      total: '',
-      category: '',
-      transaction_date: new Date().toISOString().split('T')[0],
-      payment_method: '',
-      notes: '',
-    });
+    setManualForm({ merchant: '', total: '', category: '', transaction_date: new Date().toISOString().split('T')[0], payment_method: '', notes: '' });
   };
 
   const handleSaveManualEntry = async () => {
-    if (!manualForm.merchant.trim()) {
-      setInlineAlert({ type: 'error', message: 'Merchant name is required.' });
-      return;
-    }
-    if (!manualForm.total || isNaN(parseFloat(manualForm.total)) || parseFloat(manualForm.total) <= 0) {
-      setInlineAlert({ type: 'error', message: 'Please enter a valid amount.' });
-      return;
-    }
-    if (!manualForm.category.trim()) {
-      setInlineAlert({ type: 'error', message: 'Category is required.' });
-      return;
-    }
-    if (!manualForm.transaction_date.trim()) {
-      setInlineAlert({ type: 'error', message: 'Date is required.' });
-      return;
-    }
+    if (!manualForm.merchant.trim()) { setInlineAlert({ type: 'error', message: 'Merchant name is required.' }); return; }
+    if (!manualForm.total || isNaN(parseFloat(manualForm.total)) || parseFloat(manualForm.total) <= 0) { setInlineAlert({ type: 'error', message: 'Please enter a valid amount.' }); return; }
+    if (!manualForm.category.trim()) { setInlineAlert({ type: 'error', message: 'Category is required.' }); return; }
+    if (!manualForm.transaction_date.trim()) { setInlineAlert({ type: 'error', message: 'Date is required.' }); return; }
 
     if (!profile?.user_id) {
-      Alert.alert(
-        'User ID Required',
-        'Please set your User ID in Settings before adding transactions.',
-        [
-          { text: 'Cancel', style: 'cancel' },
-          { text: 'Go to Settings', onPress: () => router.push('/settings') },
-        ]
-      );
+      Alert.alert('User ID Required', 'Please set your User ID in Settings.', [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Go to Settings', onPress: () => router.push('/settings') },
+      ]);
       return;
     }
 
     setIsSaving(true);
     try {
       const amount = parseFloat(manualForm.total);
-      const textData = [
-        `Merchant: ${manualForm.merchant}`,
-        `Amount: Rp ${amount.toLocaleString('id-ID')}`,
-        `Category: ${manualForm.category}`,
-        `Date: ${manualForm.transaction_date}`,
-        manualForm.payment_method ? `Payment: ${manualForm.payment_method}` : '',
-        manualForm.notes ? `Notes: ${manualForm.notes}` : '',
-      ].filter(Boolean).join('\n');
-
       await createTransaction({
         user_id: profile.user_id,
         type: selectedType,
-        text: textData,
-        source_name: 'manual-entry',
-      });
-
-      // Set extractedData so the success modal shows the amount
-      setExtractedData({
         merchant: manualForm.merchant,
         total: amount,
         category: manualForm.category,
         transaction_date: manualForm.transaction_date,
-        payment_method: manualForm.payment_method,
-        notes: manualForm.notes,
-      } as any);
+        payment_method: manualForm.payment_method || undefined,
+        notes: manualForm.notes || undefined,
+        source_name: 'manual-entry',
+      });
 
+      setSavedAmount(amount);
       await playSuccessSound(selectedType);
 
       if (selectedType === 'expense' && manualForm.category) {
         const budgetCheck = checkBudgetAlert(manualForm.category, profile.user_id, amount);
         if (budgetCheck.isOverLimit) {
-          Alert.alert(
-            '⚠️ Budget Exceeded!',
-            `You have exceeded your ${budgetCheck.budget?.period} budget for ${manualForm.category}!\n\nBudget: Rp ${budgetCheck.budget?.amount.toLocaleString()}\nSpent: ${budgetCheck.percentage.toFixed(1)}%`,
-            [{ text: 'OK', style: 'destructive' }]
-          );
+          Alert.alert('⚠️ Budget Exceeded!', `You have exceeded your ${budgetCheck.budget?.period} budget for ${manualForm.category}!\n\nBudget: Rp ${budgetCheck.budget?.amount.toLocaleString()}\nSpent: ${budgetCheck.percentage.toFixed(1)}%`, [{ text: 'OK', style: 'destructive' }]);
         } else if (budgetCheck.isNearLimit) {
-          Alert.alert(
-            '⚠️ Budget Warning',
-            `You are approaching your ${budgetCheck.budget?.period} budget limit for ${manualForm.category}.\n\nBudget: Rp ${budgetCheck.budget?.amount.toLocaleString()}\nSpent: ${budgetCheck.percentage.toFixed(1)}%`,
-            [{ text: 'OK' }]
-          );
+          Alert.alert('⚠️ Budget Warning', `You are approaching your ${budgetCheck.budget?.period} budget limit for ${manualForm.category}.\n\nBudget: Rp ${budgetCheck.budget?.amount.toLocaleString()}\nSpent: ${budgetCheck.percentage.toFixed(1)}%`, [{ text: 'OK' }]);
         }
       }
 
@@ -318,177 +217,89 @@ export default function AddScreen() {
       setTimeout(() => {
         setShowSuccessModal(false);
         setShowManualEntry(false);
-        setManualForm({
-          merchant: '',
-          total: '',
-          category: '',
-          transaction_date: new Date().toISOString().split('T')[0],
-          payment_method: '',
-          notes: '',
-        });
-        setExtractedData(null);
+        setManualForm({ merchant: '', total: '', category: '', transaction_date: new Date().toISOString().split('T')[0], payment_method: '', notes: '' });
         setInlineAlert(null);
       }, 2500);
     } catch (error: any) {
       setIsSaving(false);
-      const errorMessage =
-        error.response?.data?.message ||
-        error.message ||
-        'Failed to save transaction. Please try again.';
-      setInlineAlert({ type: 'error', message: errorMessage });
+      setInlineAlert({ type: 'error', message: error.response?.data?.message || error.message || 'Failed to save transaction.' });
     }
   };
 
   const handleExtractTransaction = async () => {
     if (!uploadedFile) {
-      setInlineAlert({
-        type: 'error',
-        message: 'Please upload a file first.'
-      });
+      setInlineAlert({ type: 'error', message: 'Please upload a file first.' });
       setTimeout(() => setInlineAlert(null), 3000);
       return;
     }
-
     if (!profile?.user_id) {
-      Alert.alert(
-        'User ID Required',
-        'Please set your User ID in Settings before extracting transactions.',
-        [
-          { text: 'Cancel', style: 'cancel' },
-          { text: 'Go to Settings', onPress: () => router.push('/settings') }
-        ]
-      );
+      Alert.alert('User ID Required', 'Please set your User ID in Settings.', [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Go to Settings', onPress: () => router.push('/settings') },
+      ]);
       return;
     }
 
-    console.log('Starting extraction...', uploadedFile);
-    console.log('Extracting with user_id:', profile.user_id);
-    
-    setInlineAlert({
-      type: 'info',
-      message: 'Extracting transaction data from your image...'
-    });
-    
+    setInlineAlert({ type: 'info', message: 'Extracting transaction data from your image...' });
     setIsExtracting(true);
-    
+
     try {
-      // Create file object for upload - React Native format
-      const fileToUpload = {
-        uri: uploadedFile.uri,
-        type: uploadedFile.type === 'pdf' ? 'application/pdf' : 'image/jpeg',
-        name: uploadedFile.name,
-      } as any;
-
-      console.log('File to upload:', fileToUpload);
-      console.log('Calling extractTransaction API...');
-
-      // Extract transaction data from image
       const extracted = await extractTransaction({
-        file: fileToUpload,
+        file: { uri: uploadedFile.uri, type: uploadedFile.type === 'pdf' ? 'application/pdf' : 'image/jpeg', name: uploadedFile.name },
         user_id: profile.user_id,
         transaction_type: selectedType,
       });
 
-      console.log('Extraction successful:', extracted);
       setExtractedData(extracted);
       setIsExtracting(false);
-      
-      setInlineAlert({
-        type: 'success',
-        message: 'Extraction complete! Please review and edit if needed.'
-      });
+      setInlineAlert({ type: 'success', message: 'Extraction complete! Please review and edit if needed.' });
       setTimeout(() => setInlineAlert(null), 4000);
-      
     } catch (error: any) {
       setIsExtracting(false);
-      console.error('Extraction error:', error);
-      console.error('Error details:', error.response?.data || error.message);
-      
-      const errorMessage = error.response?.data?.message 
-        || error.message 
-        || 'Failed to extract transaction data. Please try again or use manual entry.';
-      
-      setInlineAlert({
-        type: 'error',
-        message: errorMessage
-      });
+      setInlineAlert({ type: 'error', message: error.message || 'Failed to extract transaction data. Please try again or use manual entry.' });
     }
   };
 
   const handleSaveTransaction = async () => {
     if (!extractedData) return;
-
     setIsSaving(true);
-    
     try {
-      console.log('Current profile:', profile);
-      console.log('User ID from profile:', profile?.user_id);
-      
       if (!profile?.user_id) {
-        Alert.alert(
-          'User ID Required',
-          'Please set your User ID in Settings before adding transactions.',
-          [
-            { text: 'Cancel', style: 'cancel' },
-            { text: 'Go to Settings', onPress: () => router.push('/settings') }
-          ]
-        );
+        Alert.alert('User ID Required', 'Please set your User ID in Settings.', [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Go to Settings', onPress: () => router.push('/settings') },
+        ]);
         setIsSaving(false);
         return;
       }
 
-      // Format text dari extracted data
-      const textData = [
-        extractedData.merchant ? `Merchant: ${extractedData.merchant}` : '',
-        `Amount: Rp ${extractedData.total.toLocaleString('id-ID')}`,
-        `Category: ${extractedData.category}`,
-        `Date: ${extractedData.transaction_date}`,
-        extractedData.notes ? `Notes: ${extractedData.notes}` : '',
-        extractedData.payment_method ? `Payment: ${extractedData.payment_method}` : '',
-      ].filter(Boolean).join('\n');
-
-      console.log('Saving transaction with text format:', textData);
-      console.log('Saving with user_id:', profile.user_id);
-
-      // Save transaction to database
       await createTransaction({
         user_id: profile.user_id,
         type: selectedType,
-        text: textData,
-        source_name: uploadedFile?.name || 'manual-entry',
+        merchant: extractedData.merchant,
+        total: extractedData.total,
+        category: extractedData.category,
+        transaction_date: extractedData.transaction_date,
+        payment_method: extractedData.payment_method || undefined,
+        notes: extractedData.notes || undefined,
+        source_name: uploadedFile?.name || 'receipt',
+        file_url: extractedData.file_url || undefined,
       });
 
-      // Play sound effect based on transaction type
+      setSavedAmount(extractedData.total);
       await playSuccessSound(selectedType);
 
-      // Check budget alert for expense transactions
       if (selectedType === 'expense' && extractedData.category) {
-        const budgetCheck = checkBudgetAlert(
-          extractedData.category,
-          profile.user_id,
-          extractedData.total
-        );
-
+        const budgetCheck = checkBudgetAlert(extractedData.category, profile.user_id, extractedData.total);
         if (budgetCheck.isOverLimit) {
-          Alert.alert(
-            '⚠️ Budget Exceeded!',
-            `You have exceeded your ${budgetCheck.budget?.period} budget for ${extractedData.category}!\n\nBudget: Rp ${budgetCheck.budget?.amount.toLocaleString()}\nSpent: ${budgetCheck.percentage.toFixed(1)}%`,
-            [{ text: 'OK', style: 'destructive' }]
-          );
+          Alert.alert('⚠️ Budget Exceeded!', `You have exceeded your ${budgetCheck.budget?.period} budget for ${extractedData.category}!\n\nBudget: Rp ${budgetCheck.budget?.amount.toLocaleString()}\nSpent: ${budgetCheck.percentage.toFixed(1)}%`, [{ text: 'OK', style: 'destructive' }]);
         } else if (budgetCheck.isNearLimit) {
-          Alert.alert(
-            '⚠️ Budget Warning',
-            `You are approaching your ${budgetCheck.budget?.period} budget limit for ${extractedData.category}.\n\nBudget: Rp ${budgetCheck.budget?.amount.toLocaleString()}\nSpent: ${budgetCheck.percentage.toFixed(1)}%`,
-            [{ text: 'OK' }]
-          );
+          Alert.alert('⚠️ Budget Warning', `You are approaching your ${budgetCheck.budget?.period} budget limit for ${extractedData.category}.\n\nBudget: Rp ${budgetCheck.budget?.amount.toLocaleString()}\nSpent: ${budgetCheck.percentage.toFixed(1)}%`, [{ text: 'OK' }]);
         }
       }
 
-      // Show SweetAlert style modal
       setIsSaving(false);
       setShowSuccessModal(true);
-      
-      // Auto close modal and reset form
       setTimeout(() => {
         setShowSuccessModal(false);
         setUploadedFile(null);
@@ -497,17 +308,7 @@ export default function AddScreen() {
       }, 2500);
     } catch (error: any) {
       setIsSaving(false);
-      console.error('Save error:', error);
-      console.error('Save error details:', error.response?.data || error.message);
-      
-      const errorMessage = error.response?.data?.message 
-        || error.message 
-        || 'Failed to save transaction. Please check your connection and try again.';
-      
-      setInlineAlert({
-        type: 'error',
-        message: errorMessage
-      });
+      setInlineAlert({ type: 'error', message: error.response?.data?.message || error.message || 'Failed to save transaction.' });
     }
   };
 
@@ -520,18 +321,11 @@ export default function AddScreen() {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
-      <ScrollView 
-        style={{ flex: 1 }} 
+      <ScrollView
+        style={{ flex: 1 }}
         contentContainerStyle={{ paddingBottom: 100 }}
         showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl
-            refreshing={isRefreshing}
-            onRefresh={handleRefreshPage}
-            tintColor={colors.primary}
-            colors={[colors.primary]}
-          />
-        }
+        refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={handleRefreshPage} tintColor={colors.primary} colors={[colors.primary]} />}
       >
         {/* Header */}
         <View style={{ paddingHorizontal: 20, paddingTop: 16, paddingBottom: 8 }}>
@@ -542,46 +336,14 @@ export default function AddScreen() {
         {/* Inline Alert */}
         {inlineAlert && (
           <View style={{ paddingHorizontal: 20, marginTop: 16 }}>
-            <View style={{ 
-              borderRadius: 12, 
-              padding: 14, 
-              flexDirection: 'row', 
-              alignItems: 'center',
-              backgroundColor: 
-                inlineAlert.type === 'success' ? 'rgba(34, 197, 94, 0.1)' : 
-                inlineAlert.type === 'error' ? 'rgba(239, 68, 68, 0.1)' : 
-                'rgba(59, 130, 246, 0.1)',
+            <View style={{
+              borderRadius: 12, padding: 14, flexDirection: 'row', alignItems: 'center',
+              backgroundColor: inlineAlert.type === 'success' ? 'rgba(34, 197, 94, 0.1)' : inlineAlert.type === 'error' ? 'rgba(239, 68, 68, 0.1)' : 'rgba(59, 130, 246, 0.1)',
               borderWidth: 1,
-              borderColor: 
-                inlineAlert.type === 'success' ? 'rgba(34, 197, 94, 0.3)' : 
-                inlineAlert.type === 'error' ? 'rgba(239, 68, 68, 0.3)' : 
-                'rgba(59, 130, 246, 0.3)',
+              borderColor: inlineAlert.type === 'success' ? 'rgba(34, 197, 94, 0.3)' : inlineAlert.type === 'error' ? 'rgba(239, 68, 68, 0.3)' : 'rgba(59, 130, 246, 0.3)',
             }}>
-              <IconSymbol 
-                name={
-                  inlineAlert.type === 'success' ? 'checkmark.circle.fill' : 
-                  inlineAlert.type === 'error' ? 'xmark.circle.fill' : 
-                  'info.circle.fill'
-                }
-                size={20} 
-                color={
-                  inlineAlert.type === 'success' ? colors.success : 
-                  inlineAlert.type === 'error' ? colors.error : 
-                  '#3b82f6'
-                }
-              />
-              <Text style={{ 
-                color: 
-                  inlineAlert.type === 'success' ? colors.success : 
-                  inlineAlert.type === 'error' ? colors.error : 
-                  '#3b82f6',
-                fontSize: 13,
-                marginLeft: 10,
-                flex: 1,
-                lineHeight: 18
-              }}>
-                {inlineAlert.message}
-              </Text>
+              <IconSymbol name={inlineAlert.type === 'success' ? 'checkmark.circle.fill' : inlineAlert.type === 'error' ? 'xmark.circle.fill' : 'info.circle.fill'} size={20} color={inlineAlert.type === 'success' ? colors.success : inlineAlert.type === 'error' ? colors.error : '#3b82f6'} />
+              <Text style={{ color: inlineAlert.type === 'success' ? colors.success : inlineAlert.type === 'error' ? colors.error : '#3b82f6', fontSize: 13, marginLeft: 10, flex: 1, lineHeight: 18 }}>{inlineAlert.message}</Text>
               <Pressable onPress={() => setInlineAlert(null)} style={{ padding: 4 }}>
                 <IconSymbol name="xmark" size={14} color="#737373" />
               </Pressable>
@@ -593,39 +355,20 @@ export default function AddScreen() {
         <View style={{ paddingHorizontal: 20, marginTop: 16 }}>
           <Text style={{ color: colors.textSecondary, fontSize: 11, fontWeight: '600', marginBottom: 12, letterSpacing: 0.5 }}>TRANSACTION TYPE</Text>
           <View style={{ flexDirection: 'row' }}>
-            <Pressable
-              onPress={() => setSelectedType('expense')}
-              style={{ flex: 1, borderRadius: 16, padding: 16, backgroundColor: selectedType === 'expense' ? colors.primary : colors.card, marginRight: 12 }}
-            >
+            <Pressable onPress={() => setSelectedType('expense')} style={{ flex: 1, borderRadius: 16, padding: 16, backgroundColor: selectedType === 'expense' ? colors.primary : colors.card, marginRight: 12 }}>
               <View style={{ alignItems: 'center' }}>
                 <View style={{ width: 48, height: 48, borderRadius: 12, backgroundColor: selectedType === 'expense' ? 'rgba(10, 10, 10, 0.15)' : colors.cardSecondary, alignItems: 'center', justifyContent: 'center', marginBottom: 8 }}>
-                  <IconSymbol 
-                    name="arrow.down.circle.fill" 
-                    size={24} 
-                    color={selectedType === 'expense' ? colors.error : colors.textTertiary} 
-                  />
+                  <IconSymbol name="arrow.down.circle.fill" size={24} color={selectedType === 'expense' ? colors.error : colors.textTertiary} />
                 </View>
-                <Text style={{ color: selectedType === 'expense' ? '#0a0a0a' : colors.textSecondary, fontWeight: selectedType === 'expense' ? '600' : '400', fontSize: 14 }}>
-                  Expense
-                </Text>
+                <Text style={{ color: selectedType === 'expense' ? '#0a0a0a' : colors.textSecondary, fontWeight: selectedType === 'expense' ? '600' : '400', fontSize: 14 }}>Expense</Text>
               </View>
             </Pressable>
-
-            <Pressable
-              onPress={() => setSelectedType('money_saving')}
-              style={{ flex: 1, borderRadius: 16, padding: 16, backgroundColor: selectedType === 'money_saving' ? colors.primary : colors.card }}
-            >
+            <Pressable onPress={() => setSelectedType('money_saving')} style={{ flex: 1, borderRadius: 16, padding: 16, backgroundColor: selectedType === 'money_saving' ? colors.primary : colors.card }}>
               <View style={{ alignItems: 'center' }}>
                 <View style={{ width: 48, height: 48, borderRadius: 12, backgroundColor: selectedType === 'money_saving' ? 'rgba(10, 10, 10, 0.15)' : colors.cardSecondary, alignItems: 'center', justifyContent: 'center', marginBottom: 8 }}>
-                  <IconSymbol 
-                    name="heart.circle.fill" 
-                    size={24} 
-                    color={selectedType === 'money_saving' ? colors.success : colors.textTertiary} 
-                  />
+                  <IconSymbol name="heart.circle.fill" size={24} color={selectedType === 'money_saving' ? colors.success : colors.textTertiary} />
                 </View>
-                <Text style={{ color: selectedType === 'money_saving' ? '#0a0a0a' : colors.textSecondary, fontWeight: selectedType === 'money_saving' ? '600' : '400', fontSize: 14 }}>
-                  Money Saving
-                </Text>
+                <Text style={{ color: selectedType === 'money_saving' ? '#0a0a0a' : colors.textSecondary, fontWeight: selectedType === 'money_saving' ? '600' : '400', fontSize: 14 }}>Money Saving</Text>
               </View>
             </Pressable>
           </View>
@@ -634,12 +377,8 @@ export default function AddScreen() {
         {/* Input Methods */}
         <View style={{ paddingHorizontal: 20, marginTop: 24 }}>
           <Text style={{ color: colors.textSecondary, fontSize: 11, fontWeight: '600', marginBottom: 12, letterSpacing: 0.5 }}>INPUT METHOD</Text>
-          
-          {/* Take Photo - Primary Action */}
-          <Pressable 
-            onPress={handleTakePhoto}
-            style={{ backgroundColor: colors.primary, borderRadius: 16, padding: 20, marginBottom: 12 }}
-          >
+
+          <Pressable onPress={handleTakePhoto} style={{ backgroundColor: colors.primary, borderRadius: 16, padding: 20, marginBottom: 12 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
               <View style={{ width: 56, height: 56, borderRadius: 12, backgroundColor: 'rgba(10, 10, 10, 0.15)', alignItems: 'center', justifyContent: 'center', marginRight: 16 }}>
                 <IconSymbol name="camera.fill" size={28} color="#0a0a0a" />
@@ -652,11 +391,7 @@ export default function AddScreen() {
             </View>
           </Pressable>
 
-          {/* Upload Document */}
-          <Pressable 
-            onPress={handleUploadDocument}
-            style={{ backgroundColor: colors.card, borderRadius: 16, padding: 16, marginBottom: 12 }}
-          >
+          <Pressable onPress={handleUploadDocument} style={{ backgroundColor: colors.card, borderRadius: 16, padding: 16, marginBottom: 12 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
               <View style={{ width: 48, height: 48, borderRadius: 12, backgroundColor: colors.cardSecondary, alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
                 <IconSymbol name="photo.fill" size={24} color={colors.primary} />
@@ -669,11 +404,7 @@ export default function AddScreen() {
             </View>
           </Pressable>
 
-          {/* Pick Document (PDF/Any File) */}
-          <Pressable 
-            onPress={handlePickDocument}
-            style={{ backgroundColor: colors.card, borderRadius: 16, padding: 16, marginBottom: 12 }}
-          >
+          <Pressable onPress={handlePickDocument} style={{ backgroundColor: colors.card, borderRadius: 16, padding: 16, marginBottom: 12 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
               <View style={{ width: 48, height: 48, borderRadius: 12, backgroundColor: colors.cardSecondary, alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
                 <IconSymbol name="doc.fill" size={24} color={colors.primary} />
@@ -686,11 +417,7 @@ export default function AddScreen() {
             </View>
           </Pressable>
 
-          {/* Manual Input */}
-          <Pressable 
-            onPress={handleManualEntry}
-            style={{ backgroundColor: showManualEntry ? colors.primary : colors.card, borderRadius: 16, padding: 16 }}
-          >
+          <Pressable onPress={handleManualEntry} style={{ backgroundColor: showManualEntry ? colors.primary : colors.card, borderRadius: 16, padding: 16 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
               <View style={{ width: 48, height: 48, borderRadius: 12, backgroundColor: showManualEntry ? 'rgba(10,10,10,0.15)' : colors.cardSecondary, alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
                 <IconSymbol name="pencil" size={24} color={showManualEntry ? '#0a0a0a' : colors.primary} />
@@ -709,201 +436,84 @@ export default function AddScreen() {
           <View style={{ paddingHorizontal: 20, marginTop: 24 }}>
             <Text style={{ color: colors.textSecondary, fontSize: 11, fontWeight: '600', marginBottom: 12, letterSpacing: 0.5 }}>MANUAL ENTRY FORM</Text>
             <View style={{ backgroundColor: colors.card, borderRadius: 16, padding: 16 }}>
-              
-              {/* Merchant */}
               <View style={{ marginBottom: 12 }}>
                 <Text style={{ color: colors.textSecondary, fontSize: 12, marginBottom: 6, fontWeight: '500' }}>Merchant / Store Name *</Text>
-                <TextInput
-                  value={manualForm.merchant}
-                  onChangeText={(text) => setManualForm({ ...manualForm, merchant: text })}
-                  style={{ backgroundColor: colors.cardSecondary, borderRadius: 12, padding: 12, color: colors.text, fontSize: 15 }}
-                  placeholder="e.g. Indomaret, Grab, PLN"
-                  placeholderTextColor={colors.textTertiary}
-                />
+                <TextInput value={manualForm.merchant} onChangeText={(text) => setManualForm({ ...manualForm, merchant: text })} style={{ backgroundColor: colors.cardSecondary, borderRadius: 12, padding: 12, color: colors.text, fontSize: 15 }} placeholder="e.g. Indomaret, Grab, PLN" placeholderTextColor={colors.textTertiary} />
               </View>
-
-              {/* Amount */}
               <View style={{ marginBottom: 12 }}>
                 <Text style={{ color: colors.textSecondary, fontSize: 12, marginBottom: 6, fontWeight: '500' }}>Amount (Rp) *</Text>
-                <TextInput
-                  value={manualForm.total}
-                  onChangeText={(text) => setManualForm({ ...manualForm, total: text.replace(/[^0-9]/g, '') })}
-                  style={{ backgroundColor: colors.cardSecondary, borderRadius: 12, padding: 12, color: colors.text, fontSize: 15 }}
-                  placeholder="0"
-                  placeholderTextColor={colors.textTertiary}
-                  keyboardType="numeric"
-                />
+                <TextInput value={manualForm.total} onChangeText={(text) => setManualForm({ ...manualForm, total: text.replace(/[^0-9]/g, '') })} style={{ backgroundColor: colors.cardSecondary, borderRadius: 12, padding: 12, color: colors.text, fontSize: 15 }} placeholder="0" placeholderTextColor={colors.textTertiary} keyboardType="numeric" />
               </View>
-
-              {/* Category */}
               <View style={{ marginBottom: 12 }}>
                 <Text style={{ color: colors.textSecondary, fontSize: 12, marginBottom: 6, fontWeight: '500' }}>Category *</Text>
-                <TextInput
-                  value={manualForm.category}
-                  onChangeText={(text) => setManualForm({ ...manualForm, category: text })}
-                  style={{ backgroundColor: colors.cardSecondary, borderRadius: 12, padding: 12, color: colors.text, fontSize: 15 }}
-                  placeholder="e.g. Food, Transport, Bills"
-                  placeholderTextColor={colors.textTertiary}
-                />
-                {/* Quick-select chips */}
+                <TextInput value={manualForm.category} onChangeText={(text) => setManualForm({ ...manualForm, category: text })} style={{ backgroundColor: colors.cardSecondary, borderRadius: 12, padding: 12, color: colors.text, fontSize: 15 }} placeholder="e.g. Food, Transport, Bills" placeholderTextColor={colors.textTertiary} />
                 <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 8 }}>
                   {['Makanan & Minuman', 'Belanja Harian', 'Wedding', 'Lainnya'].map((cat) => (
-                    <Pressable
-                      key={cat}
-                      onPress={() => setManualForm({ ...manualForm, category: cat })}
-                      style={{
-                        paddingHorizontal: 12,
-                        paddingVertical: 6,
-                        borderRadius: 20,
-                        borderWidth: 1,
-                        borderColor: manualForm.category === cat ? colors.primary : colors.border,
-                        backgroundColor: manualForm.category === cat ? colors.primary : colors.cardSecondary,
-                      }}
-                    >
-                      <Text style={{
-                        fontSize: 12,
-                        fontWeight: '500',
-                        color: manualForm.category === cat ? '#0a0a0a' : colors.textSecondary,
-                      }}>
-                        {cat}
-                      </Text>
+                    <Pressable key={cat} onPress={() => setManualForm({ ...manualForm, category: cat })} style={{ paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20, borderWidth: 1, borderColor: manualForm.category === cat ? colors.primary : colors.border, backgroundColor: manualForm.category === cat ? colors.primary : colors.cardSecondary }}>
+                      <Text style={{ fontSize: 12, fontWeight: '500', color: manualForm.category === cat ? '#0a0a0a' : colors.textSecondary }}>{cat}</Text>
                     </Pressable>
                   ))}
                 </View>
               </View>
-
-
-              {/* Date */}
               <View style={{ marginBottom: 12 }}>
                 <Text style={{ color: colors.textSecondary, fontSize: 12, marginBottom: 6, fontWeight: '500' }}>Date *</Text>
-                <TextInput
-                  value={manualForm.transaction_date}
-                  onChangeText={(text) => setManualForm({ ...manualForm, transaction_date: text })}
-                  style={{ backgroundColor: colors.cardSecondary, borderRadius: 12, padding: 12, color: colors.text, fontSize: 15 }}
-                  placeholder="YYYY-MM-DD"
-                  placeholderTextColor={colors.textTertiary}
-                />
+                <TextInput value={manualForm.transaction_date} onChangeText={(text) => setManualForm({ ...manualForm, transaction_date: text })} style={{ backgroundColor: colors.cardSecondary, borderRadius: 12, padding: 12, color: colors.text, fontSize: 15 }} placeholder="YYYY-MM-DD" placeholderTextColor={colors.textTertiary} />
               </View>
-
-              {/* Payment Method */}
               <View style={{ marginBottom: 12 }}>
                 <Text style={{ color: colors.textSecondary, fontSize: 12, marginBottom: 6, fontWeight: '500' }}>Payment Method</Text>
-                <TextInput
-                  value={manualForm.payment_method}
-                  onChangeText={(text) => setManualForm({ ...manualForm, payment_method: text })}
-                  style={{ backgroundColor: colors.cardSecondary, borderRadius: 12, padding: 12, color: colors.text, fontSize: 15 }}
-                  placeholder="e.g. Cash, QRIS, Transfer, E-Wallet"
-                  placeholderTextColor={colors.textTertiary}
-                />
+                <TextInput value={manualForm.payment_method} onChangeText={(text) => setManualForm({ ...manualForm, payment_method: text })} style={{ backgroundColor: colors.cardSecondary, borderRadius: 12, padding: 12, color: colors.text, fontSize: 15 }} placeholder="e.g. Cash, QRIS, Transfer, E-Wallet" placeholderTextColor={colors.textTertiary} />
               </View>
-
-              {/* Notes */}
               <View style={{ marginBottom: 16 }}>
                 <Text style={{ color: colors.textSecondary, fontSize: 12, marginBottom: 6, fontWeight: '500' }}>Notes</Text>
-                <TextInput
-                  value={manualForm.notes}
-                  onChangeText={(text) => setManualForm({ ...manualForm, notes: text })}
-                  style={{ backgroundColor: colors.cardSecondary, borderRadius: 12, padding: 12, color: colors.text, fontSize: 15, minHeight: 80 }}
-                  placeholder="Add additional notes..."
-                  placeholderTextColor={colors.textTertiary}
-                  multiline
-                  textAlignVertical="top"
-                />
+                <TextInput value={manualForm.notes} onChangeText={(text) => setManualForm({ ...manualForm, notes: text })} style={{ backgroundColor: colors.cardSecondary, borderRadius: 12, padding: 12, color: colors.text, fontSize: 15, minHeight: 80 }} placeholder="Add additional notes..." placeholderTextColor={colors.textTertiary} multiline textAlignVertical="top" />
               </View>
-
-              {/* Action Buttons */}
               <View style={{ flexDirection: 'row', gap: 12 }}>
-                <Pressable
-                  onPress={handleCancelUpload}
-                  disabled={isSaving}
-                  style={{ flex: 1, backgroundColor: colors.cardSecondary, borderRadius: 12, padding: 14, alignItems: 'center' }}
-                >
+                <Pressable onPress={handleCancelUpload} disabled={isSaving} style={{ flex: 1, backgroundColor: colors.cardSecondary, borderRadius: 12, padding: 14, alignItems: 'center' }}>
                   <Text style={{ color: colors.text, fontWeight: '600', fontSize: 14 }}>Cancel</Text>
                 </Pressable>
-                <Pressable
-                  onPress={handleSaveManualEntry}
-                  disabled={isSaving}
-                  style={{ flex: 2, backgroundColor: colors.primary, borderRadius: 12, padding: 14, alignItems: 'center', flexDirection: 'row', justifyContent: 'center' }}
-                >
-                  {isSaving ? (
-                    <>
-                      <ActivityIndicator size="small" color="#0a0a0a" style={{ marginRight: 8 }} />
-                      <Text style={{ color: '#0a0a0a', fontWeight: 'bold', fontSize: 14 }}>Saving...</Text>
-                    </>
-                  ) : (
-                    <Text style={{ color: '#0a0a0a', fontWeight: 'bold', fontSize: 14 }}>Save Transaction</Text>
-                  )}
+                <Pressable onPress={handleSaveManualEntry} disabled={isSaving} style={{ flex: 2, backgroundColor: colors.primary, borderRadius: 12, padding: 14, alignItems: 'center', flexDirection: 'row', justifyContent: 'center' }}>
+                  {isSaving ? (<><ActivityIndicator size="small" color="#0a0a0a" style={{ marginRight: 8 }} /><Text style={{ color: '#0a0a0a', fontWeight: 'bold', fontSize: 14 }}>Saving...</Text></>) : (<Text style={{ color: '#0a0a0a', fontWeight: 'bold', fontSize: 14 }}>Save Transaction</Text>)}
                 </Pressable>
               </View>
             </View>
           </View>
         )}
 
-        {/* Preview Section */}
+        {/* File Preview */}
         {uploadedFile && (
           <View style={{ paddingHorizontal: 20, marginTop: 24 }}>
             <Text style={{ color: colors.textSecondary, fontSize: 11, fontWeight: '600', marginBottom: 12, letterSpacing: 0.5 }}>PREVIEW</Text>
-            
             <View style={{ backgroundColor: colors.card, borderRadius: 16, padding: 16, marginBottom: 12 }}>
-              {/* File Info */}
               <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
                 <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
                   <IconSymbol name="doc.fill" size={20} color="#0a0a0a" />
                 </View>
                 <View style={{ flex: 1 }}>
-                  <Text style={{ color: colors.text, fontWeight: '600', fontSize: 14, marginBottom: 2 }} numberOfLines={1}>
-                    {uploadedFile.name}
-                  </Text>
+                  <Text style={{ color: colors.text, fontWeight: '600', fontSize: 14, marginBottom: 2 }} numberOfLines={1}>{uploadedFile.name}</Text>
                   <Text style={{ color: colors.textTertiary, fontSize: 12 }}>{formatFileSize(uploadedFile.size)}</Text>
                 </View>
               </View>
-
-              {/* Image Preview */}
               {uploadedFile.type === 'image' && (
                 <View style={{ borderRadius: 12, overflow: 'hidden', marginBottom: 12 }}>
-                  <Image 
-                    source={{ uri: uploadedFile.uri }} 
-                    style={{ width: '100%', height: 200, backgroundColor: colors.cardSecondary }}
-                    resizeMode="contain"
-                  />
+                  <Image source={{ uri: uploadedFile.uri }} style={{ width: '100%', height: 200, backgroundColor: colors.cardSecondary }} resizeMode="contain" />
                 </View>
               )}
-
-              {/* PDF Placeholder */}
               {uploadedFile.type === 'pdf' && (
                 <View style={{ borderRadius: 12, backgroundColor: colors.cardSecondary, padding: 32, alignItems: 'center', marginBottom: 12 }}>
                   <IconSymbol name="doc.text.fill" size={48} color={colors.textTertiary} />
                   <Text style={{ color: colors.textTertiary, fontSize: 13, marginTop: 8 }}>PDF Document</Text>
                 </View>
               )}
-
-              {/* Action Buttons */}
-              {!extractedData ? (
+              {!extractedData && (
                 <View style={{ flexDirection: 'row', gap: 12 }}>
-                  <Pressable 
-                    onPress={handleCancelUpload}
-                    disabled={isExtracting}
-                    style={{ flex: 1, backgroundColor: colors.cardSecondary, borderRadius: 12, padding: 14, alignItems: 'center' }}
-                  >
+                  <Pressable onPress={handleCancelUpload} disabled={isExtracting} style={{ flex: 1, backgroundColor: colors.cardSecondary, borderRadius: 12, padding: 14, alignItems: 'center' }}>
                     <Text style={{ color: colors.text, fontWeight: '600', fontSize: 14 }}>Cancel</Text>
                   </Pressable>
-                  
-                  <Pressable 
-                    onPress={handleExtractTransaction}
-                    disabled={isExtracting}
-                    style={{ flex: 1, backgroundColor: colors.primary, borderRadius: 12, padding: 14, alignItems: 'center', flexDirection: 'row', justifyContent: 'center' }}
-                  >
-                    {isExtracting ? (
-                      <>
-                        <ActivityIndicator size="small" color="#0a0a0a" style={{ marginRight: 8 }} />
-                        <Text style={{ color: '#0a0a0a', fontWeight: 'bold', fontSize: 14 }}>Extracting...</Text>
-                      </>
-                    ) : (
-                      <Text style={{ color: '#0a0a0a', fontWeight: 'bold', fontSize: 14 }}>Extract Data</Text>
-                    )}
+                  <Pressable onPress={handleExtractTransaction} disabled={isExtracting} style={{ flex: 1, backgroundColor: colors.primary, borderRadius: 12, padding: 14, alignItems: 'center', flexDirection: 'row', justifyContent: 'center' }}>
+                    {isExtracting ? (<><ActivityIndicator size="small" color="#0a0a0a" style={{ marginRight: 8 }} /><Text style={{ color: '#0a0a0a', fontWeight: 'bold', fontSize: 14 }}>Extracting...</Text></>) : (<Text style={{ color: '#0a0a0a', fontWeight: 'bold', fontSize: 14 }}>Extract Data</Text>)}
                   </Pressable>
                 </View>
-              ) : null}
+              )}
             </View>
           </View>
         )}
@@ -912,134 +522,52 @@ export default function AddScreen() {
         {extractedData && (
           <View style={{ paddingHorizontal: 20, marginTop: 24 }}>
             <Text style={{ color: colors.textSecondary, fontSize: 11, fontWeight: '600', marginBottom: 12, letterSpacing: 0.5 }}>EXTRACTED DATA</Text>
-            
             <View style={{ backgroundColor: colors.card, borderRadius: 16, padding: 16 }}>
-              {/* Success Badge */}
               <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 16, padding: 12, backgroundColor: 'rgba(34, 197, 94, 0.1)', borderRadius: 12 }}>
                 <IconSymbol name="checkmark.circle.fill" size={20} color={colors.success} />
                 <Text style={{ color: colors.success, fontSize: 13, marginLeft: 8, fontWeight: '500' }}>Data extracted successfully! Review and edit if needed.</Text>
               </View>
-
-              {/* Merchant */}
               <View style={{ marginBottom: 12 }}>
                 <Text style={{ color: colors.textSecondary, fontSize: 12, marginBottom: 6, fontWeight: '500' }}>Merchant</Text>
-                <TextInput
-                  value={extractedData.merchant}
-                  onChangeText={(text) => setExtractedData({ ...extractedData, merchant: text })}
-                  style={{ backgroundColor: colors.cardSecondary, borderRadius: 12, padding: 12, color: colors.text, fontSize: 15 }}
-                  placeholder="Merchant name"
-                  placeholderTextColor={colors.textTertiary}
-                />
+                <TextInput value={extractedData.merchant} onChangeText={(text) => setExtractedData({ ...extractedData, merchant: text })} style={{ backgroundColor: colors.cardSecondary, borderRadius: 12, padding: 12, color: colors.text, fontSize: 15 }} placeholderTextColor={colors.textTertiary} />
               </View>
-
-              {/* Amount */}
               <View style={{ marginBottom: 12 }}>
                 <Text style={{ color: colors.textSecondary, fontSize: 12, marginBottom: 6, fontWeight: '500' }}>Amount</Text>
-                <TextInput
-                  value={extractedData.total.toString()}
-                  onChangeText={(text) => setExtractedData({ ...extractedData, total: parseFloat(text) || 0 })}
-                  style={{ backgroundColor: colors.cardSecondary, borderRadius: 12, padding: 12, color: colors.text, fontSize: 15 }}
-                  placeholder="0"
-                  placeholderTextColor={colors.textTertiary}
-                  keyboardType="numeric"
-                />
+                <TextInput value={extractedData.total.toString()} onChangeText={(text) => setExtractedData({ ...extractedData, total: parseFloat(text) || 0 })} style={{ backgroundColor: colors.cardSecondary, borderRadius: 12, padding: 12, color: colors.text, fontSize: 15 }} keyboardType="numeric" placeholderTextColor={colors.textTertiary} />
               </View>
-
-              {/* Category */}
               <View style={{ marginBottom: 12 }}>
                 <Text style={{ color: colors.textSecondary, fontSize: 12, marginBottom: 6, fontWeight: '500' }}>Category</Text>
-                <TextInput
-                  value={extractedData.category}
-                  onChangeText={(text) => setExtractedData({ ...extractedData, category: text })}
-                  style={{ backgroundColor: colors.cardSecondary, borderRadius: 12, padding: 12, color: colors.text, fontSize: 15 }}
-                  placeholder="Category"
-                  placeholderTextColor={colors.textTertiary}
-                />
-                {/* Quick-select chips */}
+                <TextInput value={extractedData.category} onChangeText={(text) => setExtractedData({ ...extractedData, category: text })} style={{ backgroundColor: colors.cardSecondary, borderRadius: 12, padding: 12, color: colors.text, fontSize: 15 }} placeholderTextColor={colors.textTertiary} />
                 <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 8 }}>
                   {['Makanan & Minuman', 'Belanja Harian', 'Wedding', 'Lainnya'].map((cat) => (
-                    <Pressable
-                      key={cat}
-                      onPress={() => setExtractedData({ ...extractedData, category: cat })}
-                      style={{
-                        paddingHorizontal: 12,
-                        paddingVertical: 6,
-                        borderRadius: 20,
-                        borderWidth: 1,
-                        borderColor: extractedData.category === cat ? colors.primary : colors.border,
-                        backgroundColor: extractedData.category === cat ? colors.primary : colors.cardSecondary,
-                      }}
-                    >
-                      <Text style={{
-                        fontSize: 12,
-                        fontWeight: '500',
-                        color: extractedData.category === cat ? '#0a0a0a' : colors.textSecondary,
-                      }}>
-                        {cat}
-                      </Text>
+                    <Pressable key={cat} onPress={() => setExtractedData({ ...extractedData, category: cat })} style={{ paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20, borderWidth: 1, borderColor: extractedData.category === cat ? colors.primary : colors.border, backgroundColor: extractedData.category === cat ? colors.primary : colors.cardSecondary }}>
+                      <Text style={{ fontSize: 12, fontWeight: '500', color: extractedData.category === cat ? '#0a0a0a' : colors.textSecondary }}>{cat}</Text>
                     </Pressable>
                   ))}
                 </View>
               </View>
-
-
-              {/* Date */}
               <View style={{ marginBottom: 12 }}>
                 <Text style={{ color: colors.textSecondary, fontSize: 12, marginBottom: 6, fontWeight: '500' }}>Date</Text>
-                <TextInput
-                  value={extractedData.transaction_date}
-                  onChangeText={(text) => setExtractedData({ ...extractedData, transaction_date: text })}
-                  style={{ backgroundColor: colors.cardSecondary, borderRadius: 12, padding: 12, color: colors.text, fontSize: 15 }}
-                  placeholder="YYYY-MM-DD"
-                  placeholderTextColor={colors.textTertiary}
-                />
+                <TextInput value={extractedData.transaction_date} onChangeText={(text) => setExtractedData({ ...extractedData, transaction_date: text })} style={{ backgroundColor: colors.cardSecondary, borderRadius: 12, padding: 12, color: colors.text, fontSize: 15 }} placeholder="YYYY-MM-DD" placeholderTextColor={colors.textTertiary} />
               </View>
-
-              {/* Notes */}
               <View style={{ marginBottom: 16 }}>
                 <Text style={{ color: colors.textSecondary, fontSize: 12, marginBottom: 6, fontWeight: '500' }}>Notes</Text>
-                <TextInput
-                  value={extractedData.notes || ''}
-                  onChangeText={(text) => setExtractedData({ ...extractedData, notes: text })}
-                  style={{ backgroundColor: colors.cardSecondary, borderRadius: 12, padding: 12, color: colors.text, fontSize: 15, minHeight: 80 }}
-                  placeholder="Add notes..."
-                  placeholderTextColor={colors.textTertiary}
-                  multiline
-                  textAlignVertical="top"
-                />
+                <TextInput value={extractedData.notes || ''} onChangeText={(text) => setExtractedData({ ...extractedData, notes: text })} style={{ backgroundColor: colors.cardSecondary, borderRadius: 12, padding: 12, color: colors.text, fontSize: 15, minHeight: 80 }} placeholder="Add notes..." placeholderTextColor={colors.textTertiary} multiline textAlignVertical="top" />
               </View>
-
-              {/* Action Buttons */}
               <View style={{ flexDirection: 'row', gap: 12 }}>
-                <Pressable 
-                  onPress={handleCancelUpload}
-                  disabled={isSaving}
-                  style={{ flex: 1, backgroundColor: colors.cardSecondary, borderRadius: 12, padding: 14, alignItems: 'center' }}
-                >
+                <Pressable onPress={handleCancelUpload} disabled={isSaving} style={{ flex: 1, backgroundColor: colors.cardSecondary, borderRadius: 12, padding: 14, alignItems: 'center' }}>
                   <Text style={{ color: colors.text, fontWeight: '600', fontSize: 14 }}>Cancel</Text>
                 </Pressable>
-                
-                <Pressable 
-                  onPress={handleSaveTransaction}
-                  disabled={isSaving}
-                  style={{ flex: 1, backgroundColor: colors.primary, borderRadius: 12, padding: 14, alignItems: 'center', flexDirection: 'row', justifyContent: 'center' }}
-                >
-                  {isSaving ? (
-                    <>
-                      <ActivityIndicator size="small" color="#0a0a0a" style={{ marginRight: 8 }} />
-                      <Text style={{ color: '#0a0a0a', fontWeight: 'bold', fontSize: 14 }}>Saving...</Text>
-                    </>
-                  ) : (
-                    <Text style={{ color: '#0a0a0a', fontWeight: 'bold', fontSize: 14 }}>Save Transaction</Text>
-                  )}
+                <Pressable onPress={handleSaveTransaction} disabled={isSaving} style={{ flex: 1, backgroundColor: colors.primary, borderRadius: 12, padding: 14, alignItems: 'center', flexDirection: 'row', justifyContent: 'center' }}>
+                  {isSaving ? (<><ActivityIndicator size="small" color="#0a0a0a" style={{ marginRight: 8 }} /><Text style={{ color: '#0a0a0a', fontWeight: 'bold', fontSize: 14 }}>Saving...</Text></>) : (<Text style={{ color: '#0a0a0a', fontWeight: 'bold', fontSize: 14 }}>Save Transaction</Text>)}
                 </Pressable>
               </View>
             </View>
           </View>
         )}
 
-        {/* Tips Section */}
-        {!uploadedFile && (
+        {/* Tips */}
+        {!uploadedFile && !showManualEntry && (
           <View style={{ paddingHorizontal: 20, marginTop: 24 }}>
             <View style={{ backgroundColor: colors.card, borderRadius: 16, padding: 16, flexDirection: 'row', alignItems: 'flex-start' }}>
               <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: colors.cardSecondary, alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
@@ -1047,50 +575,34 @@ export default function AddScreen() {
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={{ color: colors.text, fontWeight: '600', fontSize: 14, marginBottom: 4 }}>Pro Tip</Text>
-                <Text style={{ color: colors.textTertiary, fontSize: 13, lineHeight: 18 }}>
-                  For best results, make sure the receipt is well-lit and all text is clearly visible when scanning.
-                </Text>
+                <Text style={{ color: colors.textTertiary, fontSize: 13, lineHeight: 18 }}>For best results, make sure the receipt is well-lit and all text is clearly visible when scanning.</Text>
               </View>
             </View>
           </View>
         )}
       </ScrollView>
 
-      {/* SweetAlert Style Success Modal */}
-      <Modal
-        visible={showSuccessModal}
-        transparent={true}
-        animationType="fade"
-        onRequestClose={() => setShowSuccessModal(false)}
-      >
+      {/* Success Modal */}
+      <Modal visible={showSuccessModal} transparent={true} animationType="fade" onRequestClose={() => setShowSuccessModal(false)}>
         <View style={{ flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.75)', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
           <View style={{ backgroundColor: colors.card, borderRadius: 24, padding: 32, alignItems: 'center', width: '100%', maxWidth: 320, borderWidth: 1, borderColor: colors.border }}>
-            {/* Success Icon with Animation */}
             <View style={{ width: 80, height: 80, borderRadius: 40, backgroundColor: 'rgba(34, 197, 94, 0.15)', alignItems: 'center', justifyContent: 'center', marginBottom: 20 }}>
               <View style={{ width: 64, height: 64, borderRadius: 32, backgroundColor: 'rgba(34, 197, 94, 0.25)', alignItems: 'center', justifyContent: 'center' }}>
                 <IconSymbol name="checkmark.circle.fill" size={48} color={colors.success} />
               </View>
             </View>
-
-            {/* Success Message */}
             <Text style={{ color: colors.text, fontSize: 22, fontWeight: 'bold', marginBottom: 8, textAlign: 'center' }}>
               {selectedType === 'money_saving' ? 'Money Saved!' : 'Expense Recorded!'}
             </Text>
             <Text style={{ color: colors.textTertiary, fontSize: 14, textAlign: 'center', lineHeight: 20 }}>
-              {selectedType === 'money_saving' 
-                ? 'Your savings have been successfully recorded. Keep up the good work!' 
-                : 'Your expense has been successfully recorded and added to your history.'}
+              {selectedType === 'money_saving' ? 'Your savings have been successfully recorded. Keep up the good work!' : 'Your expense has been successfully recorded and added to your history.'}
             </Text>
-
-            {/* Amount Badge */}
-            {extractedData && (
-              <View style={{ marginTop: 20, backgroundColor: colors.cardSecondary, borderRadius: 12, paddingVertical: 12, paddingHorizontal: 20 }}>
-                <Text style={{ color: colors.textSecondary, fontSize: 11, marginBottom: 4, textAlign: 'center' }}>AMOUNT</Text>
-                <Text style={{ color: colors.primary, fontSize: 24, fontWeight: 'bold', textAlign: 'center' }}>
-                  Rp {extractedData.total.toLocaleString('id-ID')}
-                </Text>
-              </View>
-            )}
+            <View style={{ marginTop: 20, backgroundColor: colors.cardSecondary, borderRadius: 12, paddingVertical: 12, paddingHorizontal: 20 }}>
+              <Text style={{ color: colors.textSecondary, fontSize: 11, marginBottom: 4, textAlign: 'center' }}>AMOUNT</Text>
+              <Text style={{ color: colors.primary, fontSize: 24, fontWeight: 'bold', textAlign: 'center' }}>
+                Rp {savedAmount.toLocaleString('id-ID')}
+              </Text>
+            </View>
           </View>
         </View>
       </Modal>

@@ -1,0 +1,11 @@
+[api]
+enabled = true
+
+[db]
+# Managed by Supabase cloud — no local config needed
+
+[functions.extract-receipt]
+verify_jwt = false
+
+[functions.create-transaction]
+verify_jwt = false

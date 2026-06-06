@@ -1,9 +1,12 @@
-import apiClient from '@/src/lib/api';
+import { supabase } from '@/src/lib/supabase';
 import type {
   GetTransactionsResponse,
+  MonthlyReportData,
   MonthlyReportResponse,
-  Transaction
+  Transaction,
 } from '@/src/types';
+
+// ─── Fetch params types ──────────────────────────────────────────────────────
 
 export interface FetchTransactionsParams {
   user_id?: string;
@@ -30,16 +33,17 @@ export interface SpendingOverviewRecord {
   total_income: number;
 }
 
-export interface UploadReceiptParams {
-  file: File | Blob;
+export interface CreateTransactionParams {
   user_id: string;
+  type: 'expense' | 'money_saving';
+  merchant: string;
+  total: number;
+  category: string;
+  transaction_date: string;
+  payment_method?: string;
+  notes?: string;
   source_name?: string;
-}
-
-export interface ExtractTransactionParams {
-  file: File | Blob;
-  user_id: string;
-  transaction_type: 'expense' | 'money_saving';
+  file_url?: string;
 }
 
 export interface ExtractedTransactionData {
@@ -49,118 +53,174 @@ export interface ExtractedTransactionData {
   transaction_date: string;
   notes?: string;
   payment_method?: string;
-  confidence?: number;
+  file_url?: string;
 }
 
-/**
- * Fetch all transactions from Supabase
- * GET /webhook/transactions
- */
-export const fetchTransactions = async (
+export interface ExtractTransactionParams {
+  file: File | { uri: string; type: string; name: string };
+  user_id: string;
+  transaction_type: 'expense' | 'money_saving';
+}
+
+// ─── fetchTransactions ───────────────────────────────────────────────────────
+
+export async function fetchTransactions(
   params: FetchTransactionsParams = {}
-): Promise<GetTransactionsResponse> => {
-  const queryParams = new URLSearchParams();
-  
-  if (params.user_id) queryParams.append('user_id', params.user_id);
-  if (params.type) queryParams.append('type', params.type);
-  if (params.limit) queryParams.append('limit', params.limit.toString());
-  if (params.offset) queryParams.append('offset', params.offset.toString());
+): Promise<GetTransactionsResponse> {
+  let query = supabase
+    .from('transactions')
+    .select('*')
+    .order('transaction_date', { ascending: false })
+    .order('created_at', { ascending: false });
 
-  const response = await apiClient.get<GetTransactionsResponse>(
-    `/webhook/transactions?${queryParams.toString()}`
-  );
-  
-  return response.data;
-};
+  if (params.user_id) query = query.eq('user_id', params.user_id);
+  if (params.type) query = query.eq('type', params.type);
+  if (params.limit) query = query.limit(params.limit);
+  if (params.offset) query = query.range(params.offset, params.offset + (params.limit ?? 50) - 1);
 
-/**
- * Fetch monthly report for charts/graphs
- * GET /webhook/report/monthly
- */
-export const fetchMonthlyReport = async (
-  params: FetchMonthlyReportParams
-): Promise<MonthlyReportResponse> => {
-  const queryParams = new URLSearchParams();
-  
-  if (params.user_id) queryParams.append('user_id', params.user_id);
-  if (params.year) queryParams.append('year', params.year.toString());
-  if (params.month) queryParams.append('month', params.month.toString());
+  const { data, error } = await query;
+  if (error) throw error;
 
-  console.log('fetchMonthlyReport - API call:', `/webhook/report/monthly?${queryParams.toString()}`);
+  return { success: true, count: data.length, data: data as Transaction[] };
+}
 
-  const response = await apiClient.get<MonthlyReportResponse>(
-    `/webhook/report/monthly?${queryParams.toString()}`
-  );
-  
-  console.log('fetchMonthlyReport - API response:', response.data);
-  return response.data;
-};
+// ─── fetchSpendingOverview ───────────────────────────────────────────────────
 
-/**
- * Fetch spending overview (aggregated per user per period)
- * GET /webhook/report/spending-overview
- */
-export const fetchSpendingOverview = async (
+export async function fetchSpendingOverview(
   params: FetchSpendingOverviewParams
-): Promise<SpendingOverviewRecord[]> => {
-  const queryParams = new URLSearchParams();
-  queryParams.append('year', params.year.toString());
-  if (params.month) queryParams.append('month', params.month.toString());
+): Promise<SpendingOverviewRecord[]> {
+  const yearStart = `${params.year}-01-01`;
+  const yearEnd = `${params.year}-12-31`;
 
-  console.log('fetchSpendingOverview - API call:', `/webhook/report/spending-overview?${queryParams.toString()}`);
+  let query = supabase
+    .from('spending_overview')
+    .select('*')
+    .gte('period', yearStart)
+    .lte('period', yearEnd)
+    .order('period', { ascending: true });
 
-  const response = await apiClient.get<{ data: SpendingOverviewRecord[] }>(
-    `/webhook/report/spending-overview?${queryParams.toString()}`
-  );
-  
-  console.log('fetchSpendingOverview - API response:', response.data);
-  return response.data.data || [];
-};
-
-/**
- * Upload and extract transaction data from receipt image using OCR
- * POST /webhook/uploadDoc
- */
-export const extractTransaction = async (
-  params: ExtractTransactionParams
-): Promise<ExtractedTransactionData> => {
-  // MOCK MODE for testing - remove this when API is ready
-  const USE_MOCK = false; // Set to false when API is ready
-  
-  if (USE_MOCK) {
-    console.log('Using MOCK data for extraction');
-    await new Promise(resolve => setTimeout(resolve, 2000)); // Simulate API delay
-    return {
-      merchant: 'Indomaret',
-      total: 125000,
-      category: 'Belanja snack dan minuman',
-      transaction_date: new Date().toISOString().split('T')[0],
-      notes: 'Extracted from receipt image',
-      payment_method: 'Cash',
-      confidence: 0.95,
-    };
+  if (params.month) {
+    const monthStr = String(params.month).padStart(2, '0');
+    const periodMonth = `${params.year}-${monthStr}-01`;
+    query = supabase
+      .from('spending_overview')
+      .select('*')
+      .eq('period', periodMonth);
   }
 
-  const formData = new FormData();
-  
-  // Detect web platform
+  const { data, error } = await query;
+  if (error) throw error;
+
+  return (data ?? []) as SpendingOverviewRecord[];
+}
+
+// ─── fetchMonthlyReport ──────────────────────────────────────────────────────
+
+export async function fetchMonthlyReport(
+  params: FetchMonthlyReportParams
+): Promise<MonthlyReportResponse> {
+  const year = params.year ?? new Date().getFullYear();
+  const yearStart = `${year}-01-01`;
+  const yearEnd = `${year}-12-31`;
+
+  let query = supabase
+    .from('transactions')
+    .select('*')
+    .gte('transaction_date', yearStart)
+    .lte('transaction_date', yearEnd);
+
+  if (params.user_id) query = query.eq('user_id', params.user_id);
+  if (params.month) {
+    const monthStart = new Date(year, params.month - 1, 1);
+    const monthEnd = new Date(year, params.month, 0); // day 0 = last day of prev month
+    const fmt = (d: Date) => d.toISOString().split('T')[0];
+    query = query
+      .gte('transaction_date', fmt(monthStart))
+      .lte('transaction_date', fmt(monthEnd));
+  }
+
+  const { data, error } = await query;
+  if (error) throw error;
+
+  const transactions = (data ?? []) as Transaction[];
+
+  const totalExpense = transactions
+    .filter(t => t.type === 'expense')
+    .reduce((sum, t) => sum + Number(t.total), 0);
+  const totalMoneySaving = transactions
+    .filter(t => t.type === 'money_saving')
+    .reduce((sum, t) => sum + Number(t.total), 0);
+
+  const monthMap = new Map<string, MonthlyReportData>();
+  transactions.forEach(t => {
+    const month = t.transaction_date?.slice(0, 7) ?? `${year}-01`;
+    const prev = monthMap.get(month) ?? {
+      month,
+      expense: 0,
+      money_saving: 0,
+      total: 0,
+      count: 0,
+    };
+    const amount = Number(t.total);
+    monthMap.set(month, {
+      month,
+      expense: prev.expense + (t.type === 'expense' ? amount : 0),
+      money_saving: prev.money_saving + (t.type === 'money_saving' ? amount : 0),
+      total: prev.total + amount,
+      count: prev.count + 1,
+    });
+  });
+  const monthlyReport = Array.from(monthMap.values()).sort((a, b) =>
+    a.month.localeCompare(b.month)
+  );
+
+  const catMap = new Map<string, { total: number; count: number }>();
+  transactions
+    .filter(t => t.type === 'expense')
+    .forEach(t => {
+      const cat = t.category ?? 'Lainnya';
+      const prev = catMap.get(cat) ?? { total: 0, count: 0 };
+      catMap.set(cat, { total: prev.total + Number(t.total), count: prev.count + 1 });
+    });
+  const categoryBreakdown = Array.from(catMap.entries())
+    .map(([category, { total, count }]) => ({ category, total, count }))
+    .sort((a, b) => b.total - a.total);
+
+  return {
+    success: true,
+    user_id: params.user_id ?? 'default',
+    year,
+    month: params.month ?? null,
+    summary: {
+      total_expense: totalExpense,
+      total_money_saving: totalMoneySaving,
+      total_transactions: transactions.length,
+    },
+    monthly_report: monthlyReport,
+    category_breakdown: categoryBreakdown,
+  };
+}
+
+// ─── extractTransaction ──────────────────────────────────────────────────────
+
+export async function extractTransaction(
+  params: ExtractTransactionParams
+): Promise<ExtractedTransactionData> {
+  const apiUrl = process.env.EXPO_PUBLIC_API_URL!;
   const isWeb = typeof window !== 'undefined' && typeof document !== 'undefined';
 
+  const formData = new FormData();
+  formData.append('user_id', params.user_id);
+  formData.append('type', params.transaction_type);
+
   if (isWeb) {
-    // On web: URI is a blob: or data: URL — fetch it and convert to File
-    try {
-      const response = await fetch((params.file as any).uri);
-      const blob = await response.blob();
-      const mimeType = (params.file as any).type || blob.type || 'image/jpeg';
-      const fileName = (params.file as any).name || `upload_${Date.now()}.jpg`;
-      const file = new File([blob], fileName, { type: mimeType });
-      formData.append('file', file);
-    } catch (fetchErr) {
-      console.error('Web blob fetch error:', fetchErr);
-      throw new Error('Failed to read file on web. Please try again.');
-    }
+    const response = await fetch((params.file as any).uri);
+    const blob = await response.blob();
+    const mimeType = (params.file as any).type || blob.type || 'image/jpeg';
+    const fileName = (params.file as any).name || `upload_${Date.now()}.jpg`;
+    const file = new File([blob], fileName, { type: mimeType });
+    formData.append('file', file);
   } else {
-    // React Native: use the {uri, type, name} object format
     // @ts-ignore - React Native FormData typing
     formData.append('file', {
       uri: (params.file as any).uri,
@@ -169,94 +229,53 @@ export const extractTransaction = async (
     });
   }
 
-  formData.append('user_id', params.user_id);
-  formData.append('transaction_type', params.transaction_type);
-
-  console.log('Sending FormData to API:', {
-    endpoint: '/webhook/uploadDoc',
-    user_id: params.user_id,
-    transaction_type: params.transaction_type,
-    file: (params.file as any).name,
-    isWeb,
+  const response = await fetch(`${apiUrl}/webhook/uploadDoc`, {
+    method: 'POST',
+    body: formData,
   });
 
-  try {
-    const response = await apiClient.post<ExtractedTransactionData>(
-      '/webhook/uploadDoc',
-      formData,
-      {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-        timeout: 60000, // 60 seconds for OCR processing
-      }
-    );
-    
-    console.log('API Response:', response.data);
-
-    // n8n sometimes returns an array — handle both cases
-    const data = Array.isArray(response.data) ? response.data[0] : response.data;
-    return data;
-  } catch (error: any) {
-    console.error('API Error:', error.response?.data || error.message);
-    throw error;
+  if (!response.ok) {
+    const errText = await response.text();
+    throw new Error(`Extraction failed: ${errText}`);
   }
-};
 
-
-export interface CreateTransactionParams {
-  user_id: string;
-  type: 'expense' | 'money_saving';
-  text: string;
-  source_name: string;
+  const data = await response.json();
+  return {
+    merchant: data.merchant ?? '',
+    total: Number(data.total) || 0,
+    category: data.category ?? 'Lainnya',
+    transaction_date: data.transaction_date ?? new Date().toISOString().split('T')[0],
+    notes: data.notes ?? '',
+    payment_method: data.payment_method ?? '',
+  } as ExtractedTransactionData;
 }
 
-/**
- * Create/save transaction after user confirms extracted data
- * POST /webhook/extract-transaction
- */
-export const createTransaction = async (
-  data: CreateTransactionParams
-): Promise<Transaction> => {
-  console.log('Saving transaction to API:', {
-    endpoint: '/webhook/extract-transaction',
-    data,
-  });
+// ─── createTransaction ───────────────────────────────────────────────────────
+// Calls create-transaction Edge Function which dual-writes to Supabase + Google Sheets
 
-  const response = await apiClient.post<Transaction>(
-    '/webhook/extract-transaction',
-    data
-  );
-  
-  console.log('Transaction saved:', response.data);
-  return response.data;
-};
+export async function createTransaction(
+  params: CreateTransactionParams
+): Promise<Transaction> {
+  const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL!;
+  const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY!;
 
-/**
- * Upload receipt/payment proof for OCR extraction
- * POST /uploadDoc
- * @deprecated Use extractTransaction instead
- */
-export const uploadReceipt = async (
-  params: UploadReceiptParams
-): Promise<Transaction> => {
-  const formData = new FormData();
-  
-  formData.append('file', params.file);
-  formData.append('user_id', params.user_id);
-  if (params.source_name) {
-    formData.append('source_name', params.source_name);
-  }
-
-  const response = await apiClient.post<Transaction>(
-    '/webhook/uploadDoc',
-    formData,
+  const response = await fetch(
+    `${supabaseUrl}/functions/v1/create-transaction`,
     {
+      method: 'POST',
       headers: {
-        'Content-Type': 'multipart/form-data',
+        'Content-Type': 'application/json',
+        apikey: supabaseAnonKey,
       },
+      body: JSON.stringify(params),
     }
   );
-  
-  return response.data;
-};
+
+  if (!response.ok) {
+    const errText = await response.text();
+    throw new Error(`createTransaction failed: ${errText}`);
+  }
+
+  const data = await response.json();
+  return data as Transaction;
+}
