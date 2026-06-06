@@ -86,9 +86,8 @@ async function getGoogleAccessToken(): Promise<string> {
 async function appendToSheets(
   accessToken: string,
   body: CreateTransactionBody,
-  dbId: string
+  sheetTab: string
 ): Promise<void> {
-  const sheetTab = body.type === 'expense' ? 'Expense' : 'Wedding_Savings';
   const range = `${sheetTab}!A:G`;
 
   const row = [
@@ -166,7 +165,11 @@ Deno.serve(async (req: Request) => {
     // Append to Google Sheets (non-fatal)
     try {
       const accessToken = await getGoogleAccessToken();
-      await appendToSheets(accessToken, body, data.id);
+      const primaryTab = body.type === 'expense' ? 'Expense' : 'Money_Saving';
+      await appendToSheets(accessToken, body, primaryTab);
+      if (body.type === 'money_saving' && body.category?.toLowerCase() === 'wedding') {
+        await appendToSheets(accessToken, body, 'Wedding_Savings');
+      }
     } catch (sheetsErr) {
       console.error('Google Sheets write failed (non-fatal):', sheetsErr);
     }
