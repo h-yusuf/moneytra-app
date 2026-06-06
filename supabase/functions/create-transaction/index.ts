@@ -165,11 +165,15 @@ Deno.serve(async (req: Request) => {
     // Append to Google Sheets (non-fatal)
     try {
       const accessToken = await getGoogleAccessToken();
-      const primaryTab = body.type === 'expense' ? 'Expense' : 'Money_Saving';
-      await appendToSheets(accessToken, body, primaryTab);
-      if (body.type === 'money_saving' && body.category?.toLowerCase() === 'wedding') {
-        await appendToSheets(accessToken, body, 'Wedding_Savings');
+      let sheetTab: string;
+      if (body.type === 'expense') {
+        sheetTab = 'Expense';
+      } else if (body.category?.toLowerCase() === 'wedding') {
+        sheetTab = 'Wedding_Savings';
+      } else {
+        sheetTab = 'Money_Saving';
       }
+      await appendToSheets(accessToken, body, sheetTab);
     } catch (sheetsErr) {
       console.error('Google Sheets write failed (non-fatal):', sheetsErr);
     }
