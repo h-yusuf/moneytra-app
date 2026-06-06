@@ -1,3 +1,5 @@
+import * as ImageManipulator from 'expo-image-manipulator';
+import { Platform } from 'react-native';
 import { supabase } from '@/src/lib/supabase';
 import type {
   GetTransactionsResponse,
@@ -199,6 +201,35 @@ export async function fetchMonthlyReport(
     monthly_report: monthlyReport,
     category_breakdown: categoryBreakdown,
   };
+}
+
+// ─── uploadReceiptImage ──────────────────────────────────────────────────────
+// Resize to max 1200px, quality 0.75 (~300KB) before upload to Supabase Storage
+
+export async function uploadReceiptImage(uri: string, userId: string): Promise<string | null> {
+  try {
+    let finalUri = uri;
+    if (Platform.OS !== 'web') {
+      const result = await ImageManipulator.manipulateAsync(
+        uri,
+        [{ resize: { width: 1200 } }],
+        { compress: 0.75, format: ImageManipulator.SaveFormat.JPEG }
+      );
+      finalUri = result.uri;
+    }
+    const response = await fetch(finalUri);
+    const arrayBuffer = await response.arrayBuffer();
+    const fileName = `${userId}/${Date.now()}.jpg`;
+    const { error } = await supabase.storage
+      .from('receipts')
+      .upload(fileName, arrayBuffer, { contentType: 'image/jpeg', upsert: false });
+    if (error) { console.error('Upload receipt error:', error); return null; }
+    const { data } = supabase.storage.from('receipts').getPublicUrl(fileName);
+    return data.publicUrl;
+  } catch (err) {
+    console.error('uploadReceiptImage failed:', err);
+    return null;
+  }
 }
 
 // ─── extractTransaction ──────────────────────────────────────────────────────

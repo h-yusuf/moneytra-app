@@ -2,7 +2,7 @@ import { IconSymbol } from '@/components/ui/icon-symbol';
 import { useBudget } from '@/src/contexts/BudgetContext';
 import { useTheme } from '@/src/contexts/ThemeContext';
 import { useUser } from '@/src/contexts/UserContext';
-import { createTransaction, extractTransaction, type ExtractedTransactionData } from '@/src/services/transactionService';
+import { createTransaction, extractTransaction, uploadReceiptImage, type ExtractedTransactionData } from '@/src/services/transactionService';
 import { Audio } from 'expo-av';
 import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
@@ -244,13 +244,16 @@ export default function AddScreen() {
     setIsExtracting(true);
 
     try {
-      const extracted = await extractTransaction({
-        file: { uri: uploadedFile.uri, type: uploadedFile.type === 'pdf' ? 'application/pdf' : 'image/jpeg', name: uploadedFile.name },
-        user_id: profile.user_id,
-        transaction_type: selectedType,
-      });
+      const [extracted, fileUrl] = await Promise.all([
+        extractTransaction({
+          file: { uri: uploadedFile.uri, type: uploadedFile.type === 'pdf' ? 'application/pdf' : 'image/jpeg', name: uploadedFile.name },
+          user_id: profile.user_id,
+          transaction_type: selectedType,
+        }),
+        uploadReceiptImage(uploadedFile.uri, profile.user_id),
+      ]);
 
-      setExtractedData(extracted);
+      setExtractedData({ ...extracted, file_url: fileUrl ?? undefined });
       setIsExtracting(false);
       setInlineAlert({ type: 'success', message: 'Extraction complete! Please review and edit if needed.' });
       setTimeout(() => setInlineAlert(null), 4000);
