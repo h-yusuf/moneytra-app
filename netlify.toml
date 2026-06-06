@@ -3,7 +3,7 @@
   publish = "dist"
 
 [build.environment]
-  NODE_VERSION = "20"
+  NODE_VERSION = "22"
   EXPO_PUBLIC_SUPABASE_URL = "https://hzhnvlaudcjntkiqctrs.supabase.co"
   EXPO_PUBLIC_API_URL = "https://n8n.pullstack.cloud"
 
