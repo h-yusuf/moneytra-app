@@ -481,6 +481,13 @@ export default function AddScreen() {
               <View style={{ marginBottom: 12 }}>
                 <Text style={{ color: colors.textSecondary, fontSize: 12, marginBottom: 6, fontWeight: '500' }}>Payment Method</Text>
                 <TextInput value={manualForm.payment_method} onChangeText={(text) => setManualForm({ ...manualForm, payment_method: text })} style={{ backgroundColor: colors.cardSecondary, borderRadius: 12, padding: 12, color: colors.text, fontSize: 15 }} placeholder="e.g. Cash, QRIS, Transfer, E-Wallet" placeholderTextColor={colors.textTertiary} />
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 8 }}>
+                  {['Cash', 'QRIS', 'Transfer', 'E-Wallet'].map((method) => (
+                    <Pressable key={method} onPress={() => setManualForm({ ...manualForm, payment_method: method })} style={{ paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20, borderWidth: 1, borderColor: manualForm.payment_method === method ? colors.primary : colors.border, backgroundColor: manualForm.payment_method === method ? colors.primary : colors.cardSecondary }}>
+                      <Text style={{ fontSize: 12, fontWeight: '500', color: manualForm.payment_method === method ? '#0a0a0a' : colors.textSecondary }}>{method}</Text>
+                    </Pressable>
+                  ))}
+                </View>
               </View>
               <View style={{ marginBottom: 16 }}>
                 <Text style={{ color: colors.textSecondary, fontSize: 12, marginBottom: 6, fontWeight: '500' }}>Notes</Text>
