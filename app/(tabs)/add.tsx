@@ -290,12 +290,15 @@ export default function AddScreen() {
         return;
       }
 
+      const resolvedMerchant = resolveSuggestedValue(extractedData.merchant, merchantSuggestions);
+      const resolvedCategory = resolveSuggestedValue(extractedData.category, categorySuggestions);
+
       await createTransaction({
         user_id: profile.user_id,
         type: selectedType,
-        merchant: extractedData.merchant,
+        merchant: resolvedMerchant,
         total: extractedData.total,
-        category: extractedData.category,
+        category: resolvedCategory,
         transaction_date: extractedData.transaction_date,
         payment_method: extractedData.payment_method || undefined,
         notes: extractedData.notes || undefined,
@@ -306,12 +309,12 @@ export default function AddScreen() {
       setSavedAmount(extractedData.total);
       await playSuccessSound(selectedType);
 
-      if (selectedType === 'expense' && extractedData.category) {
-        const budgetCheck = checkBudgetAlert(extractedData.category, profile.user_id, extractedData.total);
+      if (selectedType === 'expense' && resolvedCategory) {
+        const budgetCheck = checkBudgetAlert(resolvedCategory, profile.user_id, extractedData.total);
         if (budgetCheck.isOverLimit) {
-          Alert.alert('⚠️ Budget Exceeded!', `You have exceeded your ${budgetCheck.budget?.period} budget for ${extractedData.category}!\n\nBudget: Rp ${budgetCheck.budget?.amount.toLocaleString()}\nSpent: ${budgetCheck.percentage.toFixed(1)}%`, [{ text: 'OK', style: 'destructive' }]);
+          Alert.alert('⚠️ Budget Exceeded!', `You have exceeded your ${budgetCheck.budget?.period} budget for ${resolvedCategory}!\n\nBudget: Rp ${budgetCheck.budget?.amount.toLocaleString()}\nSpent: ${budgetCheck.percentage.toFixed(1)}%`, [{ text: 'OK', style: 'destructive' }]);
         } else if (budgetCheck.isNearLimit) {
-          Alert.alert('⚠️ Budget Warning', `You are approaching your ${budgetCheck.budget?.period} budget limit for ${extractedData.category}.\n\nBudget: Rp ${budgetCheck.budget?.amount.toLocaleString()}\nSpent: ${budgetCheck.percentage.toFixed(1)}%`, [{ text: 'OK' }]);
+          Alert.alert('⚠️ Budget Warning', `You are approaching your ${budgetCheck.budget?.period} budget limit for ${resolvedCategory}.\n\nBudget: Rp ${budgetCheck.budget?.amount.toLocaleString()}\nSpent: ${budgetCheck.percentage.toFixed(1)}%`, [{ text: 'OK' }]);
         }
       }
 
@@ -543,25 +546,22 @@ export default function AddScreen() {
                 <IconSymbol name="checkmark.circle.fill" size={20} color={colors.success} />
                 <Text style={{ color: colors.success, fontSize: 13, marginLeft: 8, fontWeight: '500' }}>Data extracted successfully! Review and edit if needed.</Text>
               </View>
-              <View style={{ marginBottom: 12 }}>
-                <Text style={{ color: colors.textSecondary, fontSize: 12, marginBottom: 6, fontWeight: '500' }}>Merchant</Text>
-                <TextInput value={extractedData.merchant} onChangeText={(text) => setExtractedData({ ...extractedData, merchant: text })} style={{ backgroundColor: colors.cardSecondary, borderRadius: 12, padding: 12, color: colors.text, fontSize: 15 }} placeholderTextColor={colors.textTertiary} />
-              </View>
+              <AutocompleteInput
+                label="Merchant"
+                value={extractedData.merchant}
+                onChangeText={(text) => setExtractedData({ ...extractedData, merchant: text })}
+                suggestions={merchantSuggestions}
+              />
               <View style={{ marginBottom: 12 }}>
                 <Text style={{ color: colors.textSecondary, fontSize: 12, marginBottom: 6, fontWeight: '500' }}>Amount</Text>
                 <TextInput value={extractedData.total.toString()} onChangeText={(text) => setExtractedData({ ...extractedData, total: parseFloat(text) || 0 })} style={{ backgroundColor: colors.cardSecondary, borderRadius: 12, padding: 12, color: colors.text, fontSize: 15 }} keyboardType="numeric" placeholderTextColor={colors.textTertiary} />
               </View>
-              <View style={{ marginBottom: 12 }}>
-                <Text style={{ color: colors.textSecondary, fontSize: 12, marginBottom: 6, fontWeight: '500' }}>Category</Text>
-                <TextInput value={extractedData.category} onChangeText={(text) => setExtractedData({ ...extractedData, category: text })} style={{ backgroundColor: colors.cardSecondary, borderRadius: 12, padding: 12, color: colors.text, fontSize: 15 }} placeholderTextColor={colors.textTertiary} />
-                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 8 }}>
-                  {['Makanan & Minuman', 'Belanja Harian', 'Wedding', 'Lainnya'].map((cat) => (
-                    <Pressable key={cat} onPress={() => setExtractedData({ ...extractedData, category: cat })} style={{ paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20, borderWidth: 1, borderColor: extractedData.category === cat ? colors.primary : colors.border, backgroundColor: extractedData.category === cat ? colors.primary : colors.cardSecondary }}>
-                      <Text style={{ fontSize: 12, fontWeight: '500', color: extractedData.category === cat ? '#0a0a0a' : colors.textSecondary }}>{cat}</Text>
-                    </Pressable>
-                  ))}
-                </View>
-              </View>
+              <AutocompleteInput
+                label="Category"
+                value={extractedData.category}
+                onChangeText={(text) => setExtractedData({ ...extractedData, category: text })}
+                suggestions={categorySuggestions}
+              />
               <View style={{ marginBottom: 12 }}>
                 <Text style={{ color: colors.textSecondary, fontSize: 12, marginBottom: 6, fontWeight: '500' }}>Date</Text>
                 <TextInput value={extractedData.transaction_date} onChangeText={(text) => setExtractedData({ ...extractedData, transaction_date: text })} style={{ backgroundColor: colors.cardSecondary, borderRadius: 12, padding: 12, color: colors.text, fontSize: 15 }} placeholder="YYYY-MM-DD" placeholderTextColor={colors.textTertiary} />
