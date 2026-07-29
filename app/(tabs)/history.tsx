@@ -21,6 +21,10 @@ export default function HistoryScreen() {
   const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [showReceiptModal, setShowReceiptModal] = useState(false);
+  const [showFilterModal, setShowFilterModal] = useState(false);
+  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+  const [selectedMerchants, setSelectedMerchants] = useState<string[]>([]);
+  const [merchantSearch, setMerchantSearch] = useState('');
 
   
 
@@ -55,16 +59,48 @@ export default function HistoryScreen() {
     loadTransactions(true);
   };
 
+  const uniqueCategories = Array.from(
+    new Set((transactions || []).map((t) => t.category).filter((c): c is string => !!c && c.trim() !== ''))
+  ).sort();
+  const uniqueMerchants = Array.from(
+    new Set((transactions || []).map((t) => t.merchant).filter((m): m is string => !!m && m.trim() !== ''))
+  ).sort();
+  const visibleMerchants = merchantSearch.trim()
+    ? uniqueMerchants.filter((m) => m.toLowerCase().includes(merchantSearch.trim().toLowerCase()))
+    : uniqueMerchants;
+  const activeFilterCount = selectedCategories.length + selectedMerchants.length;
+
+  const toggleCategory = (category: string) => {
+    setSelectedCategories((prev) =>
+      prev.includes(category) ? prev.filter((c) => c !== category) : [...prev, category]
+    );
+  };
+  const toggleMerchant = (merchant: string) => {
+    setSelectedMerchants((prev) =>
+      prev.includes(merchant) ? prev.filter((m) => m !== merchant) : [...prev, merchant]
+    );
+  };
+  const clearAdvancedFilters = () => {
+    setSelectedCategories([]);
+    setSelectedMerchants([]);
+    setMerchantSearch('');
+  };
+
   const filteredTransactions = (transactions || []).filter((transaction) => {
     const matchesSearch =
       (transaction.merchant ?? '').toLowerCase().includes(searchQuery.toLowerCase()) ||
       (transaction.category ?? '').toLowerCase().includes(searchQuery.toLowerCase()) ||
       (transaction.notes ?? '').toLowerCase().includes(searchQuery.toLowerCase());
-    
-    const matchesFilter = 
+
+    const matchesFilter =
       activeFilter === 'all' || transaction.type === activeFilter;
-    
-    return matchesSearch && matchesFilter;
+
+    const matchesCategory =
+      selectedCategories.length === 0 || selectedCategories.includes(transaction.category ?? '');
+    const matchesMerchant =
+      selectedMerchants.length === 0 || selectedMerchants.includes(transaction.merchant ?? '');
+
+    return matchesSearch && matchesFilter && matchesCategory && matchesMerchant;
   });
 
   return (
@@ -89,8 +125,8 @@ export default function HistoryScreen() {
       </View>
 
       {/* Search Bar */}
-      <View style={{ paddingHorizontal: 20, marginTop: 16 }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: colors.card, borderRadius: 16, paddingHorizontal: 16, paddingVertical: 12 }}>
+      <View style={{ paddingHorizontal: 20, marginTop: 16, flexDirection: 'row', gap: 10 }}>
+        <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', backgroundColor: colors.card, borderRadius: 16, paddingHorizontal: 16, paddingVertical: 12 }}>
           <IconSymbol name="magnifyingglass" size={20} color={colors.textTertiary} />
           <TextInput
             style={{ flex: 1, marginLeft: 12, fontSize: 15, color: colors.text }}
@@ -100,6 +136,24 @@ export default function HistoryScreen() {
             onChangeText={setSearchQuery}
           />
         </View>
+        <Pressable
+          onPress={() => setShowFilterModal(true)}
+          style={{
+            width: 48,
+            height: 48,
+            borderRadius: 16,
+            backgroundColor: activeFilterCount > 0 ? colors.primary : colors.card,
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <IconSymbol name="line.3.horizontal.decrease" size={20} color={activeFilterCount > 0 ? '#0a0a0a' : colors.textSecondary} />
+          {activeFilterCount > 0 && (
+            <View style={{ position: 'absolute', top: 4, right: 4, minWidth: 16, height: 16, borderRadius: 8, backgroundColor: colors.error, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 3 }}>
+              <Text style={{ color: '#fff', fontSize: 10, fontWeight: '700' }}>{activeFilterCount}</Text>
+            </View>
+          )}
+        </Pressable>
       </View>
 
       {/* Filter Tabs */}
@@ -184,6 +238,142 @@ export default function HistoryScreen() {
           </View>
         )}
       </ScrollView>
+
+      {/* Filter Modal */}
+      <Modal
+        visible={showFilterModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowFilterModal(false)}
+      >
+        <Pressable
+          style={{ flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.5)', justifyContent: 'flex-end' }}
+          onPress={() => setShowFilterModal(false)}
+        >
+          <Pressable
+            onPress={(e) => e.stopPropagation()}
+            style={{
+              backgroundColor: colors.card,
+              borderTopLeftRadius: 24,
+              borderTopRightRadius: 24,
+              paddingTop: 20,
+              paddingHorizontal: 20,
+              paddingBottom: 32,
+              maxHeight: '80%',
+            }}
+          >
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+              <Text style={{ color: colors.text, fontSize: 18, fontWeight: 'bold' }}>Filters</Text>
+              <Pressable onPress={() => setShowFilterModal(false)} style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: colors.cardSecondary, alignItems: 'center', justifyContent: 'center' }}>
+                <IconSymbol name="xmark" size={14} color={colors.textSecondary} />
+              </Pressable>
+            </View>
+
+            <ScrollView showsVerticalScrollIndicator={false}>
+              {/* Category filter */}
+              <Text style={{ color: colors.textSecondary, fontSize: 12, fontWeight: '600', marginBottom: 10, letterSpacing: 0.5 }}>
+                CATEGORY {selectedCategories.length > 0 ? `(${selectedCategories.length})` : ''}
+              </Text>
+              {uniqueCategories.length === 0 ? (
+                <Text style={{ color: colors.textTertiary, fontSize: 13, marginBottom: 20 }}>No categories yet.</Text>
+              ) : (
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 20 }}>
+                  {uniqueCategories.map((category) => {
+                    const isSelected = selectedCategories.includes(category);
+                    return (
+                      <Pressable
+                        key={category}
+                        onPress={() => toggleCategory(category)}
+                        style={{
+                          paddingHorizontal: 14,
+                          paddingVertical: 8,
+                          borderRadius: 20,
+                          borderWidth: 1,
+                          borderColor: isSelected ? colors.primary : colors.border,
+                          backgroundColor: isSelected ? colors.primary : colors.cardSecondary,
+                          flexDirection: 'row',
+                          alignItems: 'center',
+                          gap: 6,
+                        }}
+                      >
+                        {isSelected && <IconSymbol name="checkmark.circle.fill" size={12} color="#0a0a0a" />}
+                        <Text style={{ fontSize: 13, fontWeight: '500', color: isSelected ? '#0a0a0a' : colors.textSecondary }}>
+                          {category}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              )}
+
+              {/* Merchant filter */}
+              <Text style={{ color: colors.textSecondary, fontSize: 12, fontWeight: '600', marginBottom: 10, letterSpacing: 0.5 }}>
+                MERCHANT {selectedMerchants.length > 0 ? `(${selectedMerchants.length})` : ''}
+              </Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: colors.cardSecondary, borderRadius: 12, paddingHorizontal: 12, marginBottom: 10 }}>
+                <IconSymbol name="magnifyingglass" size={16} color={colors.textTertiary} />
+                <TextInput
+                  style={{ flex: 1, marginLeft: 8, fontSize: 14, color: colors.text, paddingVertical: 10 }}
+                  placeholder="Search merchant..."
+                  placeholderTextColor={colors.textTertiary}
+                  value={merchantSearch}
+                  onChangeText={setMerchantSearch}
+                />
+              </View>
+              {visibleMerchants.length === 0 ? (
+                <Text style={{ color: colors.textTertiary, fontSize: 13, marginBottom: 8 }}>No merchants found.</Text>
+              ) : (
+                <View style={{ maxHeight: 220 }}>
+                  <ScrollView showsVerticalScrollIndicator={false} nestedScrollEnabled>
+                    {visibleMerchants.map((merchant) => {
+                      const isSelected = selectedMerchants.includes(merchant);
+                      return (
+                        <Pressable
+                          key={merchant}
+                          onPress={() => toggleMerchant(merchant)}
+                          style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 10 }}
+                        >
+                          <View
+                            style={{
+                              width: 20,
+                              height: 20,
+                              borderRadius: 6,
+                              borderWidth: 1.5,
+                              borderColor: isSelected ? colors.primary : colors.border,
+                              backgroundColor: isSelected ? colors.primary : 'transparent',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              marginRight: 12,
+                            }}
+                          >
+                            {isSelected && <IconSymbol name="checkmark.circle.fill" size={12} color="#0a0a0a" />}
+                          </View>
+                          <Text style={{ color: colors.text, fontSize: 14 }}>{merchant}</Text>
+                        </Pressable>
+                      );
+                    })}
+                  </ScrollView>
+                </View>
+              )}
+            </ScrollView>
+
+            <View style={{ flexDirection: 'row', gap: 12, marginTop: 16 }}>
+              <Pressable
+                onPress={clearAdvancedFilters}
+                style={{ flex: 1, backgroundColor: colors.cardSecondary, borderRadius: 12, padding: 14, alignItems: 'center' }}
+              >
+                <Text style={{ color: colors.text, fontWeight: '600', fontSize: 14 }}>Clear All</Text>
+              </Pressable>
+              <Pressable
+                onPress={() => setShowFilterModal(false)}
+                style={{ flex: 1, backgroundColor: colors.primary, borderRadius: 12, padding: 14, alignItems: 'center' }}
+              >
+                <Text style={{ color: '#0a0a0a', fontWeight: 'bold', fontSize: 14 }}>Apply</Text>
+              </Pressable>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
 
       {/* Detail Transaction Modal */}
       <Modal
