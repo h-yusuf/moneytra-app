@@ -40,6 +40,8 @@ export default function AddScreen() {
   const [inlineAlert, setInlineAlert] = useState<InlineAlert>(null);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [savedAmount, setSavedAmount] = useState(0);
+  const [showTypeModal, setShowTypeModal] = useState(false);
+  const [pendingSave, setPendingSave] = useState<'manual' | 'extracted' | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [showManualEntry, setShowManualEntry] = useState(false);
   const [manualForm, setManualForm] = useState({
@@ -188,9 +190,6 @@ export default function AddScreen() {
     if (!manualForm.category.trim()) { setInlineAlert({ type: 'error', message: 'Category is required.' }); return; }
     if (!manualForm.transaction_date.trim()) { setInlineAlert({ type: 'error', message: 'Date is required.' }); return; }
 
-    const resolvedMerchant = resolveSuggestedValue(manualForm.merchant, merchantSuggestions);
-    const resolvedCategory = resolveSuggestedValue(manualForm.category, categorySuggestions);
-
     if (!profile?.user_id) {
       Alert.alert('User ID Required', 'Please set your User ID in Settings.', [
         { text: 'Cancel', style: 'cancel' },
@@ -199,12 +198,22 @@ export default function AddScreen() {
       return;
     }
 
+    setPendingSave('manual');
+    setShowTypeModal(true);
+  };
+
+  const performManualSave = async (type: 'expense' | 'money_saving') => {
+    if (!profile?.user_id) return;
+    const resolvedMerchant = resolveSuggestedValue(manualForm.merchant, merchantSuggestions);
+    const resolvedCategory = resolveSuggestedValue(manualForm.category, categorySuggestions);
+
+    setSelectedType(type);
     setIsSaving(true);
     try {
       const amount = parseFloat(manualForm.total);
       await createTransaction({
         user_id: profile.user_id,
-        type: selectedType,
+        type,
         merchant: resolvedMerchant,
         total: amount,
         category: resolvedCategory,
@@ -215,9 +224,9 @@ export default function AddScreen() {
       });
 
       setSavedAmount(amount);
-      await playSuccessSound(selectedType);
+      await playSuccessSound(type);
 
-      if (selectedType === 'expense' && resolvedCategory) {
+      if (type === 'expense' && resolvedCategory) {
         const budgetCheck = checkBudgetAlert(resolvedCategory, profile.user_id, amount);
         if (budgetCheck.isOverLimit) {
           Alert.alert('⚠️ Budget Exceeded!', `You have exceeded your ${budgetCheck.budget?.period} budget for ${resolvedCategory}!\n\nBudget: Rp ${budgetCheck.budget?.amount.toLocaleString()}\nSpent: ${budgetCheck.percentage.toFixed(1)}%`, [{ text: 'OK', style: 'destructive' }]);
@@ -280,23 +289,28 @@ export default function AddScreen() {
 
   const handleSaveTransaction = async () => {
     if (!extractedData) return;
+    if (!profile?.user_id) {
+      Alert.alert('User ID Required', 'Please set your User ID in Settings.', [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Go to Settings', onPress: () => router.push('/settings') },
+      ]);
+      return;
+    }
+    setPendingSave('extracted');
+    setShowTypeModal(true);
+  };
+
+  const performExtractedSave = async (type: 'expense' | 'money_saving') => {
+    if (!extractedData || !profile?.user_id) return;
+    const resolvedMerchant = resolveSuggestedValue(extractedData.merchant, merchantSuggestions);
+    const resolvedCategory = resolveSuggestedValue(extractedData.category, categorySuggestions);
+
+    setSelectedType(type);
     setIsSaving(true);
     try {
-      if (!profile?.user_id) {
-        Alert.alert('User ID Required', 'Please set your User ID in Settings.', [
-          { text: 'Cancel', style: 'cancel' },
-          { text: 'Go to Settings', onPress: () => router.push('/settings') },
-        ]);
-        setIsSaving(false);
-        return;
-      }
-
-      const resolvedMerchant = resolveSuggestedValue(extractedData.merchant, merchantSuggestions);
-      const resolvedCategory = resolveSuggestedValue(extractedData.category, categorySuggestions);
-
       await createTransaction({
         user_id: profile.user_id,
-        type: selectedType,
+        type,
         merchant: resolvedMerchant,
         total: extractedData.total,
         category: resolvedCategory,
@@ -308,9 +322,9 @@ export default function AddScreen() {
       });
 
       setSavedAmount(extractedData.total);
-      await playSuccessSound(selectedType);
+      await playSuccessSound(type);
 
-      if (selectedType === 'expense' && resolvedCategory) {
+      if (type === 'expense' && resolvedCategory) {
         const budgetCheck = checkBudgetAlert(resolvedCategory, profile.user_id, extractedData.total);
         if (budgetCheck.isOverLimit) {
           Alert.alert('⚠️ Budget Exceeded!', `You have exceeded your ${budgetCheck.budget?.period} budget for ${resolvedCategory}!\n\nBudget: Rp ${budgetCheck.budget?.amount.toLocaleString()}\nSpent: ${budgetCheck.percentage.toFixed(1)}%`, [{ text: 'OK', style: 'destructive' }]);
@@ -371,29 +385,6 @@ export default function AddScreen() {
             </View>
           </View>
         )}
-
-        {/* Transaction Type Selector */}
-        <View style={{ paddingHorizontal: 20, marginTop: 16 }}>
-          <Text style={{ color: colors.textSecondary, fontSize: 11, fontWeight: '600', marginBottom: 12, letterSpacing: 0.5 }}>TRANSACTION TYPE</Text>
-          <View style={{ flexDirection: 'row' }}>
-            <Pressable onPress={() => setSelectedType('expense')} style={{ flex: 1, borderRadius: 16, padding: 16, backgroundColor: selectedType === 'expense' ? colors.primary : colors.card, marginRight: 12 }}>
-              <View style={{ alignItems: 'center' }}>
-                <View style={{ width: 48, height: 48, borderRadius: 12, backgroundColor: selectedType === 'expense' ? 'rgba(10, 10, 10, 0.15)' : colors.cardSecondary, alignItems: 'center', justifyContent: 'center', marginBottom: 8 }}>
-                  <IconSymbol name="arrow.down.circle.fill" size={24} color={selectedType === 'expense' ? colors.error : colors.textTertiary} />
-                </View>
-                <Text style={{ color: selectedType === 'expense' ? '#0a0a0a' : colors.textSecondary, fontWeight: selectedType === 'expense' ? '600' : '400', fontSize: 14 }}>Expense</Text>
-              </View>
-            </Pressable>
-            <Pressable onPress={() => setSelectedType('money_saving')} style={{ flex: 1, borderRadius: 16, padding: 16, backgroundColor: selectedType === 'money_saving' ? colors.primary : colors.card }}>
-              <View style={{ alignItems: 'center' }}>
-                <View style={{ width: 48, height: 48, borderRadius: 12, backgroundColor: selectedType === 'money_saving' ? 'rgba(10, 10, 10, 0.15)' : colors.cardSecondary, alignItems: 'center', justifyContent: 'center', marginBottom: 8 }}>
-                  <IconSymbol name="heart.circle.fill" size={24} color={selectedType === 'money_saving' ? colors.success : colors.textTertiary} />
-                </View>
-                <Text style={{ color: selectedType === 'money_saving' ? '#0a0a0a' : colors.textSecondary, fontWeight: selectedType === 'money_saving' ? '600' : '400', fontSize: 14 }}>Money Saving</Text>
-              </View>
-            </Pressable>
-          </View>
-        </View>
 
         {/* Input Methods */}
         <View style={{ paddingHorizontal: 20, marginTop: 24 }}>
@@ -607,6 +598,55 @@ export default function AddScreen() {
           </View>
         )}
       </ScrollView>
+
+      {/* Transaction Type Picker Modal */}
+      <Modal
+        visible={showTypeModal}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => { setShowTypeModal(false); setPendingSave(null); }}
+      >
+        <View style={{ flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.75)', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+          <View style={{ backgroundColor: colors.card, borderRadius: 24, padding: 24, width: '100%', maxWidth: 340, borderWidth: 1, borderColor: colors.border }}>
+            <Text style={{ color: colors.text, fontSize: 18, fontWeight: 'bold', marginBottom: 4, textAlign: 'center' }}>
+              What type of transaction?
+            </Text>
+            <Text style={{ color: colors.textTertiary, fontSize: 13, textAlign: 'center', marginBottom: 20 }}>
+              Choose a type to save this transaction.
+            </Text>
+            <View style={{ flexDirection: 'row', gap: 12 }}>
+              <Pressable
+                onPress={() => {
+                  setShowTypeModal(false);
+                  if (pendingSave === 'manual') performManualSave('expense');
+                  else if (pendingSave === 'extracted') performExtractedSave('expense');
+                  setPendingSave(null);
+                }}
+                style={{ flex: 1, borderRadius: 16, padding: 16, backgroundColor: colors.cardSecondary, alignItems: 'center' }}
+              >
+                <View style={{ width: 48, height: 48, borderRadius: 12, backgroundColor: colors.card, alignItems: 'center', justifyContent: 'center', marginBottom: 8 }}>
+                  <IconSymbol name="arrow.down.circle.fill" size={24} color={colors.error} />
+                </View>
+                <Text style={{ color: colors.text, fontWeight: '600', fontSize: 14 }}>Expense</Text>
+              </Pressable>
+              <Pressable
+                onPress={() => {
+                  setShowTypeModal(false);
+                  if (pendingSave === 'manual') performManualSave('money_saving');
+                  else if (pendingSave === 'extracted') performExtractedSave('money_saving');
+                  setPendingSave(null);
+                }}
+                style={{ flex: 1, borderRadius: 16, padding: 16, backgroundColor: colors.cardSecondary, alignItems: 'center' }}
+              >
+                <View style={{ width: 48, height: 48, borderRadius: 12, backgroundColor: colors.card, alignItems: 'center', justifyContent: 'center', marginBottom: 8 }}>
+                  <IconSymbol name="heart.circle.fill" size={24} color={colors.success} />
+                </View>
+                <Text style={{ color: colors.text, fontWeight: '600', fontSize: 14 }}>Money Saving</Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
 
       {/* Success Modal */}
       <Modal visible={showSuccessModal} transparent={true} animationType="fade" onRequestClose={() => setShowSuccessModal(false)}>
