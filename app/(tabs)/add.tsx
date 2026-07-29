@@ -1,5 +1,6 @@
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { AutocompleteInput } from '@/src/components/common/AutocompleteInput';
+import { DateField } from '@/src/components/common/DateField';
 import { useBudget } from '@/src/contexts/BudgetContext';
 import { useTheme } from '@/src/contexts/ThemeContext';
 import { useUser } from '@/src/contexts/UserContext';
@@ -474,10 +475,11 @@ export default function AddScreen() {
                 suggestions={categorySuggestions}
                 placeholder="e.g. Food, Transport, Bills"
               />
-              <View style={{ marginBottom: 12 }}>
-                <Text style={{ color: colors.textSecondary, fontSize: 12, marginBottom: 6, fontWeight: '500' }}>Date *</Text>
-                <TextInput value={manualForm.transaction_date} onChangeText={(text) => setManualForm({ ...manualForm, transaction_date: text })} style={{ backgroundColor: colors.cardSecondary, borderRadius: 12, padding: 12, color: colors.text, fontSize: 15 }} placeholder="YYYY-MM-DD" placeholderTextColor={colors.textTertiary} />
-              </View>
+              <DateField
+                label="Date *"
+                value={manualForm.transaction_date}
+                onChange={(text) => setManualForm({ ...manualForm, transaction_date: text })}
+              />
               <View style={{ marginBottom: 12 }}>
                 <Text style={{ color: colors.textSecondary, fontSize: 12, marginBottom: 6, fontWeight: '500' }}>Payment Method</Text>
                 <TextInput value={manualForm.payment_method} onChangeText={(text) => setManualForm({ ...manualForm, payment_method: text })} style={{ backgroundColor: colors.cardSecondary, borderRadius: 12, padding: 12, color: colors.text, fontSize: 15 }} placeholder="e.g. Cash, QRIS, Transfer, E-Wallet" placeholderTextColor={colors.textTertiary} />
@@ -569,10 +571,11 @@ export default function AddScreen() {
                 onChangeText={(text) => setExtractedData({ ...extractedData, category: text })}
                 suggestions={categorySuggestions}
               />
-              <View style={{ marginBottom: 12 }}>
-                <Text style={{ color: colors.textSecondary, fontSize: 12, marginBottom: 6, fontWeight: '500' }}>Date</Text>
-                <TextInput value={extractedData.transaction_date} onChangeText={(text) => setExtractedData({ ...extractedData, transaction_date: text })} style={{ backgroundColor: colors.cardSecondary, borderRadius: 12, padding: 12, color: colors.text, fontSize: 15 }} placeholder="YYYY-MM-DD" placeholderTextColor={colors.textTertiary} />
-              </View>
+              <DateField
+                label="Date"
+                value={extractedData.transaction_date}
+                onChange={(text) => setExtractedData({ ...extractedData, transaction_date: text })}
+              />
               <View style={{ marginBottom: 16 }}>
                 <Text style={{ color: colors.textSecondary, fontSize: 12, marginBottom: 6, fontWeight: '500' }}>Notes</Text>
                 <TextInput value={extractedData.notes || ''} onChangeText={(text) => setExtractedData({ ...extractedData, notes: text })} style={{ backgroundColor: colors.cardSecondary, borderRadius: 12, padding: 12, color: colors.text, fontSize: 15, minHeight: 80 }} placeholder="Add notes..." placeholderTextColor={colors.textTertiary} multiline textAlignVertical="top" />
