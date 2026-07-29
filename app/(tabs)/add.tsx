@@ -1,8 +1,11 @@
 import { IconSymbol } from '@/components/ui/icon-symbol';
+import { AutocompleteInput } from '@/src/components/common/AutocompleteInput';
 import { useBudget } from '@/src/contexts/BudgetContext';
 import { useTheme } from '@/src/contexts/ThemeContext';
 import { useUser } from '@/src/contexts/UserContext';
+import { useCategoryMerchantSuggestions } from '@/src/hooks/useCategoryMerchantSuggestions';
 import { createTransaction, extractTransaction, uploadReceiptImage, type ExtractedTransactionData } from '@/src/services/transactionService';
+import { normalizeKey, smartTitleCase } from '@/src/utils/textFormat';
 import { Audio } from 'expo-av';
 import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
@@ -46,6 +49,13 @@ export default function AddScreen() {
     payment_method: '',
     notes: '',
   });
+  const { categories: categorySuggestions, merchants: merchantSuggestions } = useCategoryMerchantSuggestions();
+
+  function resolveSuggestedValue(input: string, suggestions: { value: string }[]): string {
+    const trimmed = input.trim();
+    const match = suggestions.find(s => normalizeKey(s.value) === normalizeKey(trimmed));
+    return match ? match.value : smartTitleCase(trimmed);
+  }
 
   const playSuccessSound = async (type: 'expense' | 'money_saving') => {
     try {
@@ -177,6 +187,9 @@ export default function AddScreen() {
     if (!manualForm.category.trim()) { setInlineAlert({ type: 'error', message: 'Category is required.' }); return; }
     if (!manualForm.transaction_date.trim()) { setInlineAlert({ type: 'error', message: 'Date is required.' }); return; }
 
+    const resolvedMerchant = resolveSuggestedValue(manualForm.merchant, merchantSuggestions);
+    const resolvedCategory = resolveSuggestedValue(manualForm.category, categorySuggestions);
+
     if (!profile?.user_id) {
       Alert.alert('User ID Required', 'Please set your User ID in Settings.', [
         { text: 'Cancel', style: 'cancel' },
@@ -191,9 +204,9 @@ export default function AddScreen() {
       await createTransaction({
         user_id: profile.user_id,
         type: selectedType,
-        merchant: manualForm.merchant,
+        merchant: resolvedMerchant,
         total: amount,
-        category: manualForm.category,
+        category: resolvedCategory,
         transaction_date: manualForm.transaction_date,
         payment_method: manualForm.payment_method || undefined,
         notes: manualForm.notes || undefined,
@@ -203,12 +216,12 @@ export default function AddScreen() {
       setSavedAmount(amount);
       await playSuccessSound(selectedType);
 
-      if (selectedType === 'expense' && manualForm.category) {
-        const budgetCheck = checkBudgetAlert(manualForm.category, profile.user_id, amount);
+      if (selectedType === 'expense' && resolvedCategory) {
+        const budgetCheck = checkBudgetAlert(resolvedCategory, profile.user_id, amount);
         if (budgetCheck.isOverLimit) {
-          Alert.alert('⚠️ Budget Exceeded!', `You have exceeded your ${budgetCheck.budget?.period} budget for ${manualForm.category}!\n\nBudget: Rp ${budgetCheck.budget?.amount.toLocaleString()}\nSpent: ${budgetCheck.percentage.toFixed(1)}%`, [{ text: 'OK', style: 'destructive' }]);
+          Alert.alert('⚠️ Budget Exceeded!', `You have exceeded your ${budgetCheck.budget?.period} budget for ${resolvedCategory}!\n\nBudget: Rp ${budgetCheck.budget?.amount.toLocaleString()}\nSpent: ${budgetCheck.percentage.toFixed(1)}%`, [{ text: 'OK', style: 'destructive' }]);
         } else if (budgetCheck.isNearLimit) {
-          Alert.alert('⚠️ Budget Warning', `You are approaching your ${budgetCheck.budget?.period} budget limit for ${manualForm.category}.\n\nBudget: Rp ${budgetCheck.budget?.amount.toLocaleString()}\nSpent: ${budgetCheck.percentage.toFixed(1)}%`, [{ text: 'OK' }]);
+          Alert.alert('⚠️ Budget Warning', `You are approaching your ${budgetCheck.budget?.period} budget limit for ${resolvedCategory}.\n\nBudget: Rp ${budgetCheck.budget?.amount.toLocaleString()}\nSpent: ${budgetCheck.percentage.toFixed(1)}%`, [{ text: 'OK' }]);
         }
       }
 
@@ -440,25 +453,24 @@ export default function AddScreen() {
           <View style={{ paddingHorizontal: 20, marginTop: 24 }}>
             <Text style={{ color: colors.textSecondary, fontSize: 11, fontWeight: '600', marginBottom: 12, letterSpacing: 0.5 }}>MANUAL ENTRY FORM</Text>
             <View style={{ backgroundColor: colors.card, borderRadius: 16, padding: 16 }}>
-              <View style={{ marginBottom: 12 }}>
-                <Text style={{ color: colors.textSecondary, fontSize: 12, marginBottom: 6, fontWeight: '500' }}>Merchant / Store Name *</Text>
-                <TextInput value={manualForm.merchant} onChangeText={(text) => setManualForm({ ...manualForm, merchant: text })} style={{ backgroundColor: colors.cardSecondary, borderRadius: 12, padding: 12, color: colors.text, fontSize: 15 }} placeholder="e.g. Indomaret, Grab, PLN" placeholderTextColor={colors.textTertiary} />
-              </View>
+              <AutocompleteInput
+                label="Merchant / Store Name *"
+                value={manualForm.merchant}
+                onChangeText={(text) => setManualForm({ ...manualForm, merchant: text })}
+                suggestions={merchantSuggestions}
+                placeholder="e.g. Indomaret, Grab, PLN"
+              />
               <View style={{ marginBottom: 12 }}>
                 <Text style={{ color: colors.textSecondary, fontSize: 12, marginBottom: 6, fontWeight: '500' }}>Amount (Rp) *</Text>
                 <TextInput value={manualForm.total} onChangeText={(text) => setManualForm({ ...manualForm, total: text.replace(/[^0-9]/g, '') })} style={{ backgroundColor: colors.cardSecondary, borderRadius: 12, padding: 12, color: colors.text, fontSize: 15 }} placeholder="0" placeholderTextColor={colors.textTertiary} keyboardType="numeric" />
               </View>
-              <View style={{ marginBottom: 12 }}>
-                <Text style={{ color: colors.textSecondary, fontSize: 12, marginBottom: 6, fontWeight: '500' }}>Category *</Text>
-                <TextInput value={manualForm.category} onChangeText={(text) => setManualForm({ ...manualForm, category: text })} style={{ backgroundColor: colors.cardSecondary, borderRadius: 12, padding: 12, color: colors.text, fontSize: 15 }} placeholder="e.g. Food, Transport, Bills" placeholderTextColor={colors.textTertiary} />
-                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 8 }}>
-                  {['Makanan & Minuman', 'Belanja Harian', 'Wedding', 'Lainnya'].map((cat) => (
-                    <Pressable key={cat} onPress={() => setManualForm({ ...manualForm, category: cat })} style={{ paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20, borderWidth: 1, borderColor: manualForm.category === cat ? colors.primary : colors.border, backgroundColor: manualForm.category === cat ? colors.primary : colors.cardSecondary }}>
-                      <Text style={{ fontSize: 12, fontWeight: '500', color: manualForm.category === cat ? '#0a0a0a' : colors.textSecondary }}>{cat}</Text>
-                    </Pressable>
-                  ))}
-                </View>
-              </View>
+              <AutocompleteInput
+                label="Category *"
+                value={manualForm.category}
+                onChangeText={(text) => setManualForm({ ...manualForm, category: text })}
+                suggestions={categorySuggestions}
+                placeholder="e.g. Food, Transport, Bills"
+              />
               <View style={{ marginBottom: 12 }}>
                 <Text style={{ color: colors.textSecondary, fontSize: 12, marginBottom: 6, fontWeight: '500' }}>Date *</Text>
                 <TextInput value={manualForm.transaction_date} onChangeText={(text) => setManualForm({ ...manualForm, transaction_date: text })} style={{ backgroundColor: colors.cardSecondary, borderRadius: 12, padding: 12, color: colors.text, fontSize: 15 }} placeholder="YYYY-MM-DD" placeholderTextColor={colors.textTertiary} />
