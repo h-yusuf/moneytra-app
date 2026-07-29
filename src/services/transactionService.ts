@@ -1,6 +1,7 @@
 import * as ImageManipulator from 'expo-image-manipulator';
 import { Platform } from 'react-native';
 import { supabase } from '@/src/lib/supabase';
+import { normalizeKey } from '@/src/utils/textFormat';
 import type {
   GetTransactionsResponse,
   MonthlyReportData,
@@ -84,6 +85,42 @@ export async function fetchTransactions(
   if (error) throw error;
 
   return { success: true, count: data.length, data: data as Transaction[] };
+}
+
+// ─── fetchCategoryMerchantSuggestions ────────────────────────────────────────
+
+export interface FieldSuggestion {
+  value: string;
+  count: number;
+}
+
+function buildSuggestions(values: (string | null | undefined)[]): FieldSuggestion[] {
+  const map = new Map<string, FieldSuggestion>();
+  for (const raw of values) {
+    if (!raw || !raw.trim()) continue;
+    const key = normalizeKey(raw);
+    const existing = map.get(key);
+    if (existing) {
+      existing.count += 1;
+    } else {
+      map.set(key, { value: raw.trim(), count: 1 });
+    }
+  }
+  return Array.from(map.values()).sort((a, b) => b.count - a.count);
+}
+
+export async function fetchCategoryMerchantSuggestions(): Promise<{
+  categories: FieldSuggestion[];
+  merchants: FieldSuggestion[];
+}> {
+  const { data, error } = await supabase.from('transactions').select('category, merchant');
+  if (error) throw error;
+
+  const rows = (data ?? []) as { category: string | null; merchant: string | null }[];
+  return {
+    categories: buildSuggestions(rows.map(r => r.category)),
+    merchants: buildSuggestions(rows.map(r => r.merchant)),
+  };
 }
 
 // ─── fetchSpendingOverview ───────────────────────────────────────────────────
