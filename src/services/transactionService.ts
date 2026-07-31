@@ -27,6 +27,12 @@ export interface FetchMonthlyReportParams {
 export interface FetchSpendingOverviewParams {
   year: number;
   month?: number;
+  /**
+   * When 'week', fetches the current calendar week (Mon–Sun) so transactions
+   * that fall outside the selected month are still included. Used by the
+   * analytics "week" view.
+   */
+  period?: 'week' | 'month' | 'year';
 }
 
 export interface SpendingOverviewRecord {
@@ -34,6 +40,13 @@ export interface SpendingOverviewRecord {
   user_id: string;
   total_expense: number;
   total_income: number;
+}
+
+export interface PeriodTransactionRecord {
+  user_id: string;
+  transaction_date: string;
+  type: 'expense' | 'money_saving';
+  total: number;
 }
 
 export interface CreateTransactionParams {
@@ -128,29 +141,80 @@ export async function fetchCategoryMerchantSuggestions(): Promise<{
 export async function fetchSpendingOverview(
   params: FetchSpendingOverviewParams
 ): Promise<SpendingOverviewRecord[]> {
-  const yearStart = `${params.year}-01-01`;
-  const yearEnd = `${params.year}-12-31`;
+  // Yearly view: use the pre-aggregated spending_overview table
+  if (!params.month) {
+    const yearStart = `${params.year}-01-01`;
+    const yearEnd = `${params.year}-12-31`;
 
-  let query = supabase
-    .from('spending_overview')
-    .select('*')
-    .gte('period', yearStart)
-    .lte('period', yearEnd)
-    .order('period', { ascending: true });
-
-  if (params.month) {
-    const monthStr = String(params.month).padStart(2, '0');
-    const periodMonth = `${params.year}-${monthStr}-01`;
-    query = supabase
+    const { data, error } = await supabase
       .from('spending_overview')
       .select('*')
-      .eq('period', periodMonth);
+      .gte('period', yearStart)
+      .lte('period', yearEnd)
+      .order('period', { ascending: true });
+
+    if (error) throw error;
+    return (data ?? []) as SpendingOverviewRecord[];
   }
 
-  const { data, error } = await query;
+  // Week/Month view: aggregate raw transactions client-side for daily/weekly granularity
+  let rangeStart: string;
+  let rangeEnd: string;
+
+  if (params.period === 'week') {
+    // Selected month ± padding so the calendar week (Mon–Sun) that overlaps the
+    // month start (or today, when viewing the current month) is fully included
+    // even if it spans into the previous/next month.
+    const monthStr = String(params.month).padStart(2, '0');
+    const monthStart = new Date(params.year, (params.month ?? 1) - 1, 1);
+    const paddedStart = new Date(monthStart);
+    paddedStart.setDate(monthStart.getDate() - 6);
+    const paddedEnd = new Date(params.year, (params.month ?? 1), 7); // ~end of month + 6
+    rangeStart = paddedStart.toISOString().split('T')[0];
+    rangeEnd = paddedEnd.toISOString().split('T')[0];
+    void monthStr;
+  } else {
+    const monthStr = String(params.month).padStart(2, '0');
+    rangeStart = `${params.year}-${monthStr}-01`;
+    rangeEnd = `${params.year}-${monthStr}-31`;
+  }
+
+  const { data, error } = await supabase
+    .from('transactions')
+    .select('user_id, transaction_date, type, total')
+    .gte('transaction_date', rangeStart)
+    .lte('transaction_date', rangeEnd);
+
   if (error) throw error;
 
-  return (data ?? []) as SpendingOverviewRecord[];
+  const records = (data ?? []) as PeriodTransactionRecord[];
+  const result: SpendingOverviewRecord[] = [];
+
+  // Aggregate per (user, day) — chart groups into days/weeks as needed
+  const userDayMap = new Map<string, { total_expense: number; total_income: number }>();
+  for (const t of records) {
+    if (!t.transaction_date) continue;
+    const day = t.transaction_date.slice(0, 10); // YYYY-MM-DD
+    const key = `${t.user_id}|${day}`;
+    const prev = userDayMap.get(key) ?? { total_expense: 0, total_income: 0 };
+    const amount = Number(t.total) || 0;
+    if (t.type === 'expense') prev.total_expense += amount;
+    else if (t.type === 'money_saving') prev.total_income += amount;
+    userDayMap.set(key, prev);
+  }
+
+  for (const [key, totals] of userDayMap.entries()) {
+    const [user_id, period] = key.split('|');
+    result.push({
+      period,
+      user_id,
+      total_expense: totals.total_expense,
+      total_income: totals.total_income,
+    });
+  }
+
+  result.sort((a, b) => a.period.localeCompare(b.period));
+  return result;
 }
 
 // ─── fetchMonthlyReport ──────────────────────────────────────────────────────
