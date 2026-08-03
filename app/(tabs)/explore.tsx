@@ -5,10 +5,11 @@ import { formatCurrency } from '@/src/lib/utils';
 import { fetchMonthlyReport, fetchSpendingOverview, FetchSpendingOverviewParams, SpendingOverviewRecord } from '@/src/services/transactionService';
 import type { MonthlyReportResponse } from '@/src/types';
 import { useFocusEffect } from 'expo-router';
-import React, { useCallback, useMemo, useState } from 'react';
-import { ActivityIndicator, Dimensions, Modal, Pressable, ScrollView, Text, View } from 'react-native';
+import * as Haptics from 'expo-haptics';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { ActivityIndicator, Animated, LayoutChangeEvent, Modal, PanResponder, Platform, Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import Svg, { Circle, Defs, G, LinearGradient, Path, Rect, Stop, Line as SvgLine, Text as SvgText } from 'react-native-svg';
+import Svg, { Circle, Defs, LinearGradient, Path, Rect, Stop, Line as SvgLine, Text as SvgText } from 'react-native-svg';
 
 const COUPLE_COLORS = ['#FF6B8A', '#4ECDC4'] as const;
 const COUPLE_COLORS_DIM = ['rgba(255,107,138,0.12)', 'rgba(78,205,196,0.12)'] as const;
@@ -297,25 +298,21 @@ export default function ExploreScreen() {
             {userStats.length === 2 && <SpendingBattleBar userStats={userStats} />}
 
             {/* Spending Overview Chart */}
-            <View style={{ marginHorizontal: 20, marginTop: 20, backgroundColor: colors.card, borderRadius: 20, padding: 20, borderWidth: 1, borderColor: colors.border }}>
-              <Text style={{ color: colors.text, fontWeight: '700', fontSize: 16 }}>Spending Overview</Text>
-              <Text style={{ color: colors.textTertiary, fontSize: 12, marginTop: 2, marginBottom: 14 }}>
-                {selectedPeriod === 'week' ? 'Daily this week' : selectedPeriod === 'month' ? 'Weekly this month' : 'Monthly this year'}
-              </Text>
-              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 16 }}>
-                {userStats.map(user => (
-                  <View key={user.user_id} style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
-                    <View style={{ width: 10, height: 10, borderRadius: 3, backgroundColor: user.color }} />
-                    <Text style={{ color: colors.textTertiary, fontSize: 11 }}>{user.user_id}</Text>
+            <View style={{ marginHorizontal: 20, marginTop: 20, backgroundColor: colors.card, borderRadius: 20, paddingVertical: 20, paddingLeft: 20, paddingRight: 8, borderWidth: 1, borderColor: colors.border, overflow: 'hidden' }}>
+              <View style={{ paddingRight: 12 }}>
+                <Text style={{ color: colors.text, fontWeight: '700', fontSize: 16 }}>Spending Overview</Text>
+                <Text style={{ color: colors.textTertiary, fontSize: 12, marginTop: 2, marginBottom: 14 }}>
+                  {selectedPeriod === 'week' ? 'Daily this week' : selectedPeriod === 'month' ? 'Weekly this month' : 'Monthly this year'}
+                </Text>
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 14, marginBottom: 4 }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+                    <View style={{ width: 14, height: 2, borderRadius: 1, backgroundColor: colors.primary }} />
+                    <Text style={{ color: colors.textTertiary, fontSize: 11 }}>Expense</Text>
                   </View>
-                ))}
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
-                  <View style={{ width: 14, height: 2, backgroundColor: colors.error, borderRadius: 1 }} />
-                  <Text style={{ color: colors.textTertiary, fontSize: 11 }}>Expense</Text>
-                </View>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
-                  <View style={{ width: 14, height: 2, backgroundColor: colors.success, borderRadius: 1 }} />
-                  <Text style={{ color: colors.textTertiary, fontSize: 11 }}>Income</Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+                    <View style={{ width: 14, height: 2, borderRadius: 1, backgroundColor: colors.success, opacity: 0.7 }} />
+                    <Text style={{ color: colors.textTertiary, fontSize: 11 }}>Income</Text>
+                  </View>
                 </View>
               </View>
               <ImprovedComboChart
@@ -591,6 +588,9 @@ type ChartDataPoint = {
   totalIncome: number;
 };
 
+const AnimatedPath = Animated.createAnimatedComponent(Path);
+const AnimatedCircle = Animated.createAnimatedComponent(Circle);
+
 function ImprovedComboChart({
   selectedPeriod,
   spendingData,
@@ -605,272 +605,402 @@ function ImprovedComboChart({
   selectedYear: number;
 }) {
   const { colors } = useTheme();
-  const chartWidth = Dimensions.get('window').width - 80;
-  const chartHeight = 200;
-  const baseline = chartHeight - 20;
-  const plotHeight = chartHeight - 40;
-  const [selectedBar, setSelectedBar] = useState<{
-    user: string; period: string; expense: number; income: number;
-  } | null>(null);
 
-  const colorMap = useMemo(
-    () => Object.fromEntries(userStats.map(u => [u.user_id, u.color])),
-    [userStats]
-  );
+  // Measure the actual available width instead of guessing from the screen
+  // width, so the chart always fits its parent card on any device size.
+  const [containerWidth, setContainerWidth] = useState(0);
+  const onLayout = (e: LayoutChangeEvent) => setContainerWidth(e.nativeEvent.layout.width);
 
-  const chartData = useMemo((): ChartDataPoint[] => {
-    const allUsers = Array.from(new Set(spendingData.map(r => r.user_id))).sort().slice(0, 2);
+  const PAD_LEFT = 36;
+  const PAD_RIGHT = 8;
+  const chartHeight = 180;
+  const baseline = chartHeight - 24;
+  const plotHeight = chartHeight - 44;
+  const plotWidth = Math.max(containerWidth - PAD_LEFT - PAD_RIGHT, 0);
 
-    // Map of period string -> records (for year, period is YYYY-MM-01 from spending_overview)
-    const periodMap = new Map<string, SpendingOverviewRecord[]>();
+  // Crosshair scrub state (trading-app style touch & drag)
+  const [activeIndex, setActiveIndex] = useState<number | null>(null);
+  const lastHapticIndex = useRef<number | null>(null);
+
+  // Draw-in animation replayed whenever the period/data changes, plus a
+  // gentle looping pulse on the latest-value dot (like a "live" price ping).
+  const drawAnim = useRef(new Animated.Value(0)).current;
+  const pulseAnim = useRef(new Animated.Value(0)).current;
+
+  // Geometry needed by the PanResponder, kept in a ref so the responder
+  // (created once via useRef) always reads the latest layout/data without
+  // having to be recreated on every render.
+  const chartMetaRef = useRef({ n: 0, padLeft: PAD_LEFT, stepX: 0 });
+
+  const panResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponder: () => true,
+      onPanResponderGrant: (e) => updateActiveFromTouch(e.nativeEvent.locationX),
+      onPanResponderMove: (e) => updateActiveFromTouch(e.nativeEvent.locationX),
+      onPanResponderRelease: () => setActiveIndex(null),
+      onPanResponderTerminate: () => setActiveIndex(null),
+    })
+  ).current;
+
+  function updateActiveFromTouch(x: number) {
+    const { n, padLeft, stepX } = chartMetaRef.current;
+    if (n === 0) return;
+    const raw = stepX > 0 ? (x - padLeft) / stepX : 0;
+    const idx = Math.min(Math.max(Math.round(raw), 0), n - 1);
+    setActiveIndex(idx);
+    if (lastHapticIndex.current !== idx) {
+      lastHapticIndex.current = idx;
+      if (Platform.OS !== 'web') {
+        Haptics.selectionAsync().catch(() => {});
+      }
+    }
+  }
+
+  // Replay the draw-in animation whenever the selected period changes.
+  // Native driver can't be used here: strokeDashoffset/opacity on SVG path
+  // props aren't transform-based, so this runs on the JS thread.
+  useEffect(() => {
+    drawAnim.setValue(0);
+    Animated.timing(drawAnim, {
+      toValue: 1,
+      duration: 650,
+      useNativeDriver: false,
+    }).start();
+  }, [selectedPeriod, selectedMonth, selectedYear]);
+
+  // Looping pulse ring around the latest value, like a live ticker.
+  useEffect(() => {
+    const loop = Animated.loop(
+      Animated.timing(pulseAnim, {
+        toValue: 1,
+        duration: 1600,
+        useNativeDriver: false,
+      })
+    );
+    loop.start();
+    return () => loop.stop();
+  }, []);
+
+  const chartData = useMemo(() => {
+    const periodTotals = new Map<string, { expense: number; income: number }>();
     spendingData.forEach(record => {
-      if (!periodMap.has(record.period)) periodMap.set(record.period, []);
-      periodMap.get(record.period)!.push(record);
+      const existing = periodTotals.get(record.period) || { expense: 0, income: 0 };
+      periodTotals.set(record.period, {
+        expense: existing.expense + (record.total_expense || 0),
+        income: existing.income + (record.total_income || 0),
+      });
     });
 
-    const sumUsersFor = (bucketKeys: string[]): { user_id: string; expense: number; income: number }[] =>
-      allUsers.map(user_id => {
-        let expense = 0;
-        let income = 0;
-        for (const k of bucketKeys) {
-          const recs = periodMap.get(k) || [];
-          const rec = recs.find(r => r.user_id === user_id);
-          if (rec) {
-            expense += rec.total_expense || 0;
-            income += rec.total_income || 0;
-          }
-        }
-        return { user_id, expense: Math.round(expense), income: Math.round(income) };
-      });
+    const periodArray = Array.from(periodTotals.entries())
+      .map(([period, vals]) => ({
+        period,
+        expense: Math.round(vals.expense),
+        income: Math.round(vals.income),
+      }))
+      .sort((a, b) => a.period.localeCompare(b.period));
 
-    // Reference date: today if viewing the current month/year, otherwise the 1st.
-    const realNow = new Date();
-    const isCurrentMonth =
-      realNow.getFullYear() === selectedYear && (realNow.getMonth() + 1) === selectedMonth;
-    const refDate = isCurrentMonth ? realNow : new Date(selectedYear, selectedMonth - 1, 1);
-
-    // YEAR: monthly buckets from spending_overview (period = YYYY-MM-01)
     if (selectedPeriod === 'year') {
-      const year = selectedYear;
-      return ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'].map((label, index) => {
-        const periodKey = `${year}-${String(index + 1).padStart(2, '0')}-01`;
-        const users = sumUsersFor([periodKey]);
+      const short = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      return periodArray.map(item => {
+        const monthIdx = parseInt(item.period.split('-')[1], 10) - 1;
         return {
-          label,
-          users,
-          totalExpense: users.reduce((s, u) => s + u.expense, 0),
-          totalIncome: users.reduce((s, u) => s + u.income, 0),
+          label: short[monthIdx] ?? '',
+          totalExpense: item.expense,
+          totalIncome: item.income,
         };
       });
     }
 
-    // WEEK: 7 days (Mon-Sun) of the reference week.
     if (selectedPeriod === 'week') {
-      const dayLabels = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-      const dow = refDate.getDay(); // 0=Sun
-      const diff = dow === 0 ? -6 : 1 - dow; // back to Monday
-      const weekStart = new Date(refDate);
-      weekStart.setDate(refDate.getDate() + diff);
-
-      const points: ChartDataPoint[] = [];
-      for (let i = 0; i < 7; i++) {
-        const d = new Date(weekStart);
-        d.setDate(weekStart.getDate() + i);
-        const key = d.toISOString().split('T')[0];
-        const users = sumUsersFor([key]);
-        points.push({
-          label: dayLabels[d.getDay()],
-          users,
-          totalExpense: users.reduce((s, u) => s + u.expense, 0),
-          totalIncome: users.reduce((s, u) => s + u.income, 0),
-        });
-      }
-      return points;
+      const short = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+      return periodArray.map(item => {
+        const d = new Date(item.period + 'T00:00:00');
+        return {
+          label: short[d.getDay()] ?? '',
+          totalExpense: item.expense,
+          totalIncome: item.income,
+        };
+      });
     }
 
-    // MONTH: weekly buckets within the selected month
+    // month: bucket daily records into weeks (Mon-Sun), label W1..W6
     const year = selectedYear;
-    const month = selectedMonth - 1; // 0-based
-    const firstDay = new Date(year, month, 1);
-    const lastDay = new Date(year, month + 1, 0);
-    const daysInMonth = lastDay.getDate();
-
-    // firstDow: Monday=0 .. Sunday=6
-    const rawDow = firstDay.getDay(); // 0=Sun..6=Sat
+    const month = selectedMonth - 1;
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const rawDow = new Date(year, month, 1).getDay();
     const firstDow = rawDow === 0 ? 6 : rawDow - 1;
-    const weeks: { label: string; days: number[] }[] = [];
-    let dayCursor = 1;
+    const weeks: { label: string; days: string[] }[] = [];
+    let cursor = 1;
     let weekIdx = 0;
-    while (dayCursor <= daysInMonth && weekIdx < 6) {
-      const weekLen = weekIdx === 0 ? (7 - firstDow) : Math.min(7, daysInMonth - dayCursor + 1);
-      const days: number[] = [];
-      for (let d = 0; d < weekLen; d++) days.push(dayCursor + d);
+    while (cursor <= daysInMonth && weekIdx < 6) {
+      const len = weekIdx === 0 ? 7 - firstDow : Math.min(7, daysInMonth - cursor + 1);
+      const days: string[] = [];
+      for (let i = 0; i < len; i++) {
+        days.push(`${year}-${String(month + 1).padStart(2, '0')}-${String(cursor + i).padStart(2, '0')}`);
+      }
       weeks.push({ label: `W${weekIdx + 1}`, days });
-      dayCursor += weekLen;
+      cursor += len;
       weekIdx++;
     }
-
-    return weeks.slice(0, 6).map(({ label, days }) => {
-      const keys = days.map(d => `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`);
-      const users = sumUsersFor(keys);
-      return {
-        label,
-        users,
-        totalExpense: users.reduce((s, u) => s + u.expense, 0),
-        totalIncome: users.reduce((s, u) => s + u.income, 0),
-      };
+    return weeks.map(w => {
+      let expense = 0;
+      let income = 0;
+      w.days.forEach(d => {
+        const t = periodTotals.get(d);
+        if (t) {
+          expense += t.expense;
+          income += t.income;
+        }
+      });
+      return { label: w.label, totalExpense: expense, totalIncome: income };
     });
   }, [selectedPeriod, spendingData, selectedMonth, selectedYear]);
 
   if (!chartData.length) {
     return (
-      <View style={{ alignItems: 'center', paddingVertical: 32 }}>
+      <View onLayout={onLayout} style={{ alignItems: 'center', paddingVertical: 32 }}>
         <Text style={{ color: colors.textTertiary, fontSize: 13 }}>No data available</Text>
       </View>
     );
   }
 
-  const numUsers = chartData[0]?.users.length || 1;
-  const maxValue = Math.max(
-    ...chartData.flatMap(item => [
-      item.totalExpense, item.totalIncome,
-      ...item.users.map(u => u.expense + u.income),
-    ]),
-    1
-  );
+  const maxValue = Math.max(...chartData.map(p => Math.max(p.totalExpense, p.totalIncome)), 1);
+  const n = chartData.length;
+  const stepX = n > 1 ? plotWidth / (n - 1) : 0;
+  const xFor = (i: number) => PAD_LEFT + i * stepX;
+  const yFor = (v: number) => baseline - (v / maxValue) * plotHeight;
 
-  const pgw = chartWidth / chartData.length;
-  const barWidth = Math.min((pgw * 0.65) / numUsers, 28);
-  const barSpacing = 3;
-
-  const yFor = (val: number) => baseline - (val / maxValue) * plotHeight;
-
-  const buildLinePath = (vals: number[]) =>
-    vals.map((v, i) => {
-      const x = pgw * i + pgw / 2;
-      const y = yFor(v);
+  const linePath = (key: 'totalExpense' | 'totalIncome') =>
+    chartData.map((p, i) => {
+      const x = xFor(i);
+      const y = yFor(p[key]);
       return `${i === 0 ? 'M' : 'L'} ${x.toFixed(1)} ${y.toFixed(1)}`;
     }).join(' ');
 
-  const buildAreaPath = (vals: number[]) =>
-    `${buildLinePath(vals)} L ${(pgw * (vals.length - 1) + pgw / 2).toFixed(1)} ${baseline} L ${(pgw / 2).toFixed(1)} ${baseline} Z`;
+  const expenseLine = linePath('totalExpense');
+  const incomeLine = linePath('totalIncome');
+  const expenseArea = n > 1
+    ? `${expenseLine} L ${xFor(n - 1).toFixed(1)} ${baseline} L ${xFor(0).toFixed(1)} ${baseline} Z`
+    : '';
 
-  const expensePath = buildLinePath(chartData.map(i => i.totalExpense));
-  const incomePath = buildLinePath(chartData.map(i => i.totalIncome));
-  const expenseArea = buildAreaPath(chartData.map(i => i.totalExpense));
-  const incomeArea = buildAreaPath(chartData.map(i => i.totalIncome));
+  // Length of the expense polyline, used to animate it "drawing" itself in
+  // (classic trading-app chart entrance), via stroke-dasharray/dashoffset.
+  const pathLength = Math.max(
+    chartData.reduce((acc, p, i) => {
+      if (i === 0) return 0;
+      const prev = chartData[i - 1];
+      const dx = xFor(i) - xFor(i - 1);
+      const dy = yFor(p.totalExpense) - yFor(prev.totalExpense);
+      return acc + Math.hypot(dx, dy);
+    }, 0),
+    1
+  );
+
+  // Thin out X-axis labels on narrow screens / long series so text never overlaps.
+  const minLabelGap = 34;
+  const labelStride = stepX > 0 ? Math.max(1, Math.ceil(minLabelGap / stepX)) : 1;
+
+  // Compact Y-axis value labels (e.g. "1.2jt", "500rb")
+  const formatCompact = (v: number) => {
+    if (v >= 1_000_000) return `${(v / 1_000_000).toFixed(v >= 10_000_000 ? 0 : 1)}jt`;
+    if (v >= 1_000) return `${(v / 1_000).toFixed(0)}rb`;
+    return `${Math.round(v)}`;
+  };
+
+  const svgWidth = PAD_LEFT + plotWidth + PAD_RIGHT;
+  const svgHeight = chartHeight + 22;
+  const lastX = xFor(n - 1);
+  const lastY = yFor(chartData[n - 1].totalExpense);
+
+  // Keep the latest chart geometry in a ref so the PanResponder (created once)
+  // always reads fresh values without needing to be recreated every render.
+  chartMetaRef.current = { n, padLeft: PAD_LEFT, stepX };
+
+  const activePoint = activeIndex !== null ? chartData[activeIndex] : null;
+  const activeX = activeIndex !== null ? xFor(activeIndex) : 0;
+  const activeY = activePoint ? yFor(activePoint.totalExpense) : 0;
+
+  const TOOLTIP_W = 116;
+  const tooltipLeft = Math.min(Math.max(activeX - TOOLTIP_W / 2, 0), Math.max(svgWidth - TOOLTIP_W, 0));
 
   return (
-    <View style={{ alignItems: 'center' }}>
-      {selectedBar && (
-        <View style={{ marginBottom: 12, padding: 12, backgroundColor: colors.cardSecondary, borderRadius: 10, borderWidth: 1, borderColor: colors.border, width: '100%' }}>
-          <Text style={{ color: colorMap[selectedBar.user] || colors.textSecondary, fontSize: 13, fontWeight: '700', marginBottom: 4 }}>
-            {selectedBar.user} — {selectedBar.period}
-          </Text>
-          <View style={{ flexDirection: 'row', gap: 16 }}>
-            <Text style={{ color: colors.error, fontSize: 12 }}>Spent: {formatCurrency(selectedBar.expense)}</Text>
-            <Text style={{ color: colors.success, fontSize: 12 }}>Saved: {formatCurrency(selectedBar.income)}</Text>
-          </View>
-        </View>
+    <View
+      onLayout={onLayout}
+      {...panResponder.panHandlers}
+      style={{ width: '100%', height: svgHeight }}
+    >
+      {containerWidth > 0 && (
+        <Svg width={svgWidth} height={svgHeight}>
+          <Defs>
+            <LinearGradient id="exp-grad" x1="0" y1="0" x2="0" y2="1">
+              <Stop offset="0%" stopColor={colors.primary} stopOpacity={0.32} />
+              <Stop offset="100%" stopColor={colors.primary} stopOpacity={0} />
+            </LinearGradient>
+          </Defs>
+
+          {/* Grid lines + Y-axis value labels */}
+          {[0, 0.5, 1].map(ratio => {
+            const y = baseline - plotHeight * ratio;
+            return (
+              <React.Fragment key={ratio}>
+                <SvgLine
+                  x1={PAD_LEFT} y1={y}
+                  x2={PAD_LEFT + plotWidth} y2={y}
+                  stroke={colors.border} strokeWidth={0.5} strokeDasharray="3 4"
+                />
+                <SvgText
+                  x={PAD_LEFT - 6} y={y + 3}
+                  textAnchor="end" fontSize={9}
+                  fill={colors.textTertiary}
+                >
+                  {formatCompact(maxValue * ratio)}
+                </SvgText>
+              </React.Fragment>
+            );
+          })}
+
+          {/* Expense area (fades in after the line finishes drawing) */}
+          {n > 1 && (
+            <AnimatedPath
+              d={expenseArea}
+              fill="url(#exp-grad)"
+              opacity={drawAnim.interpolate({ inputRange: [0, 0.6, 1], outputRange: [0, 0, 1] })}
+            />
+          )}
+
+          {/* Income line (dashed) */}
+          {n > 1 && (
+            <AnimatedPath
+              d={incomeLine}
+              stroke={colors.success}
+              strokeWidth={1.5}
+              fill="none"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeDasharray="5 4"
+              opacity={drawAnim.interpolate({ inputRange: [0, 0.5, 1], outputRange: [0, 0, 0.85] })}
+            />
+          )}
+
+          {/* Expense line — animates drawing itself in, left to right */}
+          {n > 1 && (
+            <AnimatedPath
+              d={expenseLine}
+              stroke={colors.primary}
+              strokeWidth={2.5}
+              fill="none"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeDasharray={`${pathLength}`}
+              strokeDashoffset={drawAnim.interpolate({ inputRange: [0, 1], outputRange: [pathLength, 0] })}
+            />
+          )}
+
+          {/* Expense dots (skip when the series is dense to avoid clutter) */}
+          {n <= 12 && chartData.map((p, i) => (
+            <Circle
+              key={`dot-${i}`}
+              cx={xFor(i)} cy={yFor(p.totalExpense)} r={3}
+              fill={colors.primary}
+              stroke={colors.background}
+              strokeWidth={1.5}
+            />
+          ))}
+
+          {/* Last value — soft "live" pulse ring, trading-app style */}
+          <AnimatedCircle
+            cx={lastX} cy={lastY}
+            r={pulseAnim.interpolate({ inputRange: [0, 1], outputRange: [4, 13] })}
+            fill={colors.primary}
+            opacity={pulseAnim.interpolate({ inputRange: [0, 1], outputRange: [0.35, 0] })}
+          />
+          <SvgLine
+            x1={PAD_LEFT} y1={lastY} x2={lastX} y2={lastY}
+            stroke={colors.primary} strokeWidth={0.75} strokeDasharray="2 3" opacity={0.5}
+          />
+          <Circle cx={lastX} cy={lastY} r={4} fill={colors.primary} stroke={colors.background} strokeWidth={2} />
+          <Rect
+            x={Math.min(lastX + 4, svgWidth - 58)} y={Math.max(lastY - 9, 2)}
+            width={54} height={16} rx={4}
+            fill={colors.primary}
+          />
+          <SvgText
+            x={Math.min(lastX + 4, svgWidth - 58) + 27} y={Math.max(lastY - 9, 2) + 11}
+            textAnchor="middle" fontSize={9} fontWeight="700"
+            fill={colors.background}
+          >
+            {formatCompact(chartData[n - 1].totalExpense)}
+          </SvgText>
+
+          {/* X labels (thinned to avoid overlap) */}
+          {chartData.map((p, i) => {
+            const isLast = i === n - 1;
+            if (!isLast && i % labelStride !== 0) return null;
+            return (
+              <SvgText
+                key={`lbl-${i}`}
+                x={xFor(i)} y={chartHeight + 10}
+                textAnchor={isLast ? 'end' : i === 0 ? 'start' : 'middle'}
+                fontSize={10}
+                fill={colors.textTertiary} fontWeight="600"
+              >
+                {p.label}
+              </SvgText>
+            );
+          })}
+
+          {/* Crosshair — appears while dragging a finger across the chart */}
+          {activePoint && (
+            <>
+              <SvgLine
+                x1={activeX} y1={10} x2={activeX} y2={baseline}
+                stroke={colors.textSecondary} strokeWidth={1} strokeDasharray="2 3" opacity={0.6}
+              />
+              <Circle
+                cx={activeX} cy={activeY} r={5.5}
+                fill={colors.background} stroke={colors.primary} strokeWidth={2.5}
+              />
+            </>
+          )}
+        </Svg>
       )}
 
-      <Svg width={chartWidth} height={chartHeight + 50}>
-        <Defs>
-          <LinearGradient id="expense-area" x1="0" y1="0" x2="0" y2="1">
-            <Stop offset="0" stopColor={colors.error} stopOpacity={0.35} />
-            <Stop offset="1" stopColor={colors.error} stopOpacity={0} />
-          </LinearGradient>
-          <LinearGradient id="income-area" x1="0" y1="0" x2="0" y2="1">
-            <Stop offset="0" stopColor={colors.success} stopOpacity={0.3} />
-            <Stop offset="1" stopColor={colors.success} stopOpacity={0} />
-          </LinearGradient>
-        </Defs>
-
-        {/* Grid */}
-        {[0.25, 0.5, 0.75].map(ratio => (
-          <SvgLine
-            key={ratio}
-            x1={0} y1={(baseline - plotHeight * ratio).toFixed(1)}
-            x2={chartWidth} y2={(baseline - plotHeight * ratio).toFixed(1)}
-            stroke={colors.border} strokeWidth={1} strokeDasharray="3 4"
-          />
-        ))}
-
-        {/* Area fills */}
-        <Path d={expenseArea} fill="url(#expense-area)" />
-        <Path d={incomeArea} fill="url(#income-area)" />
-
-        {/* Bars */}
-        {chartData.map((item, pIdx) => {
-          const totalW = barWidth * numUsers + barSpacing * (numUsers - 1);
-          const groupStartX = pgw * pIdx + (pgw - totalW) / 2;
-
-          return (
-            <G key={`p-${pIdx}`}>
-              {item.users.map((user, uIdx) => {
-                const bx = groupStartX + uIdx * (barWidth + barSpacing);
-                const expH = (user.expense / maxValue) * plotHeight;
-                const incH = (user.income / maxValue) * plotHeight;
-                const userColor = colorMap[user.user_id] || COUPLE_COLORS[uIdx % COUPLE_COLORS.length];
-
-                return (
-                  <G key={`u-${uIdx}`}>
-                    <Rect
-                      x={bx} y={0} width={barWidth} height={chartHeight}
-                      fill="transparent"
-                      onPress={() => setSelectedBar({
-                        user: user.user_id, period: item.label,
-                        expense: user.expense, income: user.income,
-                      })}
-                    />
-                    {/* Income bar (dim) */}
-                    {incH > 0 && (
-                      <Rect
-                        x={bx} y={baseline - incH} width={barWidth} height={Math.max(incH, 2)}
-                        fill={userColor} opacity={0.3} rx={3}
-                      />
-                    )}
-                    {/* Expense bar */}
-                    {expH > 0 && (
-                      <Rect
-                        x={bx} y={baseline - incH - expH} width={barWidth} height={Math.max(expH, 2)}
-                        fill={userColor} rx={4}
-                      />
-                    )}
-                  </G>
-                );
-              })}
-            </G>
-          );
-        })}
-
-        {/* Income line (dashed) + dots */}
-        <Path d={incomePath} stroke={colors.success} strokeWidth={2} fill="none" strokeLinecap="round" strokeLinejoin="round" strokeDasharray="5 4" />
-        {chartData.map((item, i) => {
-          const x = pgw * i + pgw / 2;
-          const y = yFor(item.totalIncome);
-          return <Circle key={`id-${i}`} cx={x} cy={y} r={3.5} fill={colors.success} />;
-        })}
-
-        {/* Expense line + dots */}
-        <Path d={expensePath} stroke={colors.error} strokeWidth={2.5} fill="none" strokeLinecap="round" strokeLinejoin="round" />
-        {chartData.map((item, i) => {
-          const x = pgw * i + pgw / 2;
-          const y = yFor(item.totalExpense);
-          return <Circle key={`ed-${i}`} cx={x} cy={y} r={3.5} fill={colors.error} stroke={colors.background} strokeWidth={1.5} />;
-        })}
-
-        {/* Period labels */}
-        {chartData.map((item, i) => (
-          <SvgText
-            key={`lbl-${i}`}
-            x={pgw * i + pgw / 2} y={chartHeight + 8}
-            fontSize={10} fill={colors.textTertiary} textAnchor="middle" fontWeight="600"
-          >
-            {item.label}
-          </SvgText>
-        ))}
-      </Svg>
+      {/* Scrub tooltip — plain RN view for crisp text + shadow, like a price tag */}
+      {activePoint && (
+        <View
+          pointerEvents="none"
+          style={{
+            position: 'absolute',
+            left: tooltipLeft,
+            top: 2,
+            width: TOOLTIP_W,
+            backgroundColor: colors.card,
+            borderRadius: 10,
+            borderWidth: 1,
+            borderColor: colors.border,
+            paddingVertical: 6,
+            paddingHorizontal: 9,
+            shadowColor: '#000',
+            shadowOpacity: 0.18,
+            shadowRadius: 6,
+            shadowOffset: { width: 0, height: 3 },
+            elevation: 5,
+          }}
+        >
+          <Text style={{ color: colors.textTertiary, fontSize: 9, fontWeight: '700', letterSpacing: 0.3 }}>
+            {activePoint.label.toUpperCase()}
+          </Text>
+          <Text style={{ color: colors.primary, fontSize: 13, fontWeight: '800', marginTop: 1 }}>
+            {formatCurrency(activePoint.totalExpense)}
+          </Text>
+          {activePoint.totalIncome > 0 && (
+            <Text style={{ color: colors.success, fontSize: 10, fontWeight: '600', marginTop: 1 }}>
+              +{formatCurrency(activePoint.totalIncome)}
+            </Text>
+          )}
+        </View>
+      )}
     </View>
   );
 }
