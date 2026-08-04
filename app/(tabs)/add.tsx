@@ -245,7 +245,8 @@ export default function AddScreen() {
       }, 2500);
     } catch (error: any) {
       setIsSaving(false);
-      setInlineAlert({ type: 'error', message: error.response?.data?.message || error.message || 'Failed to save transaction.' });
+      console.error('[add] Manual save error:', error);
+      setInlineAlert({ type: 'error', message: `Gagal menyimpan: ${error?.message || 'Terjadi kesalahan.'}` });
     }
   };
 
@@ -283,7 +284,8 @@ export default function AddScreen() {
       setTimeout(() => setInlineAlert(null), 4000);
     } catch (error: any) {
       setIsExtracting(false);
-      setInlineAlert({ type: 'error', message: error.message || 'Failed to extract transaction data. Please try again or use manual entry.' });
+      console.error('[add] OCR error:', error);
+      setInlineAlert({ type: 'error', message: `Gagal OCR: ${error?.message || 'Terjadi kesalahan. Coba lagi atau gunakan manual entry.'}` });
     }
   };
 
@@ -343,7 +345,8 @@ export default function AddScreen() {
       }, 2500);
     } catch (error: any) {
       setIsSaving(false);
-      setInlineAlert({ type: 'error', message: error.response?.data?.message || error.message || 'Failed to save transaction.' });
+      console.error('[add] Extracted save error:', error);
+      setInlineAlert({ type: 'error', message: `Gagal menyimpan: ${error?.message || 'Terjadi kesalahan.'}` });
     }
   };
 

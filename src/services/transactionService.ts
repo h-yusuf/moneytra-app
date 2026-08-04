@@ -355,6 +355,13 @@ export async function extractTransaction(
   formData.append('user_id', params.user_id);
   formData.append('type', params.transaction_type);
 
+  console.log('[extractTransaction] Sending file for OCR:', {
+    uri: (params.file as any)?.uri,
+    type: (params.file as any)?.type,
+    name: (params.file as any)?.name,
+    size: (params.file as any)?.size,
+  });
+
   if (isWeb) {
     const response = await fetch((params.file as any).uri);
     const blob = await response.blob();
@@ -377,11 +384,20 @@ export async function extractTransaction(
   });
 
   if (!response.ok) {
-    const errText = await response.text();
-    throw new Error(`Extraction failed: ${errText}`);
+    const errText = await response.text().catch(() => 'No response body');
+    console.error('[extractTransaction] OCR failed:', { status: response.status, body: errText });
+    throw new Error(`Gagal OCR (HTTP ${response.status}): ${errText || 'Server returned error'}`);
   }
 
-  const data = await response.json();
+  const responseText = await response.text().catch(() => '');
+  let data: any;
+  try {
+    data = JSON.parse(responseText);
+  } catch (parseErr) {
+    console.error('[extractTransaction] JSON parse failed:', responseText);
+    throw new Error(`Gagal OCR: response bukan JSON valid. Raw: ${responseText.slice(0, 200)}`);
+  }
+  console.log('[extractTransaction] OCR success:', data);
   return {
     merchant: data.merchant ?? '',
     total: Number(data.total) || 0,
@@ -413,11 +429,20 @@ export async function createTransaction(
     }
   );
 
+  const responseText = await response.text().catch(() => 'No response body');
+
   if (!response.ok) {
-    const errText = await response.text();
-    throw new Error(`createTransaction failed: ${errText}`);
+    console.error('[createTransaction] Save failed:', { status: response.status, body: responseText });
+    throw new Error(`Gagal menyimpan data (HTTP ${response.status}): ${responseText || 'Server error'}`);
   }
 
-  const data = await response.json();
-  return data as Transaction;
+  let data: Transaction;
+  try {
+    data = JSON.parse(responseText) as Transaction;
+  } catch (parseErr) {
+    console.error('[createTransaction] JSON parse failed:', responseText);
+    throw new Error(`Gagal menyimpan data: response bukan JSON valid. Raw: ${responseText.slice(0, 200)}`);
+  }
+  console.log('[createTransaction] Save success');
+  return data;
 }
