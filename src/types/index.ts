@@ -87,3 +87,20 @@ export interface MonthlyReportResponse {
   monthly_report: MonthlyReportData[];
   category_breakdown: CategoryBreakdownData[];
 }
+
+export interface ChatMessage {
+  role: 'user' | 'assistant';
+  content: string;
+  timestamp: number;
+}
+
+export interface ChatResponse {
+  success: boolean;
+  reply: string;
+  summary?: {
+    total_expense: number;
+    total_saving: number;
+    this_month_expense: number;
+    this_month_saving: number;
+  };
+}

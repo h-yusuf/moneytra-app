@@ -9,3 +9,6 @@ verify_jwt = false
 
 [functions.create-transaction]
 verify_jwt = false
+
+[functions.ai-chat]
+verify_jwt = false

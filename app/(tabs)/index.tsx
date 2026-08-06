@@ -130,10 +130,14 @@ export default function DashboardScreen() {
     return total > 0 ? Math.round((sav / total) * 100) : 0;
   })();
 
+  const handleChatPress = () => {
+    router.push('/chat');
+  };
+
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
-      <ScrollView 
-        style={{ flex: 1 }} 
+      <ScrollView
+        style={{ flex: 1 }}
         contentContainerStyle={{ paddingBottom: 100 }}
         showsVerticalScrollIndicator={false}
       >
@@ -325,6 +329,29 @@ export default function DashboardScreen() {
           )}
         </View>
       </ScrollView>
+
+      {/* Chat AI Floating Bubble */}
+      <Pressable
+        onPress={handleChatPress}
+        style={{
+          position: 'absolute',
+          bottom: 90,
+          right: 20,
+          width: 56,
+          height: 56,
+          borderRadius: 28,
+          backgroundColor: colors.primary,
+          alignItems: 'center',
+          justifyContent: 'center',
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: 4 },
+          shadowOpacity: 0.3,
+          shadowRadius: 8,
+          elevation: 8,
+        }}
+      >
+        <IconSymbol name="sparkles" size={24} color="#0a0a0a" />
+      </Pressable>
     </SafeAreaView>
   );
 }
