@@ -144,8 +144,24 @@ async function fetchFinancialSummary(
   };
 }
 
+function getWIBDate(): string {
+  const now = new Date();
+  const utcMs = now.getTime() + now.getTimezoneOffset() * 60000;
+  const wib = new Date(utcMs + 7 * 3600000);
+  return wib.toLocaleString('id-ID', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    timeZone: 'UTC',
+  }) + ' WIB (GMT+7)';
+}
+
 function buildSystemPrompt(summary: FinancialSummary, isResearch: boolean): string {
   return `Kamu adalah Monetra AI, asisten keuangan pribadi untuk aplikasi Monetra.
+Sekarang: ${getWIBDate()}. User berada di Indonesia (GMT+7). Gunakan tanggal/hari ini sebagai acuan waktu — JANGAN menebak tanggal sendiri.
 Kamu punya akses ke data keuangan user secara real-time. Tugas kamu:
 - Analisa pola pengeluaran dan tabungan user
 - Kasih rekomendasi keuangan yang actionable dan practical
