@@ -79,6 +79,9 @@ const MAPPING = {
   'moon.fill': 'nightlight-round',
   'circle.lefthalf.filled': 'brightness-medium',
   'rectangle.portrait.and.arrow.right': 'logout',
+
+  // AI Assistant
+  'bot.fill': 'smart-toy',
 } as IconMapping;
 
 /**

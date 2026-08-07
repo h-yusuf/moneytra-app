@@ -4,7 +4,10 @@ const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SUPABASE_SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 const LLM_BASE_URL = Deno.env.get('LLM_BASE_URL')!;
 const LLM_API_KEY = Deno.env.get('LLM_API_KEY')!;
-const LLM_MODEL = Deno.env.get('LLM_MODEL') || 'open-code';
+const CHAT_MODEL = Deno.env.get('CHAT_MODEL') || 'open-code';
+const RESEARCH_MODEL = Deno.env.get('RESEARCH_MODEL') || 'gemini-combos';
+const RESEARCH_KEYWORDS = (Deno.env.get('RESEARCH_KEYWORDS') || 'harga,kurs,inflasi,emas,update,berita,berapa,rate,bi rate,pajak,reksadana,investasi,terbaru')
+  .split(',').map((k) => k.trim().toLowerCase()).filter(Boolean);
 
 interface ChatMessage {
   role: 'user' | 'assistant';
@@ -140,7 +143,7 @@ async function fetchFinancialSummary(
   };
 }
 
-function buildSystemPrompt(summary: FinancialSummary): string {
+function buildSystemPrompt(summary: FinancialSummary, isResearch: boolean): string {
   return `Kamu adalah Monetra AI, asisten keuangan pribadi untuk aplikasi Monetra.
 Kamu punya akses ke data keuangan user secara real-time. Tugas kamu:
 - Analisa pola pengeluaran dan tabungan user
@@ -148,6 +151,10 @@ Kamu punya akses ke data keuangan user secara real-time. Tugas kamu:
 - Jika user punya saving yang idle, rekomendasikan untuk dialokasikan (misal: RDN/reksadana, deposito, etc.)
 - Gunakan bahasa casual Indonesia (campur EN/ID), friendly dan to the point
 - Format angka dengan "Rp" prefix, gunakan format ribuan (contoh: Rp 1.500.000)
+- Jawab RINGKAS dan padat (maksimal ~250 kata). Jangan terlalu bertele-tele.
+${isResearch
+  ? `- Kamu punya akses Google Search real-time. Cari info terbaru dari web sebelum jawab, dan sebutkan sumbernya.`
+  : `- Kamu TIDAK punya akses internet. Jawab hanya berdasarkan data keuangan user di atas dan pengetahuanmu.`}
 
 DATA KEUANGAN USER:
 - Total Expense: Rp ${summary.total_expense.toLocaleString('id-ID')}
@@ -192,7 +199,10 @@ Deno.serve(async (req) => {
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
     const summary = await fetchFinancialSummary(supabase, user_id);
-    const systemPrompt = buildSystemPrompt(summary);
+
+    const isResearch = RESEARCH_KEYWORDS.some((kw) => message.toLowerCase().includes(kw));
+    const model = isResearch ? RESEARCH_MODEL : CHAT_MODEL;
+    const systemPrompt = buildSystemPrompt(summary, isResearch);
 
     const messages = [
       { role: 'system', content: systemPrompt },
@@ -207,11 +217,11 @@ Deno.serve(async (req) => {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: LLM_MODEL,
+        model,
         messages,
         stream: false,
         temperature: 0.7,
-        max_tokens: 1024,
+        ...(isResearch ? { tools: [{ googleSearch: {} }] } : {}),
       }),
     });
 
@@ -225,7 +235,11 @@ Deno.serve(async (req) => {
     }
 
     const llmData = await llmResponse.json();
-    const reply = llmData.choices?.[0]?.message?.content ?? 'Maaf, aku gak bisa nge-response sekarang.';
+    const choice = llmData.choices?.[0];
+    let reply = choice?.message?.content ?? 'Maaf, aku gak bisa nge-response sekarang.';
+    if (choice?.finish_reason === 'length') {
+      reply += '\n\n... (jawaban ke-potong karena terlalu panjang. Coba tanya yang lebih spesifik)';
+    }
 
     return new Response(
       JSON.stringify({

@@ -95,7 +95,7 @@ export default function ChatScreen() {
               marginTop: 4,
             }}
           >
-            <IconSymbol name="sparkles" size={16} color="#0a0a0a" />
+            <IconSymbol name="bot.fill" size={16} color="#0a0a0a" />
           </View>
         )}
         <View
@@ -175,7 +175,7 @@ export default function ChatScreen() {
                 marginBottom: 16,
               }}
             >
-              <IconSymbol name="sparkles" size={28} color={colors.primary} />
+              <IconSymbol name="bot.fill" size={28} color={colors.primary} />
             </View>
             <Text style={{ color: colors.text, fontSize: 18, fontWeight: '700', textAlign: 'center', marginBottom: 8 }}>
               Halo! Aku Monetra AI 👋

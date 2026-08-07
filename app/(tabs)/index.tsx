@@ -350,7 +350,7 @@ export default function DashboardScreen() {
           elevation: 8,
         }}
       >
-        <IconSymbol name="sparkles" size={24} color="#0a0a0a" />
+        <IconSymbol name="bot.fill" size={24} color="#0a0a0a" />
       </Pressable>
     </SafeAreaView>
   );
