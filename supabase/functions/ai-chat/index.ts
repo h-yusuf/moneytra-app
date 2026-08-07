@@ -5,9 +5,10 @@ const SUPABASE_SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 const LLM_BASE_URL = Deno.env.get('LLM_BASE_URL')!;
 const LLM_API_KEY = Deno.env.get('LLM_API_KEY')!;
 const CHAT_MODEL = Deno.env.get('CHAT_MODEL') || 'open-code';
-const RESEARCH_MODEL = Deno.env.get('RESEARCH_MODEL') || 'gemini-combos';
-const RESEARCH_KEYWORDS = (Deno.env.get('RESEARCH_KEYWORDS') || 'harga,kurs,inflasi,emas,update,berita,berapa,rate,bi rate,pajak,reksadana,investasi,terbaru')
+const TAVILY_API_KEY = Deno.env.get('TAVILY_API_KEY')!;
+const RESEARCH_KEYWORDS = (Deno.env.get('RESEARCH_KEYWORDS') || 'harga,kurs,inflasi,emas,berita,bi rate,pajak,reksadana,investasi,terbaru,update')
   .split(',').map((k) => k.trim().toLowerCase()).filter(Boolean);
+const USER_DATA_KEYWORDS = ['total', 'saving', 'expense', 'pengeluaran', 'pemasukan', 'transaksi', 'tabungan', 'bulan ini', 'bulan lalu', 'kategori', 'budget', 'merchant', 'rekap', 'histori', 'history', 'rekening', 'top'];
 
 interface ChatMessage {
   role: 'user' | 'assistant';
@@ -175,6 +176,46 @@ ${summary.recent_transactions.map((t) => `- ${t.merchant} | ${t.category} | ${t.
 Jawab pertanyaan user berdasarkan data di atas. Jika data tidak cukup, bilang saja. Jangan mengarang angka.`;
 }
 
+async function tavilySearch(query: string, maxResults = 5): Promise<string> {
+  const res = await fetch('https://api.tavily.com/search', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      api_key: TAVILY_API_KEY,
+      query,
+      max_results: maxResults,
+      search_depth: 'basic',
+      include_answer: true,
+      include_raw_content: false,
+    }),
+  });
+
+  if (!res.ok) {
+    const errText = await res.text();
+    console.error('[ai-chat] Tavily error:', res.status, errText);
+    throw new Error(`Tavily search failed: ${res.status}`);
+  }
+
+  const data = await res.json();
+  const sources = (data?.results ?? [])
+    .slice(0, 3)
+    .map((r: { title?: string; url?: string }) => r.url)
+    .filter(Boolean);
+
+  const answer = data?.answer ?? '';
+  const results = (data?.results ?? [])
+    .slice(0, 4)
+    .map((r: { title?: string; url?: string; content?: string }, i: number) =>
+      `${i + 1}. ${r.title ?? 'Tanpa judul'}\n   ${r.url ?? ''}\n   ${(r.content ?? '').slice(0, 500)}`
+    )
+    .join('\n\n');
+
+  const ctx = [answer, results].filter(Boolean).join('\n\n');
+  const sourceLine = sources.length > 0 ? `\n\nSumber: ${sources.join(', ')}` : '';
+
+  return ctx ? `${ctx}${sourceLine}` : 'Tidak ada hasil pencarian.';
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, {
@@ -200,12 +241,23 @@ Deno.serve(async (req) => {
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
     const summary = await fetchFinancialSummary(supabase, user_id);
 
-    const isResearch = RESEARCH_KEYWORDS.some((kw) => message.toLowerCase().includes(kw));
-    const model = isResearch ? RESEARCH_MODEL : CHAT_MODEL;
+    const q = message.toLowerCase();
+    const isUserData = USER_DATA_KEYWORDS.some((kw) => q.includes(kw));
+    const isResearch = !isUserData && RESEARCH_KEYWORDS.some((kw) => q.includes(kw));
     const systemPrompt = buildSystemPrompt(summary, isResearch);
 
-    const messages = [
+    let reply: string;
+
+    let researchContext = '';
+    if (isResearch) {
+      researchContext = await tavilySearch(message, 5);
+    }
+
+    const llmMessages = [
       { role: 'system', content: systemPrompt },
+      ...(researchContext
+        ? [{ role: 'system', content: `Berikut hasil pencarian real-time untuk dijadikan bahan jawaban (jangan mengarang di luar ini):\n\n${researchContext}` }]
+        : []),
       ...(history ?? []).map((m) => ({ role: m.role, content: m.content })),
       { role: 'user', content: message },
     ];
@@ -217,11 +269,10 @@ Deno.serve(async (req) => {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model,
-        messages,
+        model: CHAT_MODEL,
+        messages: llmMessages,
         stream: false,
         temperature: 0.7,
-        ...(isResearch ? { tools: [{ googleSearch: {} }] } : {}),
       }),
     });
 
@@ -236,7 +287,7 @@ Deno.serve(async (req) => {
 
     const llmData = await llmResponse.json();
     const choice = llmData.choices?.[0];
-    let reply = choice?.message?.content ?? 'Maaf, aku gak bisa nge-response sekarang.';
+    reply = choice?.message?.content ?? 'Maaf, aku gak bisa nge-response sekarang.';
     if (choice?.finish_reason === 'length') {
       reply += '\n\n... (jawaban ke-potong karena terlalu panjang. Coba tanya yang lebih spesifik)';
     }
