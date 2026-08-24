@@ -3,8 +3,9 @@ import { useTheme } from '@/src/contexts/ThemeContext';
 import { useUser } from '@/src/contexts/UserContext';
 import { sendChatMessage } from '@/src/services/aiChatService';
 import type { ChatMessage } from '@/src/types';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router, useLocalSearchParams } from 'expo-router';
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -24,6 +25,14 @@ const SUGGESTION_PROMPTS = [
   'Apakah saving aku optimal?',
 ];
 
+const CHAT_SESSION_KEY = '@monetra_chat_session';
+const SESSION_TTL_MS = 24 * 60 * 60 * 1000;
+
+interface StoredChatSession {
+  messages: ChatMessage[];
+  startedAt: number;
+}
+
 export default function ChatScreen() {
   const { colors } = useTheme();
   const { profile } = useUser();
@@ -31,9 +40,49 @@ export default function ChatScreen() {
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const flatListRef = useRef<FlatList>(null);
+  const startedAtRef = useRef<number>(Date.now());
+  const hydratedRef = useRef(false);
 
   const scrollToBottom = useCallback(() => {
     setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 100);
+  }, []);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const raw = await AsyncStorage.getItem(CHAT_SESSION_KEY);
+        if (raw) {
+          const session: StoredChatSession = JSON.parse(raw);
+          if (Date.now() - session.startedAt < SESSION_TTL_MS) {
+            startedAtRef.current = session.startedAt;
+            setMessages(session.messages);
+            scrollToBottom();
+          } else {
+            await AsyncStorage.removeItem(CHAT_SESSION_KEY);
+          }
+        }
+      } catch (err) {
+        console.error('[Chat] Failed to load session:', err);
+      } finally {
+        hydratedRef.current = true;
+      }
+    })();
+  }, [scrollToBottom]);
+
+  useEffect(() => {
+    if (!hydratedRef.current && messages.length === 0) return;
+    const session: StoredChatSession = { messages, startedAt: startedAtRef.current };
+    AsyncStorage.setItem(CHAT_SESSION_KEY, JSON.stringify(session)).catch((err) =>
+      console.error('[Chat] Failed to save session:', err)
+    );
+  }, [messages]);
+
+  const handleNewChat = useCallback(() => {
+    startedAtRef.current = Date.now();
+    setMessages([]);
+    AsyncStorage.removeItem(CHAT_SESSION_KEY).catch((err) =>
+      console.error('[Chat] Failed to clear session:', err)
+    );
   }, []);
 
   const handleSend = useCallback(
@@ -144,6 +193,15 @@ export default function ChatScreen() {
           <Text style={{ color: colors.text, fontSize: 18, fontWeight: '700' }}>Monetra AI</Text>
           <Text style={{ color: colors.textTertiary, fontSize: 12 }}>Financial Assistant</Text>
         </View>
+        {messages.length > 0 && (
+          <Pressable
+            onPress={handleNewChat}
+            style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: colors.cardSecondary, borderRadius: 20, paddingHorizontal: 12, paddingVertical: 8, marginRight: 10 }}
+          >
+            <IconSymbol name="plus" size={14} color={colors.text} />
+            <Text style={{ color: colors.text, fontSize: 12, fontWeight: '600', marginLeft: 4 }}>New Chat</Text>
+          </Pressable>
+        )}
         <View
           style={{
             width: 10,
