@@ -1,4 +1,5 @@
 import { IconSymbol } from '@/components/ui/icon-symbol';
+import { DateField } from '@/src/components/common/DateField';
 import { useTheme } from '@/src/contexts/ThemeContext';
 import { useUser } from '@/src/contexts/UserContext';
 import { dummyTransactions } from '@/src/lib/dummy-data';
@@ -9,6 +10,42 @@ import { useFocusEffect } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Image, Modal, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+
+type DatePreset = 'all' | 'this_month' | 'last_month' | 'last_3_months' | 'this_year' | 'custom';
+
+const DATE_PRESET_LABELS: Record<DatePreset, string> = {
+  all: 'Semua',
+  this_month: 'Bulan Ini',
+  last_month: 'Bulan Lalu',
+  last_3_months: '3 Bulan Terakhir',
+  this_year: 'Tahun Ini',
+  custom: 'Custom',
+};
+
+function toYMD(date: Date): string {
+  return date.toISOString().split('T')[0];
+}
+
+function computeDateRange(preset: DatePreset, customFrom: string, customTo: string): { from?: string; to?: string } {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = now.getMonth();
+
+  switch (preset) {
+    case 'this_month':
+      return { from: toYMD(new Date(year, month, 1)), to: toYMD(new Date(year, month + 1, 0)) };
+    case 'last_month':
+      return { from: toYMD(new Date(year, month - 1, 1)), to: toYMD(new Date(year, month, 0)) };
+    case 'last_3_months':
+      return { from: toYMD(new Date(year, month - 2, 1)), to: toYMD(new Date(year, month + 1, 0)) };
+    case 'this_year':
+      return { from: toYMD(new Date(year, 0, 1)), to: toYMD(new Date(year, 11, 31)) };
+    case 'custom':
+      return { from: customFrom || undefined, to: customTo || undefined };
+    default:
+      return {};
+  }
+}
 
 export default function HistoryScreen() {
   const { colors } = useTheme();
@@ -25,25 +62,22 @@ export default function HistoryScreen() {
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [selectedMerchants, setSelectedMerchants] = useState<string[]>([]);
   const [merchantSearch, setMerchantSearch] = useState('');
+  const [datePreset, setDatePreset] = useState<DatePreset>('all');
+  const [customDateFrom, setCustomDateFrom] = useState('');
+  const [customDateTo, setCustomDateTo] = useState('');
 
-  
-
-  // Auto-fetch saat navigasi ke halaman ini
-  useFocusEffect(
-    useCallback(() => {
-      loadTransactions();
-    }, [])
-  );
-
-  const loadTransactions = async (isRefresh = false) => {
+  const loadTransactions = useCallback(async (isRefresh = false, rangeOverride?: { from?: string; to?: string }) => {
     try {
       if (isRefresh) {
         setRefreshing(true);
       } else {
         setLoading(true);
       }
+      const { from, to } = rangeOverride ?? computeDateRange(datePreset, customDateFrom, customDateTo);
       const response = await fetchTransactions({
-        limit: 100,  // Get all data tanpa filter user_id
+        limit: from || to ? undefined : 100, // date-scoped queries don't need a flat cap
+        date_from: from,
+        date_to: to,
       });
       setTransactions(response.data);
     } catch (err) {
@@ -53,7 +87,14 @@ export default function HistoryScreen() {
       setLoading(false);
       setRefreshing(false);
     }
-  };
+  }, [datePreset, customDateFrom, customDateTo]);
+
+  // Auto-fetch saat navigasi ke halaman ini atau periode berubah
+  useFocusEffect(
+    useCallback(() => {
+      loadTransactions();
+    }, [loadTransactions])
+  );
 
   const handleRefresh = () => {
     loadTransactions(true);
@@ -68,7 +109,7 @@ export default function HistoryScreen() {
   const visibleMerchants = merchantSearch.trim()
     ? uniqueMerchants.filter((m) => m.toLowerCase().includes(merchantSearch.trim().toLowerCase()))
     : uniqueMerchants;
-  const activeFilterCount = selectedCategories.length + selectedMerchants.length;
+  const activeFilterCount = selectedCategories.length + selectedMerchants.length + (datePreset !== 'all' ? 1 : 0);
 
   const toggleCategory = (category: string) => {
     setSelectedCategories((prev) =>
@@ -84,6 +125,9 @@ export default function HistoryScreen() {
     setSelectedCategories([]);
     setSelectedMerchants([]);
     setMerchantSearch('');
+    setDatePreset('all');
+    setCustomDateFrom('');
+    setCustomDateTo('');
   };
 
   const filteredTransactions = (transactions || []).filter((transaction) => {
@@ -270,6 +314,44 @@ export default function HistoryScreen() {
             </View>
 
             <ScrollView showsVerticalScrollIndicator={false}>
+              {/* Date period filter */}
+              <Text style={{ color: colors.textSecondary, fontSize: 12, fontWeight: '600', marginBottom: 10, letterSpacing: 0.5 }}>
+                PERIODE {datePreset !== 'all' ? `(${DATE_PRESET_LABELS[datePreset]})` : ''}
+              </Text>
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: datePreset === 'custom' ? 12 : 20 }}>
+                {(['all', 'this_month', 'last_month', 'last_3_months', 'this_year', 'custom'] as DatePreset[]).map((preset) => {
+                  const isSelected = datePreset === preset;
+                  return (
+                    <Pressable
+                      key={preset}
+                      onPress={() => setDatePreset(preset)}
+                      style={{
+                        paddingHorizontal: 14,
+                        paddingVertical: 8,
+                        borderRadius: 20,
+                        borderWidth: 1,
+                        borderColor: isSelected ? colors.primary : colors.border,
+                        backgroundColor: isSelected ? colors.primary : colors.cardSecondary,
+                      }}
+                    >
+                      <Text style={{ fontSize: 13, fontWeight: '500', color: isSelected ? '#0a0a0a' : colors.textSecondary }}>
+                        {DATE_PRESET_LABELS[preset]}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+              {datePreset === 'custom' && (
+                <View style={{ flexDirection: 'row', gap: 12, marginBottom: 20 }}>
+                  <View style={{ flex: 1 }}>
+                    <DateField label="Dari" value={customDateFrom} onChange={setCustomDateFrom} />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <DateField label="Sampai" value={customDateTo} onChange={setCustomDateTo} />
+                  </View>
+                </View>
+              )}
+
               {/* Category filter */}
               <Text style={{ color: colors.textSecondary, fontSize: 12, fontWeight: '600', marginBottom: 10, letterSpacing: 0.5 }}>
                 CATEGORY {selectedCategories.length > 0 ? `(${selectedCategories.length})` : ''}
@@ -359,13 +441,19 @@ export default function HistoryScreen() {
 
             <View style={{ flexDirection: 'row', gap: 12, marginTop: 16 }}>
               <Pressable
-                onPress={clearAdvancedFilters}
+                onPress={() => {
+                  clearAdvancedFilters();
+                  loadTransactions(false, {});
+                }}
                 style={{ flex: 1, backgroundColor: colors.cardSecondary, borderRadius: 12, padding: 14, alignItems: 'center' }}
               >
                 <Text style={{ color: colors.text, fontWeight: '600', fontSize: 14 }}>Clear All</Text>
               </Pressable>
               <Pressable
-                onPress={() => setShowFilterModal(false)}
+                onPress={() => {
+                  setShowFilterModal(false);
+                  loadTransactions();
+                }}
                 style={{ flex: 1, backgroundColor: colors.primary, borderRadius: 12, padding: 14, alignItems: 'center' }}
               >
                 <Text style={{ color: '#0a0a0a', fontWeight: 'bold', fontSize: 14 }}>Apply</Text>

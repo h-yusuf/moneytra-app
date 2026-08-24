@@ -17,6 +17,8 @@ export interface FetchTransactionsParams {
   type?: 'expense' | 'money_saving';
   limit?: number;
   offset?: number;
+  date_from?: string; // YYYY-MM-DD, inclusive
+  date_to?: string; // YYYY-MM-DD, inclusive
 }
 
 export interface FetchMonthlyReportParams {
@@ -92,6 +94,8 @@ export async function fetchTransactions(
 
   if (params.user_id) query = query.eq('user_id', params.user_id);
   if (params.type) query = query.eq('type', params.type);
+  if (params.date_from) query = query.gte('transaction_date', params.date_from);
+  if (params.date_to) query = query.lte('transaction_date', params.date_to);
   if (params.limit) query = query.limit(params.limit);
   if (params.offset) query = query.range(params.offset, params.offset + (params.limit ?? 50) - 1);
 
