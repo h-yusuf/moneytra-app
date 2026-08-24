@@ -1,4 +1,5 @@
 import { IconSymbol } from '@/components/ui/icon-symbol';
+import { DateField } from '@/src/components/common/DateField';
 import { useTheme } from '@/src/contexts/ThemeContext';
 import { useUser } from '@/src/contexts/UserContext';
 import { dummyTransactions } from '@/src/lib/dummy-data';
@@ -341,27 +342,9 @@ export default function HistoryScreen() {
                 })}
               </View>
               {datePreset === 'custom' && (
-                <View style={{ flexDirection: 'row', gap: 12, marginBottom: 20 }}>
-                  <View style={{ flex: 1 }}>
-                    <Text style={{ color: colors.textSecondary, fontSize: 12, marginBottom: 6, fontWeight: '500' }}>Dari</Text>
-                    <TextInput
-                      value={customDateFrom}
-                      onChangeText={setCustomDateFrom}
-                      placeholder="YYYY-MM-DD"
-                      placeholderTextColor={colors.textTertiary}
-                      style={{ backgroundColor: colors.cardSecondary, borderRadius: 12, padding: 12, color: colors.text, fontSize: 14 }}
-                    />
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={{ color: colors.textSecondary, fontSize: 12, marginBottom: 6, fontWeight: '500' }}>Sampai</Text>
-                    <TextInput
-                      value={customDateTo}
-                      onChangeText={setCustomDateTo}
-                      placeholder="YYYY-MM-DD"
-                      placeholderTextColor={colors.textTertiary}
-                      style={{ backgroundColor: colors.cardSecondary, borderRadius: 12, padding: 12, color: colors.text, fontSize: 14 }}
-                    />
-                  </View>
+                <View style={{ marginBottom: 20, zIndex: 50 }}>
+                  <DateField label="Dari" value={customDateFrom} onChange={setCustomDateFrom} />
+                  <DateField label="Sampai" value={customDateTo} onChange={setCustomDateTo} />
                 </View>
               )}
 
