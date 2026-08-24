@@ -25,12 +25,21 @@ const SUGGESTION_PROMPTS = [
   'Apakah saving aku optimal?',
 ];
 
-const CHAT_SESSION_KEY = '@monetra_chat_session';
+export const CHAT_SESSION_KEY = '@monetra_chat_session';
 const SESSION_TTL_MS = 24 * 60 * 60 * 1000;
 
-interface StoredChatSession {
+export interface StoredChatSession {
   messages: ChatMessage[];
   startedAt: number;
+  unreadReplyAt?: number | null;
+}
+
+async function persistChatSession(session: StoredChatSession): Promise<void> {
+  try {
+    await AsyncStorage.setItem(CHAT_SESSION_KEY, JSON.stringify(session));
+  } catch (err) {
+    console.error('[Chat] Failed to save session:', err);
+  }
 }
 
 export default function ChatScreen() {
@@ -39,12 +48,21 @@ export default function ChatScreen() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
+  const [unreadReplyAt, setUnreadReplyAt] = useState<number | null>(null);
   const flatListRef = useRef<FlatList>(null);
   const startedAtRef = useRef<number>(Date.now());
-  const hydratedRef = useRef(false);
+  const messagesRef = useRef<ChatMessage[]>([]);
+  const mountedRef = useRef(true);
 
   const scrollToBottom = useCallback(() => {
     setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 100);
+  }, []);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
   }, []);
 
   useEffect(() => {
@@ -55,7 +73,12 @@ export default function ChatScreen() {
           const session: StoredChatSession = JSON.parse(raw);
           if (Date.now() - session.startedAt < SESSION_TTL_MS) {
             startedAtRef.current = session.startedAt;
+            messagesRef.current = session.messages;
             setMessages(session.messages);
+            if (session.unreadReplyAt) {
+              setUnreadReplyAt(session.unreadReplyAt);
+              await persistChatSession({ ...session, unreadReplyAt: null });
+            }
             scrollToBottom();
           } else {
             await AsyncStorage.removeItem(CHAT_SESSION_KEY);
@@ -63,23 +86,15 @@ export default function ChatScreen() {
         }
       } catch (err) {
         console.error('[Chat] Failed to load session:', err);
-      } finally {
-        hydratedRef.current = true;
       }
     })();
   }, [scrollToBottom]);
 
-  useEffect(() => {
-    if (!hydratedRef.current && messages.length === 0) return;
-    const session: StoredChatSession = { messages, startedAt: startedAtRef.current };
-    AsyncStorage.setItem(CHAT_SESSION_KEY, JSON.stringify(session)).catch((err) =>
-      console.error('[Chat] Failed to save session:', err)
-    );
-  }, [messages]);
-
   const handleNewChat = useCallback(() => {
     startedAtRef.current = Date.now();
+    messagesRef.current = [];
     setMessages([]);
+    setUnreadReplyAt(null);
     AsyncStorage.removeItem(CHAT_SESSION_KEY).catch((err) =>
       console.error('[Chat] Failed to clear session:', err)
     );
@@ -90,26 +105,40 @@ export default function ChatScreen() {
       const trimmed = text.trim();
       if (!trimmed || !profile?.user_id || loading) return;
 
+      const historySnapshot = messagesRef.current.map((m) => ({ role: m.role, content: m.content }));
+
       const userMessage: ChatMessage = {
         role: 'user',
         content: trimmed,
         timestamp: Date.now(),
       };
-      setMessages((prev) => [...prev, userMessage]);
+      const afterUserMessage = [...messagesRef.current, userMessage];
+      messagesRef.current = afterUserMessage;
+      setMessages(afterUserMessage);
       setInput('');
       setLoading(true);
       scrollToBottom();
+      persistChatSession({ messages: afterUserMessage, startedAt: startedAtRef.current, unreadReplyAt: null });
 
       try {
-        const history = messages.map((m) => ({ role: m.role, content: m.content }));
-        const response = await sendChatMessage(profile.user_id, trimmed, history);
+        const response = await sendChatMessage(profile.user_id, trimmed, historySnapshot);
 
         const assistantMessage: ChatMessage = {
           role: 'assistant',
           content: response.reply,
           timestamp: Date.now(),
         };
-        setMessages((prev) => [...prev, assistantMessage]);
+        const finalMessages = [...afterUserMessage, assistantMessage];
+        messagesRef.current = finalMessages;
+        const stillMounted = mountedRef.current;
+        if (stillMounted) {
+          setMessages(finalMessages);
+        }
+        persistChatSession({
+          messages: finalMessages,
+          startedAt: startedAtRef.current,
+          unreadReplyAt: stillMounted ? null : assistantMessage.timestamp,
+        });
       } catch (err) {
         console.error('[Chat] Error:', err);
         const errorMessage: ChatMessage = {
@@ -117,17 +146,30 @@ export default function ChatScreen() {
           content: 'Maaf, lagi ada gangguan. Coba lagi ya.',
           timestamp: Date.now(),
         };
-        setMessages((prev) => [...prev, errorMessage]);
+        const finalMessages = [...afterUserMessage, errorMessage];
+        messagesRef.current = finalMessages;
+        const stillMounted = mountedRef.current;
+        if (stillMounted) {
+          setMessages(finalMessages);
+        }
+        persistChatSession({
+          messages: finalMessages,
+          startedAt: startedAtRef.current,
+          unreadReplyAt: stillMounted ? null : errorMessage.timestamp,
+        });
       } finally {
-        setLoading(false);
-        scrollToBottom();
+        if (mountedRef.current) {
+          setLoading(false);
+          scrollToBottom();
+        }
       }
     },
-    [profile?.user_id, loading, messages, scrollToBottom]
+    [profile?.user_id, loading, scrollToBottom]
   );
 
   const renderMessage = ({ item }: { item: ChatMessage }) => {
     const isUser = item.role === 'user';
+    const isUnread = !isUser && unreadReplyAt !== null && item.timestamp >= unreadReplyAt;
 
     return (
       <View style={{ paddingHorizontal: 20, marginVertical: 6, flexDirection: isUser ? 'row-reverse' : 'row' }}>
@@ -145,6 +187,21 @@ export default function ChatScreen() {
             }}
           >
             <IconSymbol name="bot.fill" size={16} color="#0a0a0a" />
+            {isUnread && (
+              <View
+                style={{
+                  position: 'absolute',
+                  top: -2,
+                  right: -2,
+                  width: 10,
+                  height: 10,
+                  borderRadius: 5,
+                  backgroundColor: colors.error,
+                  borderWidth: 1.5,
+                  borderColor: colors.background,
+                }}
+              />
+            )}
           </View>
         )}
         <View

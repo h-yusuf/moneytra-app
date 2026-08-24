@@ -1,10 +1,12 @@
 import { IconSymbol } from '@/components/ui/icon-symbol';
+import { CHAT_SESSION_KEY, type StoredChatSession } from '@/app/chat';
 import { useTheme } from '@/src/contexts/ThemeContext';
 import { useUser } from '@/src/contexts/UserContext';
 import { dummySummary, dummyTransactions } from '@/src/lib/dummy-data';
 import { formatCurrency } from '@/src/lib/utils';
 import { fetchMonthlyReport, fetchTransactions } from '@/src/services/transactionService';
 import type { MonthlyReportResponse, Transaction } from '@/src/types';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, ScrollView, Text, View } from 'react-native';
@@ -18,6 +20,19 @@ export default function DashboardScreen() {
   const [recentTransactions, setRecentTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [hasUnreadChatReply, setHasUnreadChatReply] = useState(false);
+
+  useFocusEffect(
+    useCallback(() => {
+      AsyncStorage.getItem(CHAT_SESSION_KEY)
+        .then((raw) => {
+          if (!raw) return setHasUnreadChatReply(false);
+          const session: StoredChatSession = JSON.parse(raw);
+          setHasUnreadChatReply(!!session.unreadReplyAt);
+        })
+        .catch(() => setHasUnreadChatReply(false));
+    }, [])
+  );
 
   const currentDate = new Date();
   const formattedDate = currentDate.toLocaleDateString('id-ID', {
@@ -335,7 +350,7 @@ export default function DashboardScreen() {
         onPress={handleChatPress}
         style={{
           position: 'absolute',
-          bottom: 90,
+          bottom: 45,
           right: 20,
           width: 56,
           height: 56,
@@ -351,6 +366,21 @@ export default function DashboardScreen() {
         }}
       >
         <IconSymbol name="bot.fill" size={24} color="#0a0a0a" />
+        {hasUnreadChatReply && (
+          <View
+            style={{
+              position: 'absolute',
+              top: 2,
+              right: 2,
+              width: 14,
+              height: 14,
+              borderRadius: 7,
+              backgroundColor: colors.error,
+              borderWidth: 2,
+              borderColor: colors.background,
+            }}
+          />
+        )}
       </Pressable>
     </SafeAreaView>
   );
