@@ -88,6 +88,9 @@ const MAPPING = {
   'eye.fill': 'visibility',
   'sparkles': 'auto-awesome',
   'checklist': 'checklist',
+
+  // Prompt entry
+  'text.bubble.fill': 'chat',
 } as IconMapping;
 
 /**
