@@ -104,3 +104,18 @@ export interface ChatResponse {
     this_month_saving: number;
   };
 }
+
+export interface ParsedTransactionDraft {
+  id: string;
+  merchant: string | null;
+  total: number | null;
+  category: string | null;
+  transaction_date: string | null;
+  payment_method?: string | null;
+  notes?: string;
+  type: 'expense' | 'money_saving';
+}
+
+export interface ParseTransactionsPromptResponse {
+  transactions: ParsedTransactionDraft[];
+}
