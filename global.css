@@ -1,3 +1,15 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* React Native Web renders TextInput as a real <input>/<textarea>, which
+   picks up the browser's default focus ring and (for multiline) a resize
+   grip handle — neither fits the app's design. */
+input:focus,
+textarea:focus {
+  outline: none;
+}
+
+textarea {
+  resize: none;
+}

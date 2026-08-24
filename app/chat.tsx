@@ -260,6 +260,7 @@ export default function ChatScreen() {
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [unreadReplyAt, setUnreadReplyAt] = useState<number | null>(null);
+  const [inputFocused, setInputFocused] = useState(false);
   const flatListRef = useRef<FlatList>(null);
   const startedAtRef = useRef<number>(Date.now());
   const messagesRef = useRef<ChatMessage[]>([]);
@@ -506,6 +507,8 @@ export default function ChatScreen() {
           <TextInput
             value={input}
             onChangeText={setInput}
+            onFocus={() => setInputFocused(true)}
+            onBlur={() => setInputFocused(false)}
             placeholder="Tulis pesan..."
             placeholderTextColor={colors.textTertiary}
             multiline
@@ -520,6 +523,9 @@ export default function ChatScreen() {
               paddingHorizontal: 16,
               paddingVertical: 10,
               maxHeight: 100,
+              borderWidth: 1.5,
+              borderColor: inputFocused ? colors.primary : 'transparent',
+              ...(Platform.OS === 'web' ? { outlineStyle: 'none' as any, outlineWidth: 0 } : null),
             }}
           />
           <Pressable
