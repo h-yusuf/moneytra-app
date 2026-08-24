@@ -3,7 +3,9 @@ import { useTheme } from '@/src/contexts/ThemeContext';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Animated, Easing, Image, Text, View } from 'react-native';
 
-const STAGES: { icon: any; message: string }[] = [
+export type ProcessingStage = { icon: any; message: string };
+
+const DEFAULT_OCR_STAGES: ProcessingStage[] = [
   { icon: 'doc.text.viewfinder', message: 'Membaca gambar struk...' },
   { icon: 'eye.fill', message: 'Mendeteksi teks & angka...' },
   { icon: 'sparkles', message: 'AI menganalisis transaksi...' },
@@ -17,7 +19,13 @@ function formatElapsed(ms: number): string {
   return minutes > 0 ? `${minutes}m ${seconds}s` : `${seconds}s`;
 }
 
-export function OcrProcessingCard({ imageUri }: { imageUri?: string }) {
+export function OcrProcessingCard({
+  imageUri,
+  stages = DEFAULT_OCR_STAGES,
+}: {
+  imageUri?: string;
+  stages?: ProcessingStage[];
+}) {
   const { colors } = useTheme();
   const [elapsedMs, setElapsedMs] = useState(0);
   const [stageIndex, setStageIndex] = useState(0);
@@ -39,7 +47,7 @@ export function OcrProcessingCard({ imageUri }: { imageUri?: string }) {
         Animated.timing(fadeAnim, { toValue: 0, duration: 200, useNativeDriver: true }),
         Animated.timing(fadeAnim, { toValue: 1, duration: 250, useNativeDriver: true }),
       ]).start();
-      setStageIndex((i) => (i + 1) % STAGES.length);
+      setStageIndex((i) => (i + 1) % stages.length);
     }, 2400);
 
     const scanLoop = Animated.loop(
@@ -81,7 +89,7 @@ export function OcrProcessingCard({ imageUri }: { imageUri?: string }) {
   const barWidth = trackWidth * 0.4;
   const barTranslateX = barAnim.interpolate({ inputRange: [0, 1], outputRange: [-barWidth, trackWidth] });
 
-  const stage = useMemo(() => STAGES[stageIndex], [stageIndex]);
+  const stage = useMemo(() => stages[stageIndex], [stageIndex, stages]);
 
   return (
     <View style={{ backgroundColor: colors.card, borderRadius: 16, padding: 16, borderWidth: 1, borderColor: colors.border }}>
