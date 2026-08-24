@@ -1,7 +1,7 @@
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { useTheme } from '@/src/contexts/ThemeContext';
 import { useUser } from '@/src/contexts/UserContext';
-import { sendChatMessage } from '@/src/services/aiChatService';
+import { sendChatMessageStream, type StreamHandle } from '@/src/services/aiChatService';
 import type { ChatMessage } from '@/src/types';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
@@ -261,6 +261,8 @@ export default function ChatScreen() {
   const [loading, setLoading] = useState(false);
   const [unreadReplyAt, setUnreadReplyAt] = useState<number | null>(null);
   const [inputFocused, setInputFocused] = useState(false);
+  const [streamingReply, setStreamingReply] = useState<string | null>(null);
+  const streamHandleRef = useRef<StreamHandle | null>(null);
   const flatListRef = useRef<FlatList>(null);
   const startedAtRef = useRef<number>(Date.now());
   const messagesRef = useRef<ChatMessage[]>([]);
@@ -321,6 +323,10 @@ export default function ChatScreen() {
   );
 
   const handleNewChat = useCallback(() => {
+    streamHandleRef.current?.abort();
+    streamHandleRef.current = null;
+    setStreamingReply(null);
+    setLoading(false);
     startedAtRef.current = Date.now();
     messagesRef.current = [];
     setMessages([]);
@@ -350,12 +356,27 @@ export default function ChatScreen() {
       scrollToBottom();
       persistChatSession({ messages: afterUserMessage, startedAt: startedAtRef.current, unreadReplyAt: null });
 
+      setStreamingReply(null);
+
       try {
-        const response = await sendChatMessage(profile.user_id, trimmed, historySnapshot);
+        const finalText = await new Promise<string>((resolve, reject) => {
+          let acc = '';
+          streamHandleRef.current = sendChatMessageStream(profile.user_id, trimmed, historySnapshot, {
+            onDelta: (chunk) => {
+              acc += chunk;
+              if (mountedRef.current) {
+                setStreamingReply(acc);
+                scrollToBottom();
+              }
+            },
+            onDone: () => resolve(acc),
+            onError: (err) => reject(err),
+          });
+        });
 
         const assistantMessage: ChatMessage = {
           role: 'assistant',
-          content: response.reply,
+          content: finalText || 'Maaf, aku gak bisa nge-response sekarang.',
           timestamp: Date.now(),
         };
         const finalMessages = [...afterUserMessage, assistantMessage];
@@ -388,8 +409,10 @@ export default function ChatScreen() {
           unreadReplyAt: stillMounted ? null : errorMessage.timestamp,
         });
       } finally {
+        streamHandleRef.current = null;
         if (mountedRef.current) {
           setLoading(false);
+          setStreamingReply(null);
           scrollToBottom();
         }
       }
@@ -480,12 +503,23 @@ export default function ChatScreen() {
         }
         ListFooterComponent={
           loading ? (
-            <View style={{ paddingHorizontal: 20, paddingVertical: 12, flexDirection: 'row', alignItems: 'center' }}>
-              <View style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center', marginRight: 8 }}>
-                <EqualizerTyping color="#0a0a0a" />
+            streamingReply ? (
+              <View style={{ paddingHorizontal: 20, marginVertical: 6, flexDirection: 'row' }}>
+                <View style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center', marginRight: 8, marginTop: 4 }}>
+                  <IconSymbol name="bot.fill" size={16} color="#0a0a0a" />
+                </View>
+                <View style={{ maxWidth: '75%', backgroundColor: colors.cardSecondary, borderRadius: 18, borderBottomLeftRadius: 4, paddingHorizontal: 16, paddingVertical: 10 }}>
+                  <Text style={{ color: colors.text, fontSize: 15, lineHeight: 22 }}>{streamingReply}</Text>
+                </View>
               </View>
-              <Text style={{ color: colors.textTertiary, fontSize: 14 }}>Monetra AI lagi mikir...</Text>
-            </View>
+            ) : (
+              <View style={{ paddingHorizontal: 20, paddingVertical: 12, flexDirection: 'row', alignItems: 'center' }}>
+                <View style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center', marginRight: 8 }}>
+                  <EqualizerTyping color="#0a0a0a" />
+                </View>
+                <Text style={{ color: colors.textTertiary, fontSize: 14 }}>Monetra AI lagi mikir...</Text>
+              </View>
+            )
           ) : null
         }
       />

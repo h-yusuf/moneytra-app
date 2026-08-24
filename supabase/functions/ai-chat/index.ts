@@ -19,6 +19,7 @@ interface ChatRequestBody {
   user_id: string;
   message: string;
   history?: ChatMessage[];
+  stream?: boolean;
 }
 
 interface FinancialSummary {
@@ -277,6 +278,94 @@ Deno.serve(async (req) => {
       ...(history ?? []).map((m) => ({ role: m.role, content: m.content })),
       { role: 'user', content: message },
     ];
+
+    if (body.stream) {
+      const llmStreamResponse = await fetch(`${LLM_BASE_URL}/chat/completions`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${LLM_API_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: CHAT_MODEL,
+          messages: llmMessages,
+          stream: true,
+          temperature: 0.7,
+        }),
+      });
+
+      if (!llmStreamResponse.ok || !llmStreamResponse.body) {
+        const errText = await llmStreamResponse.text().catch(() => 'No response body');
+        console.error('[ai-chat] LLM stream error:', llmStreamResponse.status, errText);
+        return new Response(
+          JSON.stringify({ error: 'LLM request failed', detail: errText }),
+          { status: 502, headers: { 'Content-Type': 'application/json' } }
+        );
+      }
+
+      const summaryPayload = {
+        total_expense: summary.total_expense,
+        total_saving: summary.total_saving,
+        this_month_expense: summary.this_month_expense,
+        this_month_saving: summary.this_month_saving,
+      };
+
+      const outStream = new ReadableStream({
+        async start(controller) {
+          const encoder = new TextEncoder();
+          const send = (obj: unknown) => controller.enqueue(encoder.encode(`data: ${JSON.stringify(obj)}\n\n`));
+
+          send({ type: 'summary', summary: summaryPayload });
+
+          const reader = llmStreamResponse.body!.getReader();
+          const decoder = new TextDecoder();
+          let buffer = '';
+
+          try {
+            while (true) {
+              const { done, value } = await reader.read();
+              if (done) break;
+              buffer += decoder.decode(value, { stream: true });
+
+              const parts = buffer.split('\n\n');
+              buffer = parts.pop() ?? '';
+
+              for (const part of parts) {
+                const line = part.trim();
+                if (!line.startsWith('data:')) continue;
+                const payload = line.slice(5).trim();
+                if (payload === '[DONE]') continue;
+                try {
+                  const parsed = JSON.parse(payload);
+                  const delta = parsed.choices?.[0]?.delta;
+                  // Reasoning models (e.g. glm-5.2) stream chain-of-thought via
+                  // `reasoning_content` separately from the real answer in
+                  // `content` — only the latter should ever reach the user.
+                  if (delta?.content) {
+                    send({ type: 'content', content: delta.content });
+                  }
+                } catch {
+                  // Ignore malformed/partial SSE frames (e.g. keepalive pings)
+                }
+              }
+            }
+          } catch (streamErr) {
+            console.error('[ai-chat] Stream read error:', streamErr);
+          } finally {
+            send({ type: 'done' });
+            controller.close();
+          }
+        },
+      });
+
+      return new Response(outStream, {
+        headers: {
+          'Content-Type': 'text/event-stream; charset=utf-8',
+          'Cache-Control': 'no-cache',
+          'Access-Control-Allow-Origin': '*',
+        },
+      });
+    }
 
     const llmResponse = await fetch(`${LLM_BASE_URL}/chat/completions`, {
       method: 'POST',
