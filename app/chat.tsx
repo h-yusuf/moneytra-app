@@ -4,7 +4,7 @@ import { useUser } from '@/src/contexts/UserContext';
 import { sendChatMessage } from '@/src/services/aiChatService';
 import type { ChatMessage } from '@/src/types';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { router, useLocalSearchParams } from 'expo-router';
+import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -65,30 +65,43 @@ export default function ChatScreen() {
     };
   }, []);
 
-  useEffect(() => {
-    (async () => {
-      try {
-        const raw = await AsyncStorage.getItem(CHAT_SESSION_KEY);
-        if (raw) {
-          const session: StoredChatSession = JSON.parse(raw);
-          if (Date.now() - session.startedAt < SESSION_TTL_MS) {
-            startedAtRef.current = session.startedAt;
-            messagesRef.current = session.messages;
-            setMessages(session.messages);
-            if (session.unreadReplyAt) {
-              setUnreadReplyAt(session.unreadReplyAt);
-              await persistChatSession({ ...session, unreadReplyAt: null });
-            }
-            scrollToBottom();
-          } else {
-            await AsyncStorage.removeItem(CHAT_SESSION_KEY);
-          }
-        }
-      } catch (err) {
-        console.error('[Chat] Failed to load session:', err);
+  const hydrateFromStorage = useCallback(async () => {
+    try {
+      const raw = await AsyncStorage.getItem(CHAT_SESSION_KEY);
+      if (!raw) return;
+      const session: StoredChatSession = JSON.parse(raw);
+      if (Date.now() - session.startedAt >= SESSION_TTL_MS) {
+        await AsyncStorage.removeItem(CHAT_SESSION_KEY);
+        return;
       }
-    })();
+      // Only move forward: a stale re-check must never regress state that's
+      // already ahead locally (e.g. a message just sent by this instance).
+      if (session.startedAt !== startedAtRef.current) {
+        startedAtRef.current = session.startedAt;
+      } else if (session.messages.length <= messagesRef.current.length && !session.unreadReplyAt) {
+        return;
+      }
+      messagesRef.current = session.messages;
+      setMessages(session.messages);
+      if (session.unreadReplyAt) {
+        setUnreadReplyAt(session.unreadReplyAt);
+        await persistChatSession({ ...session, unreadReplyAt: null });
+      }
+      scrollToBottom();
+    } catch (err) {
+      console.error('[Chat] Failed to load session:', err);
+    }
   }, [scrollToBottom]);
+
+  // Re-check storage every time this screen gains focus — picks up a reply
+  // that finished arriving while the user was away on another screen.
+  useFocusEffect(
+    useCallback(() => {
+      hydrateFromStorage();
+      const interval = setInterval(hydrateFromStorage, 3000);
+      return () => clearInterval(interval);
+    }, [hydrateFromStorage])
+  );
 
   const handleNewChat = useCallback(() => {
     startedAtRef.current = Date.now();

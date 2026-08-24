@@ -24,13 +24,21 @@ export default function DashboardScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      AsyncStorage.getItem(CHAT_SESSION_KEY)
-        .then((raw) => {
-          if (!raw) return setHasUnreadChatReply(false);
-          const session: StoredChatSession = JSON.parse(raw);
-          setHasUnreadChatReply(!!session.unreadReplyAt);
-        })
-        .catch(() => setHasUnreadChatReply(false));
+      const checkUnread = () => {
+        AsyncStorage.getItem(CHAT_SESSION_KEY)
+          .then((raw) => {
+            if (!raw) return setHasUnreadChatReply(false);
+            const session: StoredChatSession = JSON.parse(raw);
+            setHasUnreadChatReply(!!session.unreadReplyAt);
+          })
+          .catch(() => setHasUnreadChatReply(false));
+      };
+      checkUnread();
+      // Poll while this tab is focused — the reply may finish arriving
+      // (from a chat session left running in the background) after the
+      // initial focus check already ran.
+      const interval = setInterval(checkUnread, 3000);
+      return () => clearInterval(interval);
     }, [])
   );
 
