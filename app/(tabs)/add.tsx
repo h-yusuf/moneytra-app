@@ -1,6 +1,7 @@
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { AutocompleteInput } from '@/src/components/common/AutocompleteInput';
 import { DateField } from '@/src/components/common/DateField';
+import { OcrProcessingCard } from '@/src/components/common/OcrProcessingCard';
 import { useBudget } from '@/src/contexts/BudgetContext';
 import { useTheme } from '@/src/contexts/ThemeContext';
 import { useUser } from '@/src/contexts/UserContext';
@@ -11,7 +12,7 @@ import { Audio } from 'expo-av';
 import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { ActivityIndicator, Alert, Image, Modal, Platform, Pressable, RefreshControl, ScrollView, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -53,6 +54,7 @@ export default function AddScreen() {
     notes: '',
   });
   const { categories: categorySuggestions, merchants: merchantSuggestions } = useCategoryMerchantSuggestions();
+  const extractStartTimeRef = useRef<number | null>(null);
 
   function resolveSuggestedValue(input: string, suggestions: { value: string }[]): string {
     const trimmed = input.trim();
@@ -264,7 +266,8 @@ export default function AddScreen() {
       return;
     }
 
-    setInlineAlert({ type: 'info', message: 'Extracting transaction data from your image...' });
+    setInlineAlert(null);
+    extractStartTimeRef.current = Date.now();
     setIsExtracting(true);
 
     try {
@@ -277,10 +280,11 @@ export default function AddScreen() {
         uploadReceiptImage(uploadedFile.uri, profile.user_id),
       ]);
 
+      const durationSec = ((Date.now() - (extractStartTimeRef.current ?? Date.now())) / 1000).toFixed(1);
       console.log('[add] uploadReceiptImage result:', fileUrl);
       setExtractedData({ ...extracted, file_url: fileUrl ?? undefined });
       setIsExtracting(false);
-      setInlineAlert({ type: 'success', message: `Extraction complete! Receipt ${fileUrl ? 'uploaded ✓' : 'upload failed (no image saved)'}` });
+      setInlineAlert({ type: 'success', message: `Selesai dalam ${durationSec}s! Receipt ${fileUrl ? 'uploaded ✓' : 'upload failed (no image saved)'}` });
       setTimeout(() => setInlineAlert(null), 4000);
     } catch (error: any) {
       setIsExtracting(false);
@@ -515,26 +519,32 @@ export default function AddScreen() {
                   <Text style={{ color: colors.textTertiary, fontSize: 12 }}>{formatFileSize(uploadedFile.size)}</Text>
                 </View>
               </View>
-              {uploadedFile.type === 'image' && (
-                <View style={{ borderRadius: 12, overflow: 'hidden', marginBottom: 12 }}>
-                  <Image source={{ uri: uploadedFile.uri }} style={{ width: '100%', height: 200, backgroundColor: colors.cardSecondary }} resizeMode="contain" />
-                </View>
-              )}
-              {uploadedFile.type === 'pdf' && (
-                <View style={{ borderRadius: 12, backgroundColor: colors.cardSecondary, padding: 32, alignItems: 'center', marginBottom: 12 }}>
-                  <IconSymbol name="doc.text.fill" size={48} color={colors.textTertiary} />
-                  <Text style={{ color: colors.textTertiary, fontSize: 13, marginTop: 8 }}>PDF Document</Text>
-                </View>
-              )}
-              {!extractedData && (
-                <View style={{ flexDirection: 'row', gap: 12 }}>
-                  <Pressable onPress={handleCancelUpload} disabled={isExtracting} style={{ flex: 1, backgroundColor: colors.cardSecondary, borderRadius: 12, padding: 14, alignItems: 'center' }}>
-                    <Text style={{ color: colors.text, fontWeight: '600', fontSize: 14 }}>Cancel</Text>
-                  </Pressable>
-                  <Pressable onPress={handleExtractTransaction} disabled={isExtracting} style={{ flex: 1, backgroundColor: colors.primary, borderRadius: 12, padding: 14, alignItems: 'center', flexDirection: 'row', justifyContent: 'center' }}>
-                    {isExtracting ? (<><ActivityIndicator size="small" color="#0a0a0a" style={{ marginRight: 8 }} /><Text style={{ color: '#0a0a0a', fontWeight: 'bold', fontSize: 14 }}>Extracting...</Text></>) : (<Text style={{ color: '#0a0a0a', fontWeight: 'bold', fontSize: 14 }}>Extract Data</Text>)}
-                  </Pressable>
-                </View>
+              {isExtracting ? (
+                <OcrProcessingCard imageUri={uploadedFile.type === 'image' ? uploadedFile.uri : undefined} />
+              ) : (
+                <>
+                  {uploadedFile.type === 'image' && (
+                    <View style={{ borderRadius: 12, overflow: 'hidden', marginBottom: 12 }}>
+                      <Image source={{ uri: uploadedFile.uri }} style={{ width: '100%', height: 200, backgroundColor: colors.cardSecondary }} resizeMode="contain" />
+                    </View>
+                  )}
+                  {uploadedFile.type === 'pdf' && (
+                    <View style={{ borderRadius: 12, backgroundColor: colors.cardSecondary, padding: 32, alignItems: 'center', marginBottom: 12 }}>
+                      <IconSymbol name="doc.text.fill" size={48} color={colors.textTertiary} />
+                      <Text style={{ color: colors.textTertiary, fontSize: 13, marginTop: 8 }}>PDF Document</Text>
+                    </View>
+                  )}
+                  {!extractedData && (
+                    <View style={{ flexDirection: 'row', gap: 12 }}>
+                      <Pressable onPress={handleCancelUpload} style={{ flex: 1, backgroundColor: colors.cardSecondary, borderRadius: 12, padding: 14, alignItems: 'center' }}>
+                        <Text style={{ color: colors.text, fontWeight: '600', fontSize: 14 }}>Cancel</Text>
+                      </Pressable>
+                      <Pressable onPress={handleExtractTransaction} style={{ flex: 1, backgroundColor: colors.primary, borderRadius: 12, padding: 14, alignItems: 'center', flexDirection: 'row', justifyContent: 'center' }}>
+                        <Text style={{ color: '#0a0a0a', fontWeight: 'bold', fontSize: 14 }}>Extract Data</Text>
+                      </Pressable>
+                    </View>
+                  )}
+                </>
               )}
             </View>
           </View>

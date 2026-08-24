@@ -82,6 +82,12 @@ const MAPPING = {
 
   // AI Assistant
   'bot.fill': 'smart-toy',
+
+  // OCR processing
+  'doc.text.viewfinder': 'document-scanner',
+  'eye.fill': 'visibility',
+  'sparkles': 'auto-awesome',
+  'checklist': 'checklist',
 } as IconMapping;
 
 /**
