@@ -32,25 +32,63 @@ function getWIBDate(): string {
   }) + ' WIB (GMT+7)';
 }
 
+const CATEGORY_LIST = [
+  'Daily Meals',
+  'Grooming Products',
+  'Groceries',
+  'Transport',
+  'Internet',
+  'Personal Treatments',
+  'Life Style',
+  'Health',
+  'Social',
+  'Saving',
+  'Self Improvement',
+  'Maintenance',
+  'Capital Expenditure',
+  'Investment',
+  'Lainnya',
+];
+
 function buildSystemPrompt(): string {
-  return `Kamu adalah parser transaksi keuangan untuk aplikasi Monetra.
+  return `Jawab CEPAT. Langsung output JSON. JANGAN mikir keras / JANGAN yapping / JANGAN tulis reasoning atau penjelasan apapun sebelum JSON.
+
+Kamu adalah parser transaksi keuangan untuk aplikasi Monetra.
 Sekarang: ${getWIBDate()}. User berada di Indonesia (GMT+7). Gunakan tanggal ini untuk resolve tanggal relatif seperti "hari ini", "kemarin", "tadi pagi" — JANGAN menebak tanggal lain.
 
 Tugas kamu: baca kalimat user yang menyebutkan satu atau lebih transaksi keuangan, dan ubah jadi array JSON, satu object per transaksi berbeda yang disebut.
 
 Field per transaksi:
-- merchant: nama toko/tempat/tujuan (string, atau null kalau gak disebut/gak jelas)
-- total: nominal transaksi dalam Rupiah, angka murni tanpa pemisah ribuan. "12k"/"12rb" = 12000. Kalau gak ada nominal yang jelas -> null
-- category: kategori transaksi, infer dari konteks (contoh: "Belanja Harian", "Makanan & Minuman", "Transportasi", "Kesehatan", "Hiburan", "Pakaian", "Elektronik", "Pendidikan", "Tagihan", "Transfer", "Tabungan", "Lainnya"). JANGAN pernah null — default "Lainnya"
-- transaction_date: format YYYY-MM-DD, resolve dari kata relatif atau tanggal eksplisit. Kalau gak disebut sama sekali -> pakai tanggal hari ini
-- payment_method: "Cash", "QRIS", "Transfer", "E-Wallet", atau null kalau gak disebut
-- notes: catatan singkat tambahan (string, boleh kosong "")
-- type: "money_saving" kalau kalimat menyebut nabung/menabung/tabungan/tabungan nikah, selain itu "expense". Satu prompt bisa hasilkan campuran keduanya kalau user sebut lebih dari satu transaksi dengan konteks berbeda
+- merchant: nama toko/tempat/tujuan/penerima (string, Title Case, minimal 2 karakter, bukan cuma angka/simbol. Kalau gak disebut/gak jelas -> null)
+- total: nominal transaksi dalam Rupiah, angka murni tanpa pemisah ribuan. "12k"/"12rb" = 12000, "1.5jt" = 1500000. Range wajar 100 - 100.000.000. Kalau gak ada nominal yang jelas atau <= 0 -> null
+- transaction_date: format YYYY-MM-DD, resolve dari kata relatif atau tanggal eksplisit. Year range 2020 - tahun sekarang+1. Kalau gak disebut sama sekali -> pakai tanggal hari ini. Kalau invalid -> null
+- payment_method: "Cash", "QRIS", "Transfer", "E-Wallet", "Debit Card", "Credit Card", Title Case, atau null kalau gak disebut
+- notes: catatan singkat tambahan, item/alasan (string, max 200 char, boleh kosong "")
+- category: WAJIB salah satu dari 15 nilai persis ini (case-sensitive, JANGAN terjemahkan, JANGAN bikin nama baru):
+${CATEGORY_LIST.map((c) => `  - "${c}"`).join('\n')}
+
+  Panduan infer category:
+  - Makanan/minuman siap santap, resto, cafe, warteg, GoFood/GrabFood -> "Daily Meals"
+  - Parfum, baju, skincare, produk grooming -> "Grooming Products"
+  - Belanja kebutuhan rumah/kos (bukan makanan siap santap) di minimarket/supermarket -> "Groceries"
+  - Bensin, tiket kendaraan, parkir, tol -> "Transport"
+  - Pulsa, paket data, wifi -> "Internet"
+  - Jasa perawatan wajah/kulit/rambut/gigi (bukan produk) -> "Personal Treatments"
+  - Nongkrong, hobi, coffee shop, jalan-jalan/travel -> "Life Style"
+  - Apotek, rumah sakit, obat, BPJS, asuransi kesehatan -> "Health"
+  - Sedekah, infaq, kado, angpao, iuran sosial -> "Social"
+  - Nabung, tabungan (termasuk tabungan nikah), setor rekening -> "Saving"
+  - Webinar, kursus, training, tools produktivitas/AI -> "Self Improvement"
+  - Service motor/mobil/elektronik/rumah -> "Maintenance"
+  - Beli aset besar: rumah, mobil, motor, gadget baru -> "Capital Expenditure"
+  - Emas, crypto, saham, reksadana -> "Investment"
+  - Kalau gak yakin masuk salah satu di atas -> "Lainnya" (JANGAN pernah null)
+- type: "money_saving" kalau category = "Saving" ATAU kalimat menyebut nabung/menabung/tabungan, selain itu "expense". Satu prompt bisa hasilkan campuran keduanya kalau user sebut lebih dari satu transaksi dengan konteks berbeda
 
 PENTING:
 - Kalau merchant atau total gak bisa ditentukan untuk sebuah transaksi yang disebut, tetap keluarkan object-nya dengan field itu null — JANGAN dihapus/di-skip, dan JANGAN mengarang nilai.
 - Setiap kalimat/klausa yang menyebut transaksi berbeda (nominal berbeda, tempat berbeda, atau tanggal berbeda) adalah transaksi TERPISAH.
-- Return HANYA JSON object dengan struktur ini, tanpa markdown, tanpa penjelasan:
+- Return HANYA JSON object dengan struktur ini, tanpa markdown, tanpa reasoning, tanpa penjelasan:
 
 {"transactions": [{"merchant": "string atau null", "total": 0, "category": "string", "transaction_date": "YYYY-MM-DD", "payment_method": "string atau null", "notes": "", "type": "expense"}]}`;
 }
@@ -106,6 +144,7 @@ Deno.serve(async (req: Request) => {
         ],
         stream: false,
         temperature: 0.2,
+        max_tokens: 1200,
       }),
     });
 
