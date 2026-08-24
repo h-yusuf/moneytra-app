@@ -6,6 +6,7 @@ import type {
   GetTransactionsResponse,
   MonthlyReportData,
   MonthlyReportResponse,
+  ParsedTransactionDraft,
   Transaction,
 } from '@/src/types';
 
@@ -445,4 +446,78 @@ export async function createTransaction(
   }
   console.log('[createTransaction] Save success');
   return data;
+}
+
+// ─── parseTransactionsFromPrompt ─────────────────────────────────────────────
+
+export async function parseTransactionsFromPrompt(
+  userId: string,
+  prompt: string
+): Promise<ParsedTransactionDraft[]> {
+  const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL!;
+  const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY!;
+
+  const response = await fetch(`${supabaseUrl}/functions/v1/parse-transactions-prompt`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      apikey: supabaseAnonKey,
+    },
+    body: JSON.stringify({ user_id: userId, prompt }),
+  });
+
+  const responseText = await response.text().catch(() => 'No response body');
+
+  if (!response.ok) {
+    console.error('[parseTransactionsFromPrompt] Failed:', { status: response.status, body: responseText });
+    throw new Error(`Gagal parse prompt (HTTP ${response.status}): ${responseText || 'Server error'}`);
+  }
+
+  let data: { transactions: Omit<ParsedTransactionDraft, 'id'>[] };
+  try {
+    data = JSON.parse(responseText);
+  } catch (parseErr) {
+    console.error('[parseTransactionsFromPrompt] JSON parse failed:', responseText);
+    throw new Error(`Gagal parse prompt: response bukan JSON valid. Raw: ${responseText.slice(0, 200)}`);
+  }
+
+  return data.transactions.map((t, index) => ({
+    ...t,
+    id: `${Date.now()}-${index}`,
+  }));
+}
+
+// ─── bulkCreateTransactions ───────────────────────────────────────────────────
+
+export async function bulkCreateTransactions(
+  items: CreateTransactionParams[]
+): Promise<Transaction[]> {
+  const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL!;
+  const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY!;
+
+  const response = await fetch(`${supabaseUrl}/functions/v1/bulk-create-transactions`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      apikey: supabaseAnonKey,
+    },
+    body: JSON.stringify({ transactions: items }),
+  });
+
+  const responseText = await response.text().catch(() => 'No response body');
+
+  if (!response.ok) {
+    console.error('[bulkCreateTransactions] Save failed:', { status: response.status, body: responseText });
+    throw new Error(`Gagal menyimpan data (HTTP ${response.status}): ${responseText || 'Server error'}`);
+  }
+
+  let data: { data: Transaction[] };
+  try {
+    data = JSON.parse(responseText);
+  } catch (parseErr) {
+    console.error('[bulkCreateTransactions] JSON parse failed:', responseText);
+    throw new Error(`Gagal menyimpan data: response bukan JSON valid. Raw: ${responseText.slice(0, 200)}`);
+  }
+
+  return data.data;
 }
