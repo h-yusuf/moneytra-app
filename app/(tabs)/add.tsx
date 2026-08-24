@@ -2,11 +2,21 @@ import { IconSymbol } from '@/components/ui/icon-symbol';
 import { AutocompleteInput } from '@/src/components/common/AutocompleteInput';
 import { DateField } from '@/src/components/common/DateField';
 import { OcrProcessingCard } from '@/src/components/common/OcrProcessingCard';
+import { ParsedTransactionReviewList } from '@/src/components/common/ParsedTransactionReviewList';
+import { PromptEntryCard } from '@/src/components/common/PromptEntryCard';
 import { useBudget } from '@/src/contexts/BudgetContext';
 import { useTheme } from '@/src/contexts/ThemeContext';
 import { useUser } from '@/src/contexts/UserContext';
 import { useCategoryMerchantSuggestions } from '@/src/hooks/useCategoryMerchantSuggestions';
-import { createTransaction, extractTransaction, uploadReceiptImage, type ExtractedTransactionData } from '@/src/services/transactionService';
+import {
+  bulkCreateTransactions,
+  createTransaction,
+  extractTransaction,
+  parseTransactionsFromPrompt,
+  uploadReceiptImage,
+  type ExtractedTransactionData,
+} from '@/src/services/transactionService';
+import type { ParsedTransactionDraft } from '@/src/types';
 import { normalizeKey, smartTitleCase } from '@/src/utils/textFormat';
 import { Audio } from 'expo-av';
 import * as DocumentPicker from 'expo-document-picker';
@@ -45,6 +55,10 @@ export default function AddScreen() {
   const [pendingSave, setPendingSave] = useState<'manual' | 'extracted' | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [showManualEntry, setShowManualEntry] = useState(false);
+  const [showPromptEntry, setShowPromptEntry] = useState(false);
+  const [isParsingPrompt, setIsParsingPrompt] = useState(false);
+  const [promptDrafts, setPromptDrafts] = useState<ParsedTransactionDraft[]>([]);
+  const [isSavingBulk, setIsSavingBulk] = useState(false);
   const [manualForm, setManualForm] = useState({
     merchant: '',
     total: '',
@@ -166,6 +180,8 @@ export default function AddScreen() {
     setExtractedData(null);
     setInlineAlert(null);
     setShowManualEntry(false);
+    setShowPromptEntry(false);
+    setPromptDrafts([]);
     setSelectedType('expense');
     setManualForm({ merchant: '', total: '', category: '', transaction_date: new Date().toISOString().split('T')[0], payment_method: '', notes: '' });
     setTimeout(() => setIsRefreshing(false), 600);
@@ -173,6 +189,17 @@ export default function AddScreen() {
 
   const handleManualEntry = () => {
     setShowManualEntry((prev) => !prev);
+    setShowPromptEntry(false);
+    setPromptDrafts([]);
+    setUploadedFile(null);
+    setExtractedData(null);
+    setInlineAlert(null);
+  };
+
+  const handlePromptEntryToggle = () => {
+    setShowPromptEntry((prev) => !prev);
+    setShowManualEntry(false);
+    setPromptDrafts([]);
     setUploadedFile(null);
     setExtractedData(null);
     setInlineAlert(null);
@@ -354,6 +381,81 @@ export default function AddScreen() {
     }
   };
 
+  const handleParsePrompt = async (prompt: string) => {
+    if (!prompt.trim()) return;
+    if (!profile?.user_id) {
+      Alert.alert('User ID Required', 'Please set your User ID in Settings.', [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Go to Settings', onPress: () => router.push('/settings') },
+      ]);
+      return;
+    }
+
+    setInlineAlert(null);
+    setIsParsingPrompt(true);
+    try {
+      const drafts = await parseTransactionsFromPrompt(profile.user_id, prompt);
+      setPromptDrafts(drafts);
+      setIsParsingPrompt(false);
+      if (drafts.length === 0) {
+        setInlineAlert({ type: 'error', message: 'AI gak nemu transaksi apapun di kalimat itu. Coba tulis ulang.' });
+      }
+    } catch (error: any) {
+      setIsParsingPrompt(false);
+      console.error('[add] Prompt parse error:', error);
+      setInlineAlert({ type: 'error', message: `Gagal parse: ${error?.message || 'Terjadi kesalahan. Coba lagi.'}` });
+    }
+  };
+
+  const handleChangeDraft = (id: string, patch: Partial<ParsedTransactionDraft>) => {
+    setPromptDrafts((prev) => prev.map((d) => (d.id === id ? { ...d, ...patch } : d)));
+  };
+
+  const handleRemoveDraft = (id: string) => {
+    setPromptDrafts((prev) => prev.filter((d) => d.id !== id));
+  };
+
+  const handleSaveAllDrafts = async () => {
+    if (!profile?.user_id || promptDrafts.length === 0) return;
+
+    setIsSavingBulk(true);
+    try {
+      const items = promptDrafts.map((d) => ({
+        user_id: profile.user_id!,
+        type: d.type,
+        merchant: resolveSuggestedValue(d.merchant ?? '', merchantSuggestions),
+        total: d.total ?? 0,
+        category: resolveSuggestedValue(d.category ?? '', categorySuggestions),
+        transaction_date: d.transaction_date ?? new Date().toISOString().split('T')[0],
+        payment_method: d.payment_method || undefined,
+        notes: d.notes || undefined,
+        source_name: 'ai-prompt-entry',
+      }));
+
+      const saved = await bulkCreateTransactions(items);
+      const totalSaved = items.reduce((sum, i) => sum + i.total, 0);
+
+      setSelectedType(items[0].type);
+      setSavedAmount(totalSaved);
+      await playSuccessSound(items[0].type);
+
+      setIsSavingBulk(false);
+      setShowSuccessModal(true);
+      setTimeout(() => {
+        setShowSuccessModal(false);
+        setShowPromptEntry(false);
+        setPromptDrafts([]);
+        setInlineAlert(null);
+      }, 2500);
+
+      console.log('[add] bulkCreateTransactions saved:', saved.length);
+    } catch (error: any) {
+      setIsSavingBulk(false);
+      console.error('[add] Bulk save error:', error);
+      setInlineAlert({ type: 'error', message: `Gagal menyimpan: ${error?.message || 'Terjadi kesalahan.'}` });
+    }
+  };
+
   const formatFileSize = (bytes?: number) => {
     if (!bytes) return 'Unknown size';
     if (bytes < 1024) return bytes + ' B';
@@ -436,7 +538,7 @@ export default function AddScreen() {
             </View>
           </Pressable>
 
-          <Pressable onPress={handleManualEntry} style={{ backgroundColor: showManualEntry ? colors.primary : colors.card, borderRadius: 16, padding: 16 }}>
+          <Pressable onPress={handleManualEntry} style={{ backgroundColor: showManualEntry ? colors.primary : colors.card, borderRadius: 16, padding: 16, marginBottom: 12 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
               <View style={{ width: 48, height: 48, borderRadius: 12, backgroundColor: showManualEntry ? 'rgba(10,10,10,0.15)' : colors.cardSecondary, alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
                 <IconSymbol name="pencil" size={24} color={showManualEntry ? '#0a0a0a' : colors.primary} />
@@ -446,6 +548,19 @@ export default function AddScreen() {
                 <Text style={{ color: showManualEntry ? 'rgba(10,10,10,0.6)' : colors.textTertiary, fontSize: 12 }}>{showManualEntry ? 'Tap to close form' : 'Fill in transaction details manually'}</Text>
               </View>
               <IconSymbol name={showManualEntry ? 'chevron.left' : 'chevron.right'} size={16} color={showManualEntry ? '#0a0a0a' : '#737373'} />
+            </View>
+          </Pressable>
+
+          <Pressable onPress={handlePromptEntryToggle} style={{ backgroundColor: showPromptEntry ? colors.primary : colors.card, borderRadius: 16, padding: 16 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <View style={{ width: 48, height: 48, borderRadius: 12, backgroundColor: showPromptEntry ? 'rgba(10,10,10,0.15)' : colors.cardSecondary, alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
+                <IconSymbol name="text.bubble.fill" size={24} color={showPromptEntry ? '#0a0a0a' : colors.primary} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={{ color: showPromptEntry ? '#0a0a0a' : colors.text, fontWeight: '600', fontSize: 15, marginBottom: 2 }}>Catat via Prompt</Text>
+                <Text style={{ color: showPromptEntry ? 'rgba(10,10,10,0.6)' : colors.textTertiary, fontSize: 12 }}>{showPromptEntry ? 'Tap to close' : 'Ketik kalimat, AI catat transaksinya'}</Text>
+              </View>
+              <IconSymbol name={showPromptEntry ? 'chevron.left' : 'chevron.right'} size={16} color={showPromptEntry ? '#0a0a0a' : '#737373'} />
             </View>
           </Pressable>
         </View>
@@ -502,6 +617,26 @@ export default function AddScreen() {
                 </Pressable>
               </View>
             </View>
+          </View>
+        )}
+
+        {/* Prompt Entry */}
+        {showPromptEntry && (
+          <View style={{ paddingHorizontal: 20, marginTop: 24 }}>
+            <Text style={{ color: colors.textSecondary, fontSize: 11, fontWeight: '600', marginBottom: 12, letterSpacing: 0.5 }}>CATAT VIA PROMPT</Text>
+            {promptDrafts.length === 0 ? (
+              <PromptEntryCard onParse={handleParsePrompt} isParsing={isParsingPrompt} />
+            ) : (
+              <ParsedTransactionReviewList
+                drafts={promptDrafts}
+                categorySuggestions={categorySuggestions}
+                merchantSuggestions={merchantSuggestions}
+                onChange={handleChangeDraft}
+                onRemove={handleRemoveDraft}
+                onSaveAll={handleSaveAllDrafts}
+                isSaving={isSavingBulk}
+              />
+            )}
           </View>
         )}
 
@@ -597,7 +732,7 @@ export default function AddScreen() {
         )}
 
         {/* Tips */}
-        {!uploadedFile && !showManualEntry && (
+        {!uploadedFile && !showManualEntry && !showPromptEntry && (
           <View style={{ paddingHorizontal: 20, marginTop: 24 }}>
             <View style={{ backgroundColor: colors.card, borderRadius: 16, padding: 16, flexDirection: 'row', alignItems: 'flex-start' }}>
               <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: colors.cardSecondary, alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
