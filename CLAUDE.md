@@ -24,17 +24,19 @@ No test suite is configured. There is no `test` script.
 
 ## Environment
 
-Copy `.env.example` to `.env`. Only one required variable:
+Copy `.env.example` to `.env`. Required variables:
 
 ```
-EXPO_PUBLIC_API_URL=http://localhost:8000
+EXPO_PUBLIC_SUPABASE_URL=https://xxxx.supabase.co
+EXPO_PUBLIC_SUPABASE_ANON_KEY=eyJ...
+EXPO_PUBLIC_API_URL=https://n8n.pullstack.cloud
 ```
 
 All env vars must be prefixed `EXPO_PUBLIC_` to be accessible in the app.
 
 ## Architecture
 
-**Monetra** is a React Native + Expo app for tracking personal expenses and wedding savings (*tabungan nikah*). It connects to a FastAPI backend (not in this repo) which handles OCR/AI extraction via n8n webhooks.
+**Monetra** is a React Native + Expo app for tracking personal expenses and wedding savings (*tabungan nikah*). Supabase is the primary backend (Postgres + Storage + Edge Functions). n8n (`EXPO_PUBLIC_API_URL`) is only used for the receipt OCR/AI extraction step — everything else talks to Supabase directly.
 
 ### Routing — Expo Router (file-based)
 
@@ -60,18 +62,20 @@ All env vars must be prefixed `EXPO_PUBLIC_` to be accessible in the app.
 
 ### API layer
 
-`src/lib/api.ts` exports a single Axios instance (`apiClient`) pointing at `EXPO_PUBLIC_API_URL`. All endpoints are n8n webhooks:
+Almost everything goes through `src/lib/supabase.ts` (`supabase-js` client, `EXPO_PUBLIC_SUPABASE_URL`/`EXPO_PUBLIC_SUPABASE_ANON_KEY`). `src/lib/api.ts` (Axios instance pointing at `EXPO_PUBLIC_API_URL`) is unused dead code — nothing imports `apiClient`; the raw n8n `fetch` call in `extractTransaction` reads `EXPO_PUBLIC_API_URL` directly instead.
 
-| Purpose | Endpoint |
+| Purpose | Path |
 |---|---|
-| Fetch transactions | `GET /webhook/transactions` |
-| Monthly report / charts | `GET /webhook/report/monthly` |
-| Spending overview | `GET /webhook/report/spending-overview` |
-| Upload + OCR extract | `POST /webhook/uploadDoc` |
-| Save confirmed transaction | `POST /webhook/extract-transaction` |
-| Register push token | `POST /webhook/register-token` |
+| Fetch transactions / reports / suggestions | `supabase.from('transactions')` / `spending_overview` — direct client queries in `src/services/transactionService.ts` |
+| Upload receipt image | `supabase.storage.from('receipts')` — resized client-side first (max 1200px, `uploadReceiptImage`) |
+| Register push token | `supabase.from('push_tokens').upsert(...)` — `src/services/notificationService.ts` |
+| **OCR extract (n8n)** | `POST {EXPO_PUBLIC_API_URL}/webhook/uploadDoc` — the only n8n call; image resized to max 1600px client-side first (`extractTransaction`, `transactionService.ts`) |
+| Save confirmed transaction | `POST {SUPABASE_URL}/functions/v1/create-transaction` (Edge Function, dual-writes Supabase + Google Sheets) |
+| AI chat assistant | `POST {SUPABASE_URL}/functions/v1/ai-chat` (Edge Function, `src/services/aiChatService.ts`) |
 
-`createTransaction` sends the confirmed form data as plain text (`text` field) to `/webhook/extract-transaction`, not the extracted JSON directly.
+n8n workflows live in `doc/n8n-workflows/` for reference (not deployed from this repo). The OCR flow there is two steps, not one AI vision call: `Webhook File upload (uploadDoc)` → `Image to Text` (Tesseract OCR node, reads pixels) → text handed to a DeepSeek **text** chat completion (`Call AI DeepSeek`) that structures it into JSON. DeepSeek's API has no vision/image endpoint — don't try to send image bytes to it directly (this was tried once as a Supabase Edge Function and reverted).
+
+`createTransaction` posts the confirmed form to the `create-transaction` Edge Function as structured JSON (not the older n8n `/webhook/extract-transaction` text-based flow).
 
 ### Styling
 
@@ -83,7 +87,7 @@ Design language: emerald/teal primary, dark-on-light cards, large radius, genero
 
 - `TransactionType`: `'expense' | 'money_saving'`
 - `Transaction` — core data model
-- `UploadResponse` — raw AI extraction result (Indonesian field names: `tanggal`, `merchant`, `kategori`, etc.)
+- `UploadResponse` — Indonesian-field-name shape (`tanggal`, `kategori`, etc.) used only by `useTransactionStore` (currently unused elsewhere). The actual OCR result type in use is `ExtractedTransactionData` (English field names: `merchant`, `total`, `category`, `transaction_date`), returned by `extractTransaction()`.
 - `MonthlyReportResponse` / `CategoryBreakdownData` — dashboard chart data
 
 ### Reusable components
