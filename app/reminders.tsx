@@ -35,11 +35,29 @@ const UNIT_LABELS: Record<RecurringIntervalUnit, string> = {
 };
 const OFFSET_CHOICES = [30, 14, 7, 3, 1, 0];
 
-const STATUS_META: Record<RecurringItemStatus, { emoji: string; label: string; color: (c: any) => string }> = {
-  active: { emoji: '🟢', label: 'Aktif', color: c => c.success },
-  due_soon: { emoji: '🟡', label: 'Due Soon', color: () => '#f59e0b' },
-  overdue: { emoji: '🔴', label: 'Overdue', color: c => c.error },
+const WARNING_COLOR = '#f59e0b';
+
+const STATUS_META: Record<RecurringItemStatus, { icon: string; label: string; color: (c: any) => string }> = {
+  active: { icon: 'checkmark.circle.fill', label: 'Aktif', color: c => c.success },
+  due_soon: { icon: 'clock.fill', label: 'Segera', color: () => WARNING_COLOR },
+  overdue: { icon: 'exclamationmark.triangle.fill', label: 'Telat', color: c => c.error },
 };
+
+function hexToRgba(hex: string, alpha: number): string {
+  const clean = hex.replace('#', '');
+  const r = parseInt(clean.substring(0, 2), 16);
+  const g = parseInt(clean.substring(2, 4), 16);
+  const b = parseInt(clean.substring(4, 6), 16);
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
+function humanizeDueIn(days: number): string {
+  if (days < 0) return `Telat ${Math.abs(days)} hari`;
+  if (days === 0) return 'Hari ini';
+  if (days < 60) return `${days} hari lagi`;
+  if (days < 365) return `~${Math.round(days / 30)} bulan lagi`;
+  return `~${Math.round(days / 365)} tahun lagi`;
+}
 
 type FormState = {
   name: string;
@@ -255,16 +273,24 @@ export default function RemindersScreen() {
             <ActivityIndicator size="large" color={colors.primary} />
           </View>
         ) : items.length === 0 ? (
-          <View style={{ paddingVertical: 48, alignItems: 'center' }}>
-            <Text style={{ color: colors.textTertiary, textAlign: 'center' }}>
-              Belum ada reminder. Tap + untuk tambah pajak, servis, atau langganan.
+          <View style={{ paddingVertical: 64, alignItems: 'center' }}>
+            <View style={{ width: 64, height: 64, borderRadius: 32, backgroundColor: colors.card, alignItems: 'center', justifyContent: 'center', marginBottom: 16 }}>
+              <IconSymbol name="bell.fill" size={28} color={colors.textTertiary} />
+            </View>
+            <Text style={{ color: colors.text, fontWeight: '600', fontSize: 16 }}>Belum ada reminder</Text>
+            <Text style={{ color: colors.textTertiary, textAlign: 'center', marginTop: 8, paddingHorizontal: 24, fontSize: 13 }}>
+              Tap + untuk tambah pajak, servis, atau langganan.
             </Text>
           </View>
         ) : (
           items.map(item => {
             const status = getRecurringItemStatus(item);
             const meta = STATUS_META[status];
+            const statusColor = meta.color(colors);
             const days = daysUntilDue(item.next_due_date);
+            const intervalLabel = item.interval_value === 1
+              ? UNIT_LABELS[item.interval_unit].toLowerCase()
+              : `${item.interval_value} ${UNIT_LABELS[item.interval_unit].toLowerCase()}`;
             return (
               <Pressable
                 key={item.id}
@@ -274,22 +300,46 @@ export default function RemindersScreen() {
                 }}
                 style={{ backgroundColor: colors.card, borderRadius: 16, padding: 16, marginBottom: 12 }}
               >
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                  <View style={{ flex: 1 }}>
-                    <Text style={{ color: colors.text, fontSize: 16, fontWeight: '600' }}>{item.name}</Text>
-                    <Text style={{ color: colors.textTertiary, fontSize: 12, marginTop: 2 }}>
-                      {item.category} · tiap {item.interval_value === 1 ? UNIT_LABELS[item.interval_unit].toLowerCase() : `${item.interval_value} ${UNIT_LABELS[item.interval_unit].toLowerCase()}`}
-                    </Text>
+                <View style={{ flexDirection: 'row', alignItems: 'flex-start' }}>
+                  <View
+                    style={{
+                      width: 44,
+                      height: 44,
+                      borderRadius: 14,
+                      backgroundColor: hexToRgba(statusColor, 0.12),
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      marginRight: 12,
+                    }}
+                  >
+                    <IconSymbol name={item.auto_record ? 'arrow.clockwise' : 'bell.fill'} size={20} color={statusColor} />
                   </View>
-                  <Text style={{ color: meta.color(colors), fontSize: 12, fontWeight: '600' }}>
-                    {meta.emoji} {meta.label}
-                  </Text>
-                </View>
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', marginTop: 12 }}>
-                  <Text style={{ color: colors.text, fontSize: 18, fontWeight: 'bold' }}>{formatCurrency(item.amount)}</Text>
-                  <Text style={{ color: colors.textTertiary, fontSize: 12 }}>
-                    {days < 0 ? `${Math.abs(days)} hari lewat` : days === 0 ? 'Hari ini' : `${days} hari lagi`}
-                  </Text>
+                  <View style={{ flex: 1 }}>
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                      <Text style={{ color: colors.text, fontSize: 16, fontWeight: '600', flex: 1, marginRight: 8 }}>{item.name}</Text>
+                      <View
+                        style={{
+                          flexDirection: 'row',
+                          alignItems: 'center',
+                          gap: 4,
+                          paddingHorizontal: 8,
+                          paddingVertical: 4,
+                          borderRadius: 12,
+                          backgroundColor: hexToRgba(statusColor, 0.14),
+                        }}
+                      >
+                        <IconSymbol name={meta.icon as any} size={11} color={statusColor} />
+                        <Text style={{ color: statusColor, fontSize: 11, fontWeight: '700' }}>{meta.label}</Text>
+                      </View>
+                    </View>
+                    <Text style={{ color: colors.textTertiary, fontSize: 12, marginTop: 2 }}>
+                      {item.category} · tiap {intervalLabel}
+                    </Text>
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', marginTop: 10 }}>
+                      <Text style={{ color: colors.text, fontSize: 18, fontWeight: 'bold' }}>{formatCurrency(item.amount)}</Text>
+                      <Text style={{ color: statusColor, fontSize: 12, fontWeight: '600' }}>{humanizeDueIn(days)}</Text>
+                    </View>
+                  </View>
                 </View>
               </Pressable>
             );
