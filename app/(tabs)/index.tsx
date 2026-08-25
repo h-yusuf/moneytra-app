@@ -3,6 +3,7 @@ import { CHAT_SESSION_KEY, type StoredChatSession } from '@/app/chat';
 import { useTheme } from '@/src/contexts/ThemeContext';
 import { useUser } from '@/src/contexts/UserContext';
 import { formatCurrency } from '@/src/lib/utils';
+import { countUnreadNotifications } from '@/src/services/notificationsService';
 import { fetchMonthlyReport, fetchTransactions } from '@/src/services/transactionService';
 import type { MonthlyReportResponse, Transaction } from '@/src/types';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -21,6 +22,7 @@ export default function DashboardScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [hasUnreadChatReply, setHasUnreadChatReply] = useState(false);
+  const [hasUnreadNotifications, setHasUnreadNotifications] = useState(false);
 
   useFocusEffect(
     useCallback(() => {
@@ -40,6 +42,19 @@ export default function DashboardScreen() {
       const interval = setInterval(checkUnread, 3000);
       return () => clearInterval(interval);
     }, [])
+  );
+
+  useFocusEffect(
+    useCallback(() => {
+      const checkUnreadNotifications = () => {
+        countUnreadNotifications(profile?.user_id)
+          .then(count => setHasUnreadNotifications(count > 0))
+          .catch(() => setHasUnreadNotifications(false));
+      };
+      checkUnreadNotifications();
+      const interval = setInterval(checkUnreadNotifications, 5000);
+      return () => clearInterval(interval);
+    }, [profile?.user_id])
   );
 
   const currentDate = new Date();
@@ -62,8 +77,7 @@ export default function DashboardScreen() {
   };
 
   const handleNotificationPress = () => {
-    // TODO: Navigate to notifications screen
-    Alert.alert('Notifications', 'Notification feature coming soon!');
+    router.push('/notifications');
   };
 
   const handleAvatarPress = () => {
@@ -153,11 +167,26 @@ export default function DashboardScreen() {
             <Text style={{ color: colors.textTertiary, fontSize: 14, marginTop: 4 }}>{formattedDate}</Text>
           </View>
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-            <Pressable 
+            <Pressable
               onPress={handleNotificationPress}
-              style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: colors.cardSecondary, alignItems: 'center', justifyContent: 'center', marginRight: 12 }}
+              style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: colors.cardSecondary, alignItems: 'center', justifyContent: 'center', marginRight: 12, position: 'relative' }}
             >
               <IconSymbol name="bell.fill" size={20} color={colors.text} />
+              {hasUnreadNotifications && (
+                <View
+                  style={{
+                    position: 'absolute',
+                    top: 2,
+                    right: 2,
+                    width: 12,
+                    height: 12,
+                    borderRadius: 6,
+                    backgroundColor: colors.error,
+                    borderWidth: 2,
+                    borderColor: colors.background,
+                  }}
+                />
+              )}
             </Pressable>
             <Pressable 
               onPress={handleAvatarPress}
