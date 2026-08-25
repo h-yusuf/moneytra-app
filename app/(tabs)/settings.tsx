@@ -4,9 +4,10 @@ import { useNotification } from '@/src/contexts/NotificationContext';
 import { useTheme } from '@/src/contexts/ThemeContext';
 import { useUser } from '@/src/contexts/UserContext';
 import { formatCurrency } from '@/src/lib/utils';
+import { fetchRecurringItems, getRecurringItemStatus } from '@/src/services/recurringItemsService';
 import { fetchMonthlyReport, fetchTransactions } from '@/src/services/transactionService';
 import type { MonthlyReportResponse } from '@/src/types';
-import { useFocusEffect } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
 import { Alert, Modal, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -16,6 +17,19 @@ export default function SettingsScreen() {
   const { profile, updateProfile } = useUser();
   const { budgets, addBudget, updateBudget, deleteBudget } = useBudget();
   const { settings: notifSettings, updateSettings: updateNotifSettings } = useNotification();
+  const router = useRouter();
+  const [recurringSummary, setRecurringSummary] = useState({ active: 0, dueSoon: 0 });
+
+  useFocusEffect(
+    useCallback(() => {
+      fetchRecurringItems()
+        .then(items => {
+          const dueSoon = items.filter(i => getRecurringItemStatus(i) !== 'active').length;
+          setRecurringSummary({ active: items.length, dueSoon });
+        })
+        .catch(() => setRecurringSummary({ active: 0, dueSoon: 0 }));
+    }, [])
+  );
   const [showThemeModal, setShowThemeModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showBudgetModal, setShowBudgetModal] = useState(false);
@@ -188,6 +202,23 @@ export default function SettingsScreen() {
             </Pressable>
           </View>
         </View>
+
+        {/* Reminders Card */}
+        <Pressable
+          onPress={() => router.push('/reminders')}
+          style={{ marginHorizontal: 20, marginTop: 12, backgroundColor: colors.card, borderRadius: 16, padding: 20, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}
+        >
+          <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
+            <IconSymbol name="bell.fill" size={20} color={colors.primary} style={{ marginRight: 12 }} />
+            <View>
+              <Text style={{ color: colors.text, fontSize: 17, fontWeight: 'bold' }}>Reminders</Text>
+              <Text style={{ color: colors.textTertiary, fontSize: 13, marginTop: 2 }}>
+                {recurringSummary.active} aktif{recurringSummary.dueSoon > 0 ? `, ${recurringSummary.dueSoon} jatuh tempo` : ''}
+              </Text>
+            </View>
+          </View>
+          <IconSymbol name="chevron.right" size={18} color={colors.textTertiary} />
+        </Pressable>
 
         {/* Budget Management Card */}
         <View style={{ marginHorizontal: 20, marginTop: 12, backgroundColor: colors.card, borderRadius: 16, padding: 20 }}>
