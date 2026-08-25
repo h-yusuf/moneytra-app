@@ -151,3 +151,20 @@ export interface CreateRecurringItemParams {
   alert_offsets: number[];
   daily_within_days: number | null;
 }
+
+export interface AppNotification {
+  id: string;
+  user_id: string;
+  type: string;
+  content: Record<string, unknown>;
+  read_at: string | null;
+  created_at: string;
+}
+
+// Documented (not enforced) `content` shape when `type === 'recurring_reminder'`.
+export interface RecurringReminderNotificationContent {
+  title: string;
+  body: string;
+  kind: 'reminder' | 'overdue' | 'auto_recorded' | 'auto_record_failed';
+  recurring_item_id: string;
+}
