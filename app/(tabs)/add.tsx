@@ -21,7 +21,7 @@ import { normalizeKey, smartTitleCase } from '@/src/utils/textFormat';
 import { Audio } from 'expo-av';
 import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useRef, useState } from 'react';
 import { ActivityIndicator, Alert, Image, Modal, Platform, Pressable, RefreshControl, ScrollView, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -58,6 +58,11 @@ function showBudgetAlert(budgetCheck: BudgetCheckResult, category: string) {
 
 export default function AddScreen() {
   const router = useRouter();
+  const { prefillMerchant, prefillCategory, prefillAmount } = useLocalSearchParams<{
+    prefillMerchant?: string;
+    prefillCategory?: string;
+    prefillAmount?: string;
+  }>();
   const { colors } = useTheme();
   const { profile } = useUser();
   const { checkBudgetAlert } = useBudget();
@@ -72,15 +77,15 @@ export default function AddScreen() {
   const [showTypeModal, setShowTypeModal] = useState(false);
   const [pendingSave, setPendingSave] = useState<'manual' | 'extracted' | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [showManualEntry, setShowManualEntry] = useState(false);
+  const [showManualEntry, setShowManualEntry] = useState(!!prefillMerchant);
   const [showPromptEntry, setShowPromptEntry] = useState(false);
   const [isParsingPrompt, setIsParsingPrompt] = useState(false);
   const [promptDrafts, setPromptDrafts] = useState<ParsedTransactionDraft[]>([]);
   const [isSavingBulk, setIsSavingBulk] = useState(false);
   const [manualForm, setManualForm] = useState({
-    merchant: '',
-    total: '',
-    category: '',
+    merchant: prefillMerchant ?? '',
+    total: prefillAmount ?? '',
+    category: prefillCategory ?? '',
     transaction_date: new Date().toISOString().split('T')[0],
     payment_method: '',
     notes: '',
