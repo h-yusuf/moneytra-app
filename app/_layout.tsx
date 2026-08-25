@@ -47,6 +47,7 @@ function RootNavigator() {
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="chat" options={{ headerShown: false, presentation: 'card' }} />
         <Stack.Screen name="reminders" options={{ headerShown: false, presentation: 'card' }} />
+        <Stack.Screen name="notifications" options={{ headerShown: false, presentation: 'card' }} />
       </Stack>
       <StatusBar style={isDark ? 'light' : 'dark'} />
     </NavigationThemeProvider>

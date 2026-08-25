@@ -47,14 +47,14 @@ export default function DashboardScreen() {
   useFocusEffect(
     useCallback(() => {
       const checkUnreadNotifications = () => {
-        countUnreadNotifications(profile?.user_id)
+        countUnreadNotifications()
           .then(count => setHasUnreadNotifications(count > 0))
           .catch(() => setHasUnreadNotifications(false));
       };
       checkUnreadNotifications();
       const interval = setInterval(checkUnreadNotifications, 5000);
       return () => clearInterval(interval);
-    }, [profile?.user_id])
+    }, [])
   );
 
   const currentDate = new Date();
