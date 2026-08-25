@@ -10,6 +10,20 @@
 
 **Spec:** `docs/superpowers/specs/2026-08-25-recurring-reminders-design.md`
 
+> **Amendment (2026-08-25, during implementation):** `interval_months` (int) was
+> replaced with `interval_unit` (`'week' | 'month' | 'year'`) + `interval_value`
+> (int) across the table, types, `check-reminders`, `recurringItemsService`, and
+> the add/edit form — a months-only interval couldn't represent a 5-year vehicle
+> registration renewal or a weekly cadence. Every code block below that still
+> shows `interval_months` reflects the pre-amendment design; the actual deployed
+> code uses `interval_unit`/`interval_value` with an `addIntervalClamped(date,
+> unit, value)` helper (week → `+value*7` days; month/year → `+value` or
+> `+value*12` months, clamped to end-of-month). Deployed to the **staging**
+> Supabase project (`xslstofngselbphqctfl`, "Monetra") — the CLI's default
+> linked project (`hzhnvlaudcjntkiqctrs`, "monetra-app-v.2") is prod and was
+> deliberately not touched beyond an initial accidental deploy that was cleaned
+> up (table dropped, function deleted, secret unset).
+
 ## Global Constraints
 
 - No automated test suite exists in this repo — every task's "test" step is a manual verification (curl, `npx tsc --noEmit`, SQL query, or in-app check), not a unit test file.
