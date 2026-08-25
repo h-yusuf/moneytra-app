@@ -1,5 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-import { createTransactionRecord, formatRupiah, type TransactionRecordInput } from '../_shared/createTransactionRecord.ts';
+import { createTransactionRecord, escapeHtml, formatRupiah, type TransactionRecordInput } from '../_shared/createTransactionRecord.ts';
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SUPABASE_SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -119,6 +119,41 @@ function formatDateID(ymd: string): string {
   });
 }
 
+// ── Message builders (Telegram HTML, mirrors create-transaction's styled format) ──
+
+function buildReminderMessage(item: RecurringItemRow, daysUntilDue: number): string {
+  const title = daysUntilDue < 0 ? '⚠️ Reminder Overdue' : '🔔 Reminder';
+  const dueLine =
+    daysUntilDue < 0
+      ? `Terlambat ${Math.abs(daysUntilDue)} hari (harusnya ${formatDateID(item.next_due_date)})`
+      : daysUntilDue === 0
+        ? 'Jatuh tempo HARI INI'
+        : `${daysUntilDue} hari lagi (${formatDateID(item.next_due_date)})`;
+
+  return [
+    `<b>${title}: ${escapeHtml(item.name)}</b>`,
+    `📅 Jatuh tempo: ${dueLine}`,
+    `💵 Jumlah: Rp ${formatRupiah(item.amount)}`,
+    `🏷️ Kategori: ${escapeHtml(item.category)}`,
+  ].join('\n');
+}
+
+function buildAutoRecordedMessage(item: RecurringItemRow, today: string): string {
+  return [
+    `<b>✅ Auto-recorded: ${escapeHtml(item.name)}</b>`,
+    `💵 Jumlah: Rp ${formatRupiah(item.amount)}`,
+    `🏷️ Kategori: ${escapeHtml(item.category)}`,
+    `📅 Tanggal: ${formatDateID(today)}`,
+  ].join('\n');
+}
+
+function buildAutoRecordFailedMessage(item: RecurringItemRow): string {
+  return [
+    `<b>❌ Auto-record Gagal: ${escapeHtml(item.name)}</b>`,
+    'Cek app untuk detail.',
+  ].join('\n');
+}
+
 // ── Main handler ───────────────────────────────────────────────────────────────
 
 Deno.serve(async (req: Request) => {
@@ -176,26 +211,27 @@ Deno.serve(async (req: Request) => {
           .update({ next_due_date: nextDueDate, last_alert_sent_at: null })
           .eq('id', item.id);
 
-        const text = `✅ Auto-recorded: ${item.name} Rp${formatRupiah(item.amount)}`;
+        const text = buildAutoRecordedMessage(item, today);
         await sendTelegram(text);
-        await sendExpoPush(supabase, 'Auto-recorded', text);
+        await sendExpoPush(supabase, 'Auto-recorded', `${item.name} Rp${formatRupiah(item.amount)}`);
       } catch (err) {
         console.error(`Auto-record failed for ${item.name} (non-fatal):`, err);
-        await sendTelegram(`❌ Gagal auto-record ${item.name} — cek app`);
+        await sendTelegram(buildAutoRecordFailedMessage(item));
       }
       processed++;
       continue;
     }
 
     if (shouldAlert(daysUntilDue, item, today)) {
-      const text = daysUntilDue < 0
-        ? `⚠️ ${item.name} OVERDUE ${Math.abs(daysUntilDue)} hari! Rp${formatRupiah(item.amount)}`
+      const text = buildReminderMessage(item, daysUntilDue);
+      const pushBody = daysUntilDue < 0
+        ? `${item.name} terlambat ${Math.abs(daysUntilDue)} hari — Rp${formatRupiah(item.amount)}`
         : daysUntilDue === 0
-          ? `🔔 ${item.name} jatuh tempo HARI INI — Rp${formatRupiah(item.amount)}, ${item.category}`
-          : `🔔 ${item.name} jatuh tempo ${daysUntilDue} hari lagi (${formatDateID(item.next_due_date)}) — Rp${formatRupiah(item.amount)}, ${item.category}`;
+          ? `${item.name} jatuh tempo hari ini — Rp${formatRupiah(item.amount)}`
+          : `${item.name} jatuh tempo ${daysUntilDue} hari lagi — Rp${formatRupiah(item.amount)}`;
 
       await sendTelegram(text);
-      await sendExpoPush(supabase, 'Reminder', text);
+      await sendExpoPush(supabase, 'Reminder', pushBody);
       await supabase
         .from('recurring_items')
         .update({ last_alert_sent_at: today })
