@@ -9,13 +9,16 @@ const SERVICE_ACCOUNT_JSON = Deno.env.get('GOOGLE_SERVICE_ACCOUNT_KEY')!;
 const TELEGRAM_BOT_TOKEN = Deno.env.get('TELEGRAM_BOT_TOKEN');
 const TELEGRAM_CHAT_ID = Deno.env.get('TELEGRAM_CHAT_ID');
 
+type IntervalUnit = 'week' | 'month' | 'year';
+
 interface RecurringItemRow {
   id: string;
   user_id: string;
   name: string;
   category: string;
   amount: number;
-  interval_months: number;
+  interval_unit: IntervalUnit;
+  interval_value: number;
   next_due_date: string;
   auto_record: boolean;
   alert_offsets: number[];
@@ -38,8 +41,19 @@ function daysBetween(fromYMD: string, toYMD: string): number {
   return Math.round((b.getTime() - a.getTime()) / 86400000);
 }
 
-function addMonthsClamped(dateYMD: string, months: number): string {
+function addIntervalClamped(dateYMD: string, unit: IntervalUnit, value: number): string {
   const [y, m, d] = dateYMD.split('-').map(Number);
+
+  if (unit === 'week') {
+    const date = new Date(y, m - 1, d);
+    date.setDate(date.getDate() + value * 7);
+    const yyyy = date.getFullYear();
+    const mm = String(date.getMonth() + 1).padStart(2, '0');
+    const dd = String(date.getDate()).padStart(2, '0');
+    return `${yyyy}-${mm}-${dd}`;
+  }
+
+  const months = unit === 'year' ? value * 12 : value;
   const target = new Date(y, m - 1 + months, 1);
   const daysInTargetMonth = new Date(target.getFullYear(), target.getMonth() + 1, 0).getDate();
   target.setDate(Math.min(d, daysInTargetMonth));
@@ -156,7 +170,7 @@ Deno.serve(async (req: Request) => {
           serviceAccountJson: SERVICE_ACCOUNT_JSON,
         });
 
-        const nextDueDate = addMonthsClamped(item.next_due_date, item.interval_months);
+        const nextDueDate = addIntervalClamped(item.next_due_date, item.interval_unit, item.interval_value);
         await supabase
           .from('recurring_items')
           .update({ next_due_date: nextDueDate, last_alert_sent_at: null })

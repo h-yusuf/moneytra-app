@@ -120,13 +120,16 @@ export interface ParseTransactionsPromptResponse {
   transactions: ParsedTransactionDraft[];
 }
 
+export type RecurringIntervalUnit = 'week' | 'month' | 'year';
+
 export interface RecurringItem {
   id: string;
   user_id: string;
   name: string;
   category: string;
   amount: number;
-  interval_months: number;
+  interval_unit: RecurringIntervalUnit;
+  interval_value: number;
   next_due_date: string; // YYYY-MM-DD
   auto_record: boolean;
   alert_offsets: number[];
@@ -141,7 +144,8 @@ export interface CreateRecurringItemParams {
   name: string;
   category: string;
   amount: number;
-  interval_months: number;
+  interval_unit: RecurringIntervalUnit;
+  interval_value: number;
   next_due_date: string;
   auto_record: boolean;
   alert_offsets: number[];

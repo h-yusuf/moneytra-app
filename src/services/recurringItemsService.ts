@@ -1,5 +1,5 @@
 import { supabase } from '@/src/lib/supabase';
-import type { CreateRecurringItemParams, RecurringItem } from '@/src/types';
+import type { CreateRecurringItemParams, RecurringItem, RecurringIntervalUnit } from '@/src/types';
 
 export async function fetchRecurringItems(): Promise<RecurringItem[]> {
   const { data, error } = await supabase
@@ -47,8 +47,19 @@ export async function deleteRecurringItem(id: string): Promise<void> {
 // duplicated intentionally, no shared module exists between the Expo app
 // and Deno Edge Functions in this repo) ───────────────────────────────────────
 
-function addMonthsClamped(dateYMD: string, months: number): string {
+export function addIntervalClamped(dateYMD: string, unit: RecurringIntervalUnit, value: number): string {
   const [y, m, d] = dateYMD.split('-').map(Number);
+
+  if (unit === 'week') {
+    const date = new Date(y, m - 1, d);
+    date.setDate(date.getDate() + value * 7);
+    const yyyy = date.getFullYear();
+    const mm = String(date.getMonth() + 1).padStart(2, '0');
+    const dd = String(date.getDate()).padStart(2, '0');
+    return `${yyyy}-${mm}-${dd}`;
+  }
+
+  const months = unit === 'year' ? value * 12 : value;
   const target = new Date(y, m - 1 + months, 1);
   const daysInTargetMonth = new Date(target.getFullYear(), target.getMonth() + 1, 0).getDate();
   target.setDate(Math.min(d, daysInTargetMonth));
@@ -78,7 +89,7 @@ export function getRecurringItemStatus(item: RecurringItem): RecurringItemStatus
 }
 
 export async function markRecurringItemPaid(item: RecurringItem): Promise<RecurringItem> {
-  const nextDueDate = addMonthsClamped(item.next_due_date, item.interval_months);
+  const nextDueDate = addIntervalClamped(item.next_due_date, item.interval_unit, item.interval_value);
   const { data, error } = await supabase
     .from('recurring_items')
     .update({ next_due_date: nextDueDate, last_alert_sent_at: null })
