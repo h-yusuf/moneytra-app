@@ -110,6 +110,28 @@ async function sendExpoPush(
   }
 }
 
+async function insertNotification(
+  supabase: ReturnType<typeof createClient>,
+  userId: string,
+  content: {
+    title: string;
+    body: string;
+    kind: 'reminder' | 'overdue' | 'auto_recorded' | 'auto_record_failed';
+    recurring_item_id: string;
+  }
+): Promise<void> {
+  try {
+    const { error } = await supabase.from('notifications').insert({
+      user_id: userId,
+      type: 'recurring_reminder',
+      content,
+    });
+    if (error) console.error('Notification insert failed (non-fatal):', error.message);
+  } catch (err) {
+    console.error('Notification insert failed (non-fatal):', err);
+  }
+}
+
 function formatDateID(ymd: string): string {
   return new Date(`${ymd}T00:00:00Z`).toLocaleDateString('id-ID', {
     day: 'numeric',
@@ -214,9 +236,21 @@ Deno.serve(async (req: Request) => {
         const text = buildAutoRecordedMessage(item, today);
         await sendTelegram(text);
         await sendExpoPush(supabase, 'Auto-recorded', `${item.name} Rp${formatRupiah(item.amount)}`);
+        await insertNotification(supabase, item.user_id, {
+          title: `✅ Auto-recorded: ${item.name}`,
+          body: `Rp${formatRupiah(item.amount)} tercatat otomatis.`,
+          kind: 'auto_recorded',
+          recurring_item_id: item.id,
+        });
       } catch (err) {
         console.error(`Auto-record failed for ${item.name} (non-fatal):`, err);
         await sendTelegram(buildAutoRecordFailedMessage(item));
+        await insertNotification(supabase, item.user_id, {
+          title: `❌ Auto-record Gagal: ${item.name}`,
+          body: 'Cek app untuk detail.',
+          kind: 'auto_record_failed',
+          recurring_item_id: item.id,
+        });
       }
       processed++;
       continue;
@@ -232,6 +266,12 @@ Deno.serve(async (req: Request) => {
 
       await sendTelegram(text);
       await sendExpoPush(supabase, 'Reminder', pushBody);
+      await insertNotification(supabase, item.user_id, {
+        title: daysUntilDue < 0 ? `⚠️ Overdue: ${item.name}` : `🔔 Reminder: ${item.name}`,
+        body: pushBody,
+        kind: daysUntilDue < 0 ? 'overdue' : 'reminder',
+        recurring_item_id: item.id,
+      });
       await supabase
         .from('recurring_items')
         .update({ last_alert_sent_at: today })
