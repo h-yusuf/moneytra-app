@@ -1,4 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import Constants from 'expo-constants';
 import * as Notifications from 'expo-notifications';
 import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
 import { Platform } from 'react-native';
@@ -107,9 +108,13 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
         return;
       }
 
-      const tokenData = await Notifications.getExpoPushTokenAsync({
-        projectId: '0f7b789b-9b59-44cd-95c0-748d0885ef39',
-      });
+      const projectId = Constants.expoConfig?.extra?.eas?.projectId;
+      if (!projectId) {
+        console.error('Push notification registration failed: missing EAS projectId');
+        return;
+      }
+
+      const tokenData = await Notifications.getExpoPushTokenAsync({ projectId });
 
       const token = tokenData.data;
       await storePushToken(token);
@@ -117,7 +122,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
 
       await registerPushToken(userId, token);
       setIsRegistered(true);
-      console.log('Push token registered:', token);
+      if (__DEV__) console.log('Push token registered:', token);
     } catch (error) {
       console.error('Push notification registration failed:', error);
     }

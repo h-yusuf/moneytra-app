@@ -340,7 +340,7 @@ export async function uploadReceiptImage(uri: string, userId: string): Promise<s
     }
 
     const { data } = supabase.storage.from('receipts').getPublicUrl(fileName);
-    console.log('[uploadReceiptImage] success:', data.publicUrl);
+    if (__DEV__) console.log('[uploadReceiptImage] success:', data.publicUrl);
     return data.publicUrl;
   } catch (err) {
     console.error('[uploadReceiptImage] exception:', err);
@@ -360,12 +360,14 @@ export async function extractTransaction(
   formData.append('user_id', params.user_id);
   formData.append('type', params.transaction_type);
 
-  console.log('[extractTransaction] Sending file for OCR:', {
-    uri: (params.file as any)?.uri,
-    type: (params.file as any)?.type,
-    name: (params.file as any)?.name,
-    size: (params.file as any)?.size,
-  });
+  if (__DEV__) {
+    console.log('[extractTransaction] Sending file for OCR:', {
+      uri: (params.file as any)?.uri,
+      type: (params.file as any)?.type,
+      name: (params.file as any)?.name,
+      size: (params.file as any)?.size,
+    });
+  }
 
   if (isWeb) {
     const response = await fetch((params.file as any).uri);
@@ -402,7 +404,7 @@ export async function extractTransaction(
     console.error('[extractTransaction] JSON parse failed:', responseText);
     throw new Error(`Gagal OCR: response bukan JSON valid. Raw: ${responseText.slice(0, 200)}`);
   }
-  console.log('[extractTransaction] OCR success:', data);
+  if (__DEV__) console.log('[extractTransaction] OCR success:', data);
   return {
     merchant: data.merchant ?? '',
     total: Number(data.total) || 0,
@@ -419,37 +421,15 @@ export async function extractTransaction(
 export async function createTransaction(
   params: CreateTransactionParams
 ): Promise<Transaction> {
-  const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL!;
-  const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY!;
+  const { data, error } = await supabase.functions.invoke<Transaction>('create-transaction', {
+    body: params,
+  });
 
-  const response = await fetch(
-    `${supabaseUrl}/functions/v1/create-transaction`,
-    {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        apikey: supabaseAnonKey,
-      },
-      body: JSON.stringify(params),
-    }
-  );
-
-  const responseText = await response.text().catch(() => 'No response body');
-
-  if (!response.ok) {
-    console.error('[createTransaction] Save failed:', { status: response.status, body: responseText });
-    throw new Error(`Gagal menyimpan data (HTTP ${response.status}): ${responseText || 'Server error'}`);
+  if (error) {
+    if (__DEV__) console.error('[createTransaction] Save failed:', error);
+    throw new Error(`Gagal menyimpan data: ${error.message}`);
   }
-
-  let data: Transaction;
-  try {
-    data = JSON.parse(responseText) as Transaction;
-  } catch (parseErr) {
-    console.error('[createTransaction] JSON parse failed:', responseText);
-    throw new Error(`Gagal menyimpan data: response bukan JSON valid. Raw: ${responseText.slice(0, 200)}`);
-  }
-  console.log('[createTransaction] Save success');
-  return data;
+  return data as Transaction;
 }
 
 // ─── parseTransactionsFromPrompt ─────────────────────────────────────────────
@@ -458,34 +438,18 @@ export async function parseTransactionsFromPrompt(
   userId: string,
   prompt: string
 ): Promise<ParsedTransactionDraft[]> {
-  const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL!;
-  const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY!;
-
-  const response = await fetch(`${supabaseUrl}/functions/v1/parse-transactions-prompt`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      apikey: supabaseAnonKey,
-    },
-    body: JSON.stringify({ user_id: userId, prompt }),
+  const { data, error } = await supabase.functions.invoke<{
+    transactions: Omit<ParsedTransactionDraft, 'id'>[];
+  }>('parse-transactions-prompt', {
+    body: { user_id: userId, prompt },
   });
 
-  const responseText = await response.text().catch(() => 'No response body');
-
-  if (!response.ok) {
-    console.error('[parseTransactionsFromPrompt] Failed:', { status: response.status, body: responseText });
-    throw new Error(`Gagal parse prompt (HTTP ${response.status}): ${responseText || 'Server error'}`);
+  if (error) {
+    if (__DEV__) console.error('[parseTransactionsFromPrompt] Failed:', error);
+    throw new Error(`Gagal parse prompt: ${error.message}`);
   }
 
-  let data: { transactions: Omit<ParsedTransactionDraft, 'id'>[] };
-  try {
-    data = JSON.parse(responseText);
-  } catch (parseErr) {
-    console.error('[parseTransactionsFromPrompt] JSON parse failed:', responseText);
-    throw new Error(`Gagal parse prompt: response bukan JSON valid. Raw: ${responseText.slice(0, 200)}`);
-  }
-
-  return data.transactions.map((t, index) => ({
+  return (data?.transactions ?? []).map((t, index) => ({
     ...t,
     id: `${Date.now()}-${index}`,
   }));
@@ -496,32 +460,15 @@ export async function parseTransactionsFromPrompt(
 export async function bulkCreateTransactions(
   items: CreateTransactionParams[]
 ): Promise<Transaction[]> {
-  const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL!;
-  const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY!;
+  const { data, error } = await supabase.functions.invoke<{ data: Transaction[] }>(
+    'bulk-create-transactions',
+    { body: { transactions: items } }
+  );
 
-  const response = await fetch(`${supabaseUrl}/functions/v1/bulk-create-transactions`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      apikey: supabaseAnonKey,
-    },
-    body: JSON.stringify({ transactions: items }),
-  });
-
-  const responseText = await response.text().catch(() => 'No response body');
-
-  if (!response.ok) {
-    console.error('[bulkCreateTransactions] Save failed:', { status: response.status, body: responseText });
-    throw new Error(`Gagal menyimpan data (HTTP ${response.status}): ${responseText || 'Server error'}`);
+  if (error) {
+    if (__DEV__) console.error('[bulkCreateTransactions] Save failed:', error);
+    throw new Error(`Gagal menyimpan data: ${error.message}`);
   }
 
-  let data: { data: Transaction[] };
-  try {
-    data = JSON.parse(responseText);
-  } catch (parseErr) {
-    console.error('[bulkCreateTransactions] JSON parse failed:', responseText);
-    throw new Error(`Gagal menyimpan data: response bukan JSON valid. Raw: ${responseText.slice(0, 200)}`);
-  }
-
-  return data.data;
+  return data?.data ?? [];
 }

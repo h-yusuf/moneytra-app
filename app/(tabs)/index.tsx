@@ -2,7 +2,6 @@ import { IconSymbol } from '@/components/ui/icon-symbol';
 import { CHAT_SESSION_KEY, type StoredChatSession } from '@/app/chat';
 import { useTheme } from '@/src/contexts/ThemeContext';
 import { useUser } from '@/src/contexts/UserContext';
-import { dummySummary, dummyTransactions } from '@/src/lib/dummy-data';
 import { formatCurrency } from '@/src/lib/utils';
 import { fetchMonthlyReport, fetchTransactions } from '@/src/services/transactionService';
 import type { MonthlyReportResponse, Transaction } from '@/src/types';
@@ -20,6 +19,7 @@ export default function DashboardScreen() {
   const [recentTransactions, setRecentTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [hasUnreadChatReply, setHasUnreadChatReply] = useState(false);
 
   useFocusEffect(
@@ -96,7 +96,7 @@ export default function DashboardScreen() {
         return;
       }
 
-      console.log('Loading dashboard data for user_id:', profile.user_id);
+      if (__DEV__) console.log('Loading dashboard data for user_id:', profile.user_id);
       const currentYear = currentDate.getFullYear();
       const currentMonth = currentDate.getMonth() + 1;
 
@@ -113,28 +113,10 @@ export default function DashboardScreen() {
 
       setReport(reportData);
       setRecentTransactions(transactionsData.data);
+      setError(null);
     } catch (err) {
       console.error('Failed to load dashboard data:', err);
-      setReport({
-        success: true,
-        user_id: profile?.user_id || 'unknown',
-        year: new Date().getFullYear(),
-        month: new Date().getMonth() + 1,
-        summary: {
-          total_expense: dummySummary.total_expense,
-          total_money_saving: dummySummary.total_money_saving,
-          total_transactions: dummySummary.total_transactions,
-        },
-        monthly_report: [],
-        category_breakdown: [
-          {
-            category: dummySummary.top_category.name,
-            total: dummySummary.top_category.total,
-            count: 1,
-          },
-        ],
-      });
-      setRecentTransactions(dummyTransactions.slice(0, 5));
+      setError('Failed to load dashboard data. Tap refresh to try again.');
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -185,6 +167,12 @@ export default function DashboardScreen() {
             </Pressable>
           </View>
         </View>
+
+        {error && !loading && (
+          <View style={{ marginHorizontal: 20, marginTop: 16, backgroundColor: 'rgba(239, 68, 68, 0.1)', borderRadius: 12, padding: 14 }}>
+            <Text style={{ color: colors.error, fontSize: 13 }}>{error}</Text>
+          </View>
+        )}
 
         {/* Year Summary Card */}
         <View style={{ marginHorizontal: 20, marginTop: 16, backgroundColor: colors.primary, borderRadius: 20, padding: 20 }}>

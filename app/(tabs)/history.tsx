@@ -2,7 +2,6 @@ import { IconSymbol } from '@/components/ui/icon-symbol';
 import { DateField } from '@/src/components/common/DateField';
 import { useTheme } from '@/src/contexts/ThemeContext';
 import { useUser } from '@/src/contexts/UserContext';
-import { dummyTransactions } from '@/src/lib/dummy-data';
 import { formatCurrency } from '@/src/lib/utils';
 import { fetchTransactions } from '@/src/services/transactionService';
 import type { Transaction } from '@/src/types';
@@ -54,6 +53,7 @@ export default function HistoryScreen() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [activeFilter, setActiveFilter] = useState<'all' | 'expense' | 'money_saving'>('all');
   const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
@@ -80,9 +80,10 @@ export default function HistoryScreen() {
         date_to: to,
       });
       setTransactions(response.data);
+      setError(null);
     } catch (err) {
       console.error('Failed to load transactions:', err);
-      setTransactions(dummyTransactions);
+      setError('Failed to load transactions. Pull to refresh to try again.');
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -229,11 +230,16 @@ export default function HistoryScreen() {
       </View>
 
       {/* Transaction List */}
-      <ScrollView 
-        style={{ flex: 1 }} 
+      <ScrollView
+        style={{ flex: 1 }}
         contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 16, paddingBottom: 100 }}
         showsVerticalScrollIndicator={false}
       >
+        {error && !loading && (
+          <View style={{ backgroundColor: 'rgba(239, 68, 68, 0.1)', borderRadius: 12, padding: 14, marginBottom: 16 }}>
+            <Text style={{ color: colors.error, fontSize: 13 }}>{error}</Text>
+          </View>
+        )}
         {loading ? (
           <View style={{ paddingVertical: 48, alignItems: 'center' }}>
             <ActivityIndicator size="large" color={colors.primary} />

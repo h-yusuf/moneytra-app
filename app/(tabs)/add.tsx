@@ -38,6 +38,24 @@ type InlineAlert = {
   message: string;
 } | null;
 
+type BudgetCheckResult = ReturnType<ReturnType<typeof useBudget>['checkBudgetAlert']>;
+
+function showBudgetAlert(budgetCheck: BudgetCheckResult, category: string) {
+  if (budgetCheck.isOverLimit) {
+    Alert.alert(
+      '⚠️ Budget Exceeded!',
+      `You have exceeded your ${budgetCheck.budget?.period} budget for ${category}!\n\nBudget: Rp ${budgetCheck.budget?.amount.toLocaleString()}\nSpent: ${budgetCheck.percentage.toFixed(1)}%`,
+      [{ text: 'OK', style: 'destructive' }]
+    );
+  } else if (budgetCheck.isNearLimit) {
+    Alert.alert(
+      '⚠️ Budget Warning',
+      `You are approaching your ${budgetCheck.budget?.period} budget limit for ${category}.\n\nBudget: Rp ${budgetCheck.budget?.amount.toLocaleString()}\nSpent: ${budgetCheck.percentage.toFixed(1)}%`,
+      [{ text: 'OK' }]
+    );
+  }
+}
+
 export default function AddScreen() {
   const router = useRouter();
   const { colors } = useTheme();
@@ -257,11 +275,7 @@ export default function AddScreen() {
 
       if (type === 'expense' && resolvedCategory) {
         const budgetCheck = checkBudgetAlert(resolvedCategory, profile.user_id, amount);
-        if (budgetCheck.isOverLimit) {
-          Alert.alert('⚠️ Budget Exceeded!', `You have exceeded your ${budgetCheck.budget?.period} budget for ${resolvedCategory}!\n\nBudget: Rp ${budgetCheck.budget?.amount.toLocaleString()}\nSpent: ${budgetCheck.percentage.toFixed(1)}%`, [{ text: 'OK', style: 'destructive' }]);
-        } else if (budgetCheck.isNearLimit) {
-          Alert.alert('⚠️ Budget Warning', `You are approaching your ${budgetCheck.budget?.period} budget limit for ${resolvedCategory}.\n\nBudget: Rp ${budgetCheck.budget?.amount.toLocaleString()}\nSpent: ${budgetCheck.percentage.toFixed(1)}%`, [{ text: 'OK' }]);
-        }
+        showBudgetAlert(budgetCheck, resolvedCategory);
       }
 
       setIsSaving(false);
@@ -308,7 +322,7 @@ export default function AddScreen() {
       ]);
 
       const durationSec = ((Date.now() - (extractStartTimeRef.current ?? Date.now())) / 1000).toFixed(1);
-      console.log('[add] uploadReceiptImage result:', fileUrl);
+      if (__DEV__) console.log('[add] uploadReceiptImage result:', fileUrl);
       setExtractedData({ ...extracted, file_url: fileUrl ?? undefined });
       setIsExtracting(false);
       setInlineAlert({ type: 'success', message: `Selesai dalam ${durationSec}s! Receipt ${fileUrl ? 'uploaded ✓' : 'upload failed (no image saved)'}` });
@@ -359,11 +373,7 @@ export default function AddScreen() {
 
       if (type === 'expense' && resolvedCategory) {
         const budgetCheck = checkBudgetAlert(resolvedCategory, profile.user_id, extractedData.total);
-        if (budgetCheck.isOverLimit) {
-          Alert.alert('⚠️ Budget Exceeded!', `You have exceeded your ${budgetCheck.budget?.period} budget for ${resolvedCategory}!\n\nBudget: Rp ${budgetCheck.budget?.amount.toLocaleString()}\nSpent: ${budgetCheck.percentage.toFixed(1)}%`, [{ text: 'OK', style: 'destructive' }]);
-        } else if (budgetCheck.isNearLimit) {
-          Alert.alert('⚠️ Budget Warning', `You are approaching your ${budgetCheck.budget?.period} budget limit for ${resolvedCategory}.\n\nBudget: Rp ${budgetCheck.budget?.amount.toLocaleString()}\nSpent: ${budgetCheck.percentage.toFixed(1)}%`, [{ text: 'OK' }]);
-        }
+        showBudgetAlert(budgetCheck, resolvedCategory);
       }
 
       setIsSaving(false);
@@ -448,7 +458,7 @@ export default function AddScreen() {
         setInlineAlert(null);
       }, 2500);
 
-      console.log('[add] bulkCreateTransactions saved:', saved.length);
+      if (__DEV__) console.log('[add] bulkCreateTransactions saved:', saved.length);
     } catch (error: any) {
       setIsSavingBulk(false);
       console.error('[add] Bulk save error:', error);

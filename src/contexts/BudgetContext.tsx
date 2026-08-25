@@ -1,5 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
 
 export interface Budget {
   id: string;
@@ -31,6 +31,9 @@ const STORAGE_KEY = '@budgets';
 export function BudgetProvider({ children }: { children: React.ReactNode }) {
   const [budgets, setBudgets] = useState<Budget[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const budgetsRef = useRef<Budget[]>([]);
+  // Serializes writes so concurrent add/update/delete calls can't race on a stale `budgets` snapshot.
+  const writeQueue = useRef(Promise.resolve());
 
   useEffect(() => {
     loadBudgets();
@@ -40,7 +43,9 @@ export function BudgetProvider({ children }: { children: React.ReactNode }) {
     try {
       const stored = await AsyncStorage.getItem(STORAGE_KEY);
       if (stored) {
-        setBudgets(JSON.parse(stored));
+        const parsed = JSON.parse(stored);
+        budgetsRef.current = parsed;
+        setBudgets(parsed);
       }
     } catch (error) {
       console.error('Failed to load budgets:', error);
@@ -49,14 +54,15 @@ export function BudgetProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const saveBudgets = async (newBudgets: Budget[]) => {
-    try {
+  const mutateBudgets = (mutate: (current: Budget[]) => Budget[]) => {
+    const result = writeQueue.current.then(async () => {
+      const newBudgets = mutate(budgetsRef.current);
       await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(newBudgets));
+      budgetsRef.current = newBudgets;
       setBudgets(newBudgets);
-    } catch (error) {
-      console.error('Failed to save budgets:', error);
-      throw error;
-    }
+    });
+    writeQueue.current = result.catch(() => {});
+    return result;
   };
 
   const addBudget = async (budget: Omit<Budget, 'id'>) => {
@@ -64,19 +70,17 @@ export function BudgetProvider({ children }: { children: React.ReactNode }) {
       ...budget,
       id: Date.now().toString(),
     };
-    await saveBudgets([...budgets, newBudget]);
+    await mutateBudgets(current => [...current, newBudget]);
   };
 
   const updateBudget = async (id: string, updates: Partial<Budget>) => {
-    const updated = budgets.map(b => 
-      b.id === id ? { ...b, ...updates } : b
+    await mutateBudgets(current =>
+      current.map(b => (b.id === id ? { ...b, ...updates } : b))
     );
-    await saveBudgets(updated);
   };
 
   const deleteBudget = async (id: string) => {
-    const filtered = budgets.filter(b => b.id !== id);
-    await saveBudgets(filtered);
+    await mutateBudgets(current => current.filter(b => b.id !== id));
   };
 
   const getBudgetByCategory = (category: string, user_id: string) => {
