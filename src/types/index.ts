@@ -119,3 +119,31 @@ export interface ParsedTransactionDraft {
 export interface ParseTransactionsPromptResponse {
   transactions: ParsedTransactionDraft[];
 }
+
+export interface RecurringItem {
+  id: string;
+  user_id: string;
+  name: string;
+  category: string;
+  amount: number;
+  interval_months: number;
+  next_due_date: string; // YYYY-MM-DD
+  auto_record: boolean;
+  alert_offsets: number[];
+  daily_within_days: number | null;
+  is_active: boolean;
+  last_alert_sent_at: string | null;
+  created_at: string;
+}
+
+export interface CreateRecurringItemParams {
+  user_id: string;
+  name: string;
+  category: string;
+  amount: number;
+  interval_months: number;
+  next_due_date: string;
+  auto_record: boolean;
+  alert_offsets: number[];
+  daily_within_days: number | null;
+}
