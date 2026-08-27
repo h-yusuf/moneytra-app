@@ -6,7 +6,7 @@ const LLM_BASE_URL = Deno.env.get('LLM_BASE_URL')!;
 const LLM_API_KEY = Deno.env.get('LLM_API_KEY')!;
 const CHAT_MODEL = Deno.env.get('CHAT_MODEL') || 'open-code';
 const LANGSEARCH_API_KEY = Deno.env.get('LANGSEARCH_API_KEY')!;
-const RESEARCH_KEYWORDS = (Deno.env.get('RESEARCH_KEYWORDS') || 'harga,kurs,inflasi,emas,berita,bi rate,pajak,reksadana,investasi,terbaru,update,pasar,saham,crypto,bitcoin,ihsg,resesi,suku bunga')
+const RESEARCH_KEYWORDS = (Deno.env.get('RESEARCH_KEYWORDS') || 'harga,kurs,inflasi,emas,berita,bi rate,pajak,reksadana,investasi,terbaru,update,pasar,saham,crypto,bitcoin,ihsg,resesi,suku bunga,usd,idr,eur,jpy,sgd,dollar,rupiah,nilai tukar,forex,btc,eth,exchange rate,to usd,to idr')
   .split(',').map((k) => k.trim().toLowerCase()).filter(Boolean);
 const USER_DATA_KEYWORDS = ['total', 'saving', 'expense', 'pengeluaran', 'pemasukan', 'transaksi', 'tabungan', 'bulan ini', 'bulan lalu', 'kategori', 'budget', 'merchant', 'rekap', 'histori', 'history', 'rekening', 'top'];
 
@@ -263,12 +263,15 @@ Deno.serve(async (req) => {
     const q = message.toLowerCase();
     const isUserData = USER_DATA_KEYWORDS.some((kw) => q.includes(kw));
     const isResearch = !isUserData && RESEARCH_KEYWORDS.some((kw) => q.includes(kw));
-    const systemPrompt = buildSystemPrompt(summary, isResearch);
 
     let reply: string;
 
+    // System prompt reflects what research ACTUALLY came back with, not just
+    // whether a research attempt was triggered — otherwise a failed/empty
+    // search still tells the LLM "you have web access" with nothing to back
+    // it up, and it either hallucinates or falls back to "no internet access".
     const buildLlmMessages = (researchContext: string) => [
-      { role: 'system', content: systemPrompt },
+      { role: 'system', content: buildSystemPrompt(summary, Boolean(researchContext)) },
       ...(researchContext
         ? [{ role: 'system', content: `Berikut hasil pencarian real-time untuk dijadikan bahan jawaban (jangan mengarang di luar ini):\n\n${researchContext}` }]
         : []),
@@ -301,6 +304,7 @@ Deno.serve(async (req) => {
               researchContext = await langSearch(message, 8);
             } catch (err) {
               console.error('[ai-chat] Research error:', err);
+              researchContext = 'Pencarian web gagal karena error teknis. Jawab pakai pengetahuan umum kamu, dan bilang ke user kalau data mungkin gak paling update.';
             }
             send({ type: 'research_done' });
           }
@@ -386,6 +390,7 @@ Deno.serve(async (req) => {
         researchContext = await langSearch(message, 8);
       } catch (err) {
         console.error('[ai-chat] Research error:', err);
+        researchContext = 'Pencarian web gagal karena error teknis. Jawab pakai pengetahuan umum kamu, dan bilang ke user kalau data mungkin gak paling update.';
       }
     }
 
