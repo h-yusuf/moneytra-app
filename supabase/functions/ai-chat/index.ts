@@ -5,8 +5,8 @@ const SUPABASE_SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 const LLM_BASE_URL = Deno.env.get('LLM_BASE_URL')!;
 const LLM_API_KEY = Deno.env.get('LLM_API_KEY')!;
 const CHAT_MODEL = Deno.env.get('CHAT_MODEL') || 'open-code';
-const TAVILY_API_KEY = Deno.env.get('TAVILY_API_KEY')!;
-const RESEARCH_KEYWORDS = (Deno.env.get('RESEARCH_KEYWORDS') || 'harga,kurs,inflasi,emas,berita,bi rate,pajak,reksadana,investasi,terbaru,update')
+const LANGSEARCH_API_KEY = Deno.env.get('LANGSEARCH_API_KEY')!;
+const RESEARCH_KEYWORDS = (Deno.env.get('RESEARCH_KEYWORDS') || 'harga,kurs,inflasi,emas,berita,bi rate,pajak,reksadana,investasi,terbaru,update,pasar,saham,crypto,bitcoin,ihsg,resesi,suku bunga')
   .split(',').map((k) => k.trim().toLowerCase()).filter(Boolean);
 const USER_DATA_KEYWORDS = ['total', 'saving', 'expense', 'pengeluaran', 'pemasukan', 'transaksi', 'tabungan', 'bulan ini', 'bulan lalu', 'kategori', 'budget', 'merchant', 'rekap', 'histori', 'history', 'rekening', 'top'];
 
@@ -171,7 +171,7 @@ Kamu punya akses ke data keuangan user secara real-time. Tugas kamu:
 - Format angka dengan "Rp" prefix, gunakan format ribuan (contoh: Rp 1.500.000)
 - Jawab RINGKAS dan padat (maksimal ~250 kata). Jangan terlalu bertele-tele.
 ${isResearch
-  ? `- Kamu punya akses Google Search real-time. Cari info terbaru dari web sebelum jawab, dan sebutkan sumbernya.`
+  ? `- Kamu punya akses web search real-time (harga pasar, kurs, saham, emas, berita ekonomi terbaru). Pakai hasil pencarian di bawah buat jawab dengan angka/info paling update, dan sebutkan sumbernya.`
   : `- Kamu TIDAK punya akses internet. Jawab hanya berdasarkan data keuangan user di atas dan pengetahuanmu.`}
 
 DATA KEUANGAN USER:
@@ -193,44 +193,46 @@ ${summary.recent_transactions.map((t) => `- ${t.merchant} | ${t.category} | ${t.
 Jawab pertanyaan user berdasarkan data di atas. Jika data tidak cukup, bilang saja. Jangan mengarang angka.`;
 }
 
-async function tavilySearch(query: string, maxResults = 5): Promise<string> {
-  const res = await fetch('https://api.tavily.com/search', {
+async function langSearch(query: string, count = 8): Promise<string> {
+  const res = await fetch('https://api.langsearch.com/v1/web-search', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      Authorization: `Bearer ${LANGSEARCH_API_KEY}`,
+      'Content-Type': 'application/json',
+    },
     body: JSON.stringify({
-      api_key: TAVILY_API_KEY,
       query,
-      max_results: maxResults,
-      search_depth: 'basic',
-      include_answer: true,
-      include_raw_content: false,
+      freshness: 'noLimit',
+      summary: true,
+      count,
     }),
   });
 
   if (!res.ok) {
     const errText = await res.text();
-    console.error('[ai-chat] Tavily error:', res.status, errText);
-    throw new Error(`Tavily search failed: ${res.status}`);
+    console.error('[ai-chat] LangSearch error:', res.status, errText);
+    throw new Error(`LangSearch search failed: ${res.status}`);
   }
 
   const data = await res.json();
-  const sources = (data?.results ?? [])
+  const webPages: { name?: string; url?: string; snippet?: string; summary?: string }[] =
+    data?.data?.webPages?.value ?? [];
+
+  const sources = webPages
     .slice(0, 3)
-    .map((r: { title?: string; url?: string }) => r.url)
+    .map((r) => r.url)
     .filter(Boolean);
 
-  const answer = data?.answer ?? '';
-  const results = (data?.results ?? [])
-    .slice(0, 4)
-    .map((r: { title?: string; url?: string; content?: string }, i: number) =>
-      `${i + 1}. ${r.title ?? 'Tanpa judul'}\n   ${r.url ?? ''}\n   ${(r.content ?? '').slice(0, 500)}`
+  const results = webPages
+    .slice(0, 5)
+    .map((r, i) =>
+      `${i + 1}. ${r.name ?? 'Tanpa judul'}\n   ${r.url ?? ''}\n   ${(r.summary ?? r.snippet ?? '').slice(0, 500)}`
     )
     .join('\n\n');
 
-  const ctx = [answer, results].filter(Boolean).join('\n\n');
   const sourceLine = sources.length > 0 ? `\n\nSumber: ${sources.join(', ')}` : '';
 
-  return ctx ? `${ctx}${sourceLine}` : 'Tidak ada hasil pencarian.';
+  return results ? `${results}${sourceLine}` : 'Tidak ada hasil pencarian.';
 }
 
 Deno.serve(async (req) => {
@@ -265,12 +267,7 @@ Deno.serve(async (req) => {
 
     let reply: string;
 
-    let researchContext = '';
-    if (isResearch) {
-      researchContext = await tavilySearch(message, 5);
-    }
-
-    const llmMessages = [
+    const buildLlmMessages = (researchContext: string) => [
       { role: 'system', content: systemPrompt },
       ...(researchContext
         ? [{ role: 'system', content: `Berikut hasil pencarian real-time untuk dijadikan bahan jawaban (jangan mengarang di luar ini):\n\n${researchContext}` }]
@@ -280,29 +277,6 @@ Deno.serve(async (req) => {
     ];
 
     if (body.stream) {
-      const llmStreamResponse = await fetch(`${LLM_BASE_URL}/chat/completions`, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${LLM_API_KEY}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: CHAT_MODEL,
-          messages: llmMessages,
-          stream: true,
-          temperature: 0.7,
-        }),
-      });
-
-      if (!llmStreamResponse.ok || !llmStreamResponse.body) {
-        const errText = await llmStreamResponse.text().catch(() => 'No response body');
-        console.error('[ai-chat] LLM stream error:', llmStreamResponse.status, errText);
-        return new Response(
-          JSON.stringify({ error: 'LLM request failed', detail: errText }),
-          { status: 502, headers: { 'Content-Type': 'application/json' } }
-        );
-      }
-
       const summaryPayload = {
         total_expense: summary.total_expense,
         total_saving: summary.total_saving,
@@ -316,6 +290,45 @@ Deno.serve(async (req) => {
           const send = (obj: unknown) => controller.enqueue(encoder.encode(`data: ${JSON.stringify(obj)}\n\n`));
 
           send({ type: 'summary', summary: summaryPayload });
+
+          // Research (if triggered) runs before the LLM call — surfaced to the
+          // client as its own phase so the UI can show a "researching" state
+          // instead of the LLM answer streaming in immediately.
+          let researchContext = '';
+          if (isResearch) {
+            send({ type: 'research_start', query: message });
+            try {
+              researchContext = await langSearch(message, 8);
+            } catch (err) {
+              console.error('[ai-chat] Research error:', err);
+            }
+            send({ type: 'research_done' });
+          }
+
+          const llmMessages = buildLlmMessages(researchContext);
+
+          const llmStreamResponse = await fetch(`${LLM_BASE_URL}/chat/completions`, {
+            method: 'POST',
+            headers: {
+              Authorization: `Bearer ${LLM_API_KEY}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              model: CHAT_MODEL,
+              messages: llmMessages,
+              stream: true,
+              temperature: 0.7,
+            }),
+          });
+
+          if (!llmStreamResponse.ok || !llmStreamResponse.body) {
+            const errText = await llmStreamResponse.text().catch(() => 'No response body');
+            console.error('[ai-chat] LLM stream error:', llmStreamResponse.status, errText);
+            send({ type: 'error', error: 'LLM request failed' });
+            send({ type: 'done' });
+            controller.close();
+            return;
+          }
 
           const reader = llmStreamResponse.body!.getReader();
           const decoder = new TextDecoder();
@@ -367,6 +380,15 @@ Deno.serve(async (req) => {
       });
     }
 
+    let researchContext = '';
+    if (isResearch) {
+      try {
+        researchContext = await langSearch(message, 8);
+      } catch (err) {
+        console.error('[ai-chat] Research error:', err);
+      }
+    }
+
     const llmResponse = await fetch(`${LLM_BASE_URL}/chat/completions`, {
       method: 'POST',
       headers: {
@@ -375,7 +397,7 @@ Deno.serve(async (req) => {
       },
       body: JSON.stringify({
         model: CHAT_MODEL,
-        messages: llmMessages,
+        messages: buildLlmMessages(researchContext),
         stream: false,
         temperature: 0.7,
       }),

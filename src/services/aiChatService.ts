@@ -40,6 +40,8 @@ export async function sendChatMessage(
 
 export interface StreamCallbacks {
   onSummary?: (summary: NonNullable<ChatResponse['summary']>) => void;
+  onResearchStart?: (query: string) => void;
+  onResearchDone?: () => void;
   onDelta: (chunk: string) => void;
   onDone: () => void;
   onError: (error: Error) => void;
@@ -80,6 +82,10 @@ export function sendChatMessageStream(
         const parsed = JSON.parse(payload);
         if (parsed.type === 'summary' && parsed.summary) {
           callbacks.onSummary?.(parsed.summary);
+        } else if (parsed.type === 'research_start') {
+          callbacks.onResearchStart?.(parsed.query ?? '');
+        } else if (parsed.type === 'research_done') {
+          callbacks.onResearchDone?.();
         } else if (parsed.type === 'content' && typeof parsed.content === 'string') {
           callbacks.onDelta(parsed.content);
         } else if (parsed.type === 'done') {

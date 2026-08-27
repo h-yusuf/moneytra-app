@@ -101,6 +101,34 @@ function EqualizerTyping({ color }: { color: string }) {
   );
 }
 
+// ─── ResearchingIndicator ── magnifying glass sweeping over a line, like scanning search results ──
+
+function ResearchingIndicator({ color, dimColor }: { color: string; dimColor: string }) {
+  const sweep = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(sweep, { toValue: 1, duration: 900, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
+        Animated.timing(sweep, { toValue: 0, duration: 900, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
+      ])
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [sweep]);
+
+  const translateX = sweep.interpolate({ inputRange: [0, 1], outputRange: [-6, 6] });
+
+  return (
+    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+      <Animated.View style={{ transform: [{ translateX }] }}>
+        <IconSymbol name="magnifyingglass" size={16} color={color} />
+      </Animated.View>
+      <Text style={{ color: dimColor, fontSize: 14, marginLeft: 8 }}>Monetra AI lagi riset di web...</Text>
+    </View>
+  );
+}
+
 // ─── MessageBubble ── entrance feels like a receipt feeding out of a printer ──
 
 function MessageBubble({
@@ -262,6 +290,7 @@ export default function ChatScreen() {
   const [unreadReplyAt, setUnreadReplyAt] = useState<number | null>(null);
   const [inputFocused, setInputFocused] = useState(false);
   const [streamingReply, setStreamingReply] = useState<string | null>(null);
+  const [researching, setResearching] = useState(false);
   const streamHandleRef = useRef<StreamHandle | null>(null);
   const flatListRef = useRef<FlatList>(null);
   const startedAtRef = useRef<number>(Date.now());
@@ -326,6 +355,7 @@ export default function ChatScreen() {
     streamHandleRef.current?.abort();
     streamHandleRef.current = null;
     setStreamingReply(null);
+    setResearching(false);
     setLoading(false);
     startedAtRef.current = Date.now();
     messagesRef.current = [];
@@ -357,14 +387,25 @@ export default function ChatScreen() {
       persistChatSession({ messages: afterUserMessage, startedAt: startedAtRef.current, unreadReplyAt: null });
 
       setStreamingReply(null);
+      setResearching(false);
 
       try {
         const finalText = await new Promise<string>((resolve, reject) => {
           let acc = '';
           streamHandleRef.current = sendChatMessageStream(profile.user_id, trimmed, historySnapshot, {
+            onResearchStart: () => {
+              if (mountedRef.current) {
+                setResearching(true);
+                scrollToBottom();
+              }
+            },
+            onResearchDone: () => {
+              if (mountedRef.current) setResearching(false);
+            },
             onDelta: (chunk) => {
               acc += chunk;
               if (mountedRef.current) {
+                setResearching(false);
                 setStreamingReply(acc);
                 scrollToBottom();
               }
@@ -413,6 +454,7 @@ export default function ChatScreen() {
         if (mountedRef.current) {
           setLoading(false);
           setStreamingReply(null);
+          setResearching(false);
           scrollToBottom();
         }
       }
@@ -511,6 +553,13 @@ export default function ChatScreen() {
                 <View style={{ maxWidth: '75%', backgroundColor: colors.cardSecondary, borderRadius: 18, borderBottomLeftRadius: 4, paddingHorizontal: 16, paddingVertical: 10 }}>
                   <Text style={{ color: colors.text, fontSize: 15, lineHeight: 22 }}>{streamingReply}</Text>
                 </View>
+              </View>
+            ) : researching ? (
+              <View style={{ paddingHorizontal: 20, paddingVertical: 12, flexDirection: 'row', alignItems: 'center' }}>
+                <View style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center', marginRight: 8 }}>
+                  <IconSymbol name="magnifyingglass" size={16} color="#0a0a0a" />
+                </View>
+                <ResearchingIndicator color={colors.primary} dimColor={colors.textTertiary} />
               </View>
             ) : (
               <View style={{ paddingHorizontal: 20, paddingVertical: 12, flexDirection: 'row', alignItems: 'center' }}>

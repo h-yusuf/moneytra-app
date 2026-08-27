@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Monetra — AI Search Chat (Sample)</title>
+<style>
+  :root {
+    --bg: #0b1414;
+    --panel: #10201d;
+    --panel-2: #142924;
+    --border: #1f3a34;
+    --emerald: #10b981;
+    --teal: #14b8a6;
+    --text: #e6f3ef;
+    --text-dim: #8fa8a1;
+    --danger: #f87171;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    background: radial-gradient(circle at top, #0f201c, #070d0c 70%);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    overflow: hidden;
+  }
+  header {
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  header .brand { display: flex; align-items: center; gap: 10px; }
+  header .brand .dot {
+    width: 10px; height: 10px; border-radius: 50%;
+    background: linear-gradient(135deg, var(--emerald), var(--teal));
+    box-shadow: 0 0 12px var(--emerald);
+  }
+  header h1 { font-size: 16px; margin: 0; font-weight: 600; }
+  header .sub { font-size: 12px; color: var(--text-dim); }
+  header .config {
+    display: flex; gap: 8px; align-items: center; font-size: 12px; color: var(--text-dim);
+  }
+  header input {
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    border-radius: 8px;
+    padding: 6px 10px;
+    font-size: 12px;
+    width: 150px;
+  }
+  main {
+    flex: 1;
+    display: flex;
+    overflow: hidden;
+  }
+  #chat-col {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+  }
+  #messages {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+  .msg { max-width: 78%; padding: 12px 14px; border-radius: 14px; line-height: 1.5; font-size: 14px; white-space: pre-wrap; word-wrap: break-word; }
+  .msg.user { align-self: flex-end; background: linear-gradient(135deg, var(--emerald), var(--teal)); color: #04120f; border-bottom-right-radius: 4px; }
+  .msg.ai { align-self: flex-start; background: var(--panel); border: 1px solid var(--border); border-bottom-left-radius: 4px; }
+  .msg.system { align-self: center; font-size: 12px; color: var(--text-dim); background: transparent; border: 1px dashed var(--border); }
+  .msg.error { border-color: var(--danger); color: var(--danger); }
+  .msg .label { display: block; font-size: 11px; opacity: .7; margin-bottom: 4px; text-transform: uppercase; letter-spacing: .04em; }
+  .sources { margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--border); font-size: 11px; color: var(--text-dim); }
+  .sources a { color: var(--teal); text-decoration: none; }
+  .sources a:hover { text-decoration: underline; }
+  .typing { display: inline-flex; gap: 4px; align-items: center; }
+  .typing span { width: 6px; height: 6px; border-radius: 50%; background: var(--teal); animation: blink 1.2s infinite ease-in-out; }
+  .typing span:nth-child(2) { animation-delay: .2s; }
+  .typing span:nth-child(3) { animation-delay: .4s; }
+  @keyframes blink { 0%, 80%, 100% { opacity: .2; } 40% { opacity: 1; } }
+  #composer {
+    border-top: 1px solid var(--border);
+    padding: 14px 20px;
+    display: flex;
+    gap: 10px;
+    align-items: flex-end;
+  }
+  #composer textarea {
+    flex: 1;
+    resize: none;
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    border-radius: 12px;
+    padding: 12px 14px;
+    font-size: 14px;
+    font-family: inherit;
+    max-height: 120px;
+  }
+  #composer textarea:focus { outline: none; border-color: var(--emerald); }
+  #composer button {
+    background: linear-gradient(135deg, var(--emerald), var(--teal));
+    border: none;
+    color: #04120f;
+    font-weight: 600;
+    border-radius: 12px;
+    padding: 12px 18px;
+    cursor: pointer;
+    font-size: 14px;
+  }
+  #composer button:disabled { opacity: .5; cursor: not-allowed; }
+  label.toggle { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-dim); padding: 0 4px; user-select: none; }
+  #side {
+    width: 320px;
+    border-left: 1px solid var(--border);
+    background: var(--panel);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  #side h2 { font-size: 13px; margin: 0; padding: 14px 16px; border-bottom: 1px solid var(--border); color: var(--text-dim); text-transform: uppercase; letter-spacing: .05em; }
+  #results { flex: 1; overflow-y: auto; padding: 12px; display: flex; flex-direction: column; gap: 10px; }
+  .result-card { background: var(--panel-2); border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; font-size: 12px; }
+  .result-card a { color: var(--teal); font-weight: 600; text-decoration: none; display: block; margin-bottom: 4px; }
+  .result-card a:hover { text-decoration: underline; }
+  .result-card p { margin: 0; color: var(--text-dim); line-height: 1.4; }
+  .empty-hint { color: var(--text-dim); font-size: 12px; padding: 16px; text-align: center; }
+  @media (max-width: 760px) {
+    #side { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">
+    <div class="dot"></div>
+    <div>
+      <h1>Monetra AI Search Chat</h1>
+      <div class="sub">Master sample — web search (LangSearch) + Supabase AI</div>
+    </div>
+  </div>
+  <div class="config">
+    <label class="toggle">
+      <input type="checkbox" id="toggle-search" checked />
+      Web search
+    </label>
+    <input id="input-userid" type="text" value="demo-user" placeholder="user_id" title="user_id dikirim ke ai-chat edge function" />
+  </div>
+</header>
+
+<main>
+  <div id="chat-col">
+    <div id="messages">
+      <div class="msg system">Tanya apa aja. Kalau "Web search" aktif, jawaban AI dibantu hasil pencarian real-time dari LangSearch.</div>
+    </div>
+    <div id="composer">
+      <textarea id="input-msg" rows="1" placeholder="Tulis pertanyaan..."></textarea>
+      <button id="btn-send">Kirim</button>
+    </div>
+  </div>
+
+  <aside id="side">
+    <h2>Hasil Pencarian</h2>
+    <div id="results">
+      <div class="empty-hint">Hasil web search buat pertanyaan terakhir bakal muncul di sini.</div>
+    </div>
+  </aside>
+</main>
+
+<script>
+(() => {
+  // ── Config ──────────────────────────────────────────────────────────────
+  // Ganti ke .env project kamu kalau dipakai beneran, ini cuma sample statis.
+  const SUPABASE_URL = 'https://hzhnvlaudcjntkiqctrs.supabase.co';
+  const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imh6aG52bGF1ZGNqbnRraXFjdHJzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA2NDA2OTYsImV4cCI6MjA5NjIxNjY5Nn0.V7IzHnDZnifPFCFewnyFkXeDMit5_4ajDQYKfT3XY-M';
+  const LANGSEARCH_API_KEY = 'sk-6149a48ac9e042c1acf877a9ebc98d8f';
+  const LANGSEARCH_URL = 'https://api.langsearch.com/v1/web-search';
+  const AI_CHAT_URL = `${SUPABASE_URL}/functions/v1/ai-chat`;
+
+  // ── State ───────────────────────────────────────────────────────────────
+  const history = []; // {role: 'user'|'assistant', content}
+  const messagesEl = document.getElementById('messages');
+  const resultsEl = document.getElementById('results');
+  const inputMsg = document.getElementById('input-msg');
+  const btnSend = document.getElementById('btn-send');
+  const toggleSearch = document.getElementById('toggle-search');
+  const inputUserId = document.getElementById('input-userid');
+
+  inputMsg.addEventListener('input', () => {
+    inputMsg.style.height = 'auto';
+    inputMsg.style.height = Math.min(inputMsg.scrollHeight, 120) + 'px';
+  });
+  inputMsg.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      send();
+    }
+  });
+  btnSend.addEventListener('click', send);
+
+  function addMessage(role, text, opts = {}) {
+    const div = document.createElement('div');
+    div.className = `msg ${role}${opts.error ? ' error' : ''}`;
+    const label = document.createElement('span');
+    label.className = 'label';
+    label.textContent = role === 'user' ? 'Kamu' : role === 'ai' ? 'Monetra AI' : 'Info';
+    if (role !== 'system') div.appendChild(label);
+    const body = document.createElement('div');
+    body.textContent = text;
+    div.appendChild(body);
+    messagesEl.appendChild(div);
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+    return div;
+  }
+
+  function addTyping() {
+    const div = document.createElement('div');
+    div.className = 'msg ai';
+    div.innerHTML = '<span class="typing"><span></span><span></span><span></span></span>';
+    messagesEl.appendChild(div);
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+    return div;
+  }
+
+  function renderResults(results) {
+    resultsEl.innerHTML = '';
+    if (!results || results.length === 0) {
+      resultsEl.innerHTML = '<div class="empty-hint">Gak ada hasil pencarian.</div>';
+      return;
+    }
+    results.forEach((r) => {
+      const card = document.createElement('div');
+      card.className = 'result-card';
+      const a = document.createElement('a');
+      a.href = r.url;
+      a.target = '_blank';
+      a.rel = 'noopener noreferrer';
+      a.textContent = r.name || r.url;
+      const p = document.createElement('p');
+      p.textContent = r.snippet || r.summary || '';
+      card.appendChild(a);
+      card.appendChild(p);
+      resultsEl.appendChild(card);
+    });
+  }
+
+  // ── LangSearch web search ──────────────────────────────────────────────
+  async function webSearch(query) {
+    const res = await fetch(LANGSEARCH_URL, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${LANGSEARCH_API_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        query,
+        freshness: 'noLimit',
+        summary: true,
+        count: 8,
+      }),
+    });
+    if (!res.ok) {
+      const errText = await res.text().catch(() => '');
+      throw new Error(`LangSearch error ${res.status}: ${errText}`);
+    }
+    const data = await res.json();
+    const results = data?.data?.webPages?.value ?? [];
+    return results.map((r) => ({
+      name: r.name,
+      url: r.url,
+      snippet: r.snippet,
+      summary: r.summary,
+    }));
+  }
+
+  function buildResearchContext(results) {
+    if (!results.length) return '';
+    const lines = results.slice(0, 6).map((r, i) =>
+      `${i + 1}. ${r.name}\n   ${r.url}\n   ${(r.summary || r.snippet || '').slice(0, 500)}`
+    );
+    return `Hasil pencarian web real-time (via LangSearch) untuk dijadikan bahan jawaban:\n\n${lines.join('\n\n')}`;
+  }
+
+  // ── Supabase ai-chat edge function ─────────────────────────────────────
+  async function askAI(message, userId) {
+    const res = await fetch(AI_CHAT_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+      },
+      body: JSON.stringify({
+        user_id: userId,
+        message,
+        history: history.map((m) => ({ role: m.role, content: m.content })),
+      }),
+    });
+    if (!res.ok) {
+      const errText = await res.text().catch(() => '');
+      throw new Error(`ai-chat error ${res.status}: ${errText}`);
+    }
+    const data = await res.json();
+    return data.reply;
+  }
+
+  async function send() {
+    const raw = inputMsg.value.trim();
+    if (!raw) return;
+    inputMsg.value = '';
+    inputMsg.style.height = 'auto';
+    btnSend.disabled = true;
+
+    addMessage('user', raw);
+    history.push({ role: 'user', content: raw });
+
+    let messageForAI = raw;
+
+    try {
+      if (toggleSearch.checked) {
+        const searching = addMessage('system', 'Nyari di web via LangSearch...');
+        const results = await webSearch(raw);
+        searching.remove();
+        renderResults(results);
+        const ctx = buildResearchContext(results);
+        if (ctx) {
+          messageForAI = `${ctx}\n\nPertanyaan user: ${raw}`;
+        }
+      }
+
+      const typingEl = addTyping();
+      const reply = await askAI(messageForAI, inputUserId.value.trim() || 'demo-user');
+      typingEl.remove();
+      addMessage('ai', reply);
+      history.push({ role: 'assistant', content: reply });
+    } catch (err) {
+      addMessage('ai', String(err.message || err), { error: true });
+    } finally {
+      btnSend.disabled = false;
+      inputMsg.focus();
+    }
+  }
+})();
+</script>
+
+</body>
+</html>
