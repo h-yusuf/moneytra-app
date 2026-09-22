@@ -11,7 +11,9 @@ import { useCategoryMerchantSuggestions } from '@/src/hooks/useCategoryMerchantS
 import {
   bulkCreateTransactions,
   createTransaction,
+  extractMutasiText,
   extractTransaction,
+  parseMutasiTransactions,
   parseTransactionsFromPrompt,
   uploadReceiptImage,
   type ExtractedTransactionData,
@@ -82,6 +84,10 @@ export default function AddScreen() {
   const [isParsingPrompt, setIsParsingPrompt] = useState(false);
   const [promptDrafts, setPromptDrafts] = useState<ParsedTransactionDraft[]>([]);
   const [isSavingBulk, setIsSavingBulk] = useState(false);
+  const [showMutasiEntry, setShowMutasiEntry] = useState(false);
+  const [mutasiDrafts, setMutasiDrafts] = useState<ParsedTransactionDraft[]>([]);
+  const [isProcessingMutasi, setIsProcessingMutasi] = useState(false);
+  const [isSavingMutasi, setIsSavingMutasi] = useState(false);
   const [manualForm, setManualForm] = useState({
     merchant: prefillMerchant ?? '',
     total: prefillAmount ?? '',
@@ -481,6 +487,113 @@ export default function AddScreen() {
     }
   };
 
+  // ─── Mutasi (bank statement) handlers ──
+
+  const handleUploadMutasi = async () => {
+    if (!profile?.user_id) {
+      Alert.alert('User ID Required', 'Please set your User ID in Settings.', [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Go to Settings', onPress: () => router.push('/settings') },
+      ]);
+      return;
+    }
+
+    try {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission Required', 'Please allow photo library access.', [{ text: 'OK' }]);
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsEditing: false,
+        quality: 0.9,
+        exif: false,
+      });
+
+      if (result.canceled || !result.assets?.[0]) return;
+
+      const asset = result.assets[0];
+      const fileObj = { uri: asset.uri, type: asset.type || 'image/jpeg', name: `mutasi_${Date.now()}.jpg`, size: asset.fileSize };
+
+      setInlineAlert(null);
+      setIsProcessingMutasi(true);
+
+      // Step 1: OCR via n8n pharsImg
+      const ocrText = await extractMutasiText(profile.user_id, fileObj);
+      if (__DEV__) console.log('[add] Mutasi OCR text length:', ocrText.length);
+
+      // Step 2: Parse OCR text → multi-transaksi via Edge Function
+      const drafts = await parseMutasiTransactions(profile.user_id, ocrText);
+      setMutasiDrafts(drafts);
+      setIsProcessingMutasi(false);
+
+      if (drafts.length === 0) {
+        setInlineAlert({ type: 'error', message: 'AI gak nemu transaksi di mutasi itu. Coba foto yang lebih jelas.' });
+      }
+    } catch (error: any) {
+      setIsProcessingMutasi(false);
+      console.error('[add] Mutasi error:', error);
+      const msg = error?.message || 'Terjadi kesalahan.';
+      setInlineAlert({
+        type: 'error',
+        message: msg.includes('OCR')
+          ? msg
+          : `Gagal proses mutasi: ${msg}`,
+      });
+    }
+  };
+
+  const handleChangeMutasiDraft = (id: string, patch: Partial<ParsedTransactionDraft>) => {
+    setMutasiDrafts((prev) => prev.map((d) => (d.id === id ? { ...d, ...patch } : d)));
+  };
+
+  const handleRemoveMutasiDraft = (id: string) => {
+    setMutasiDrafts((prev) => prev.filter((d) => d.id !== id));
+  };
+
+  const handleSaveAllMutasi = async () => {
+    if (!profile?.user_id || mutasiDrafts.length === 0) return;
+
+    setIsSavingMutasi(true);
+    try {
+      const items = mutasiDrafts.map((d) => ({
+        user_id: profile.user_id!,
+        type: d.type,
+        merchant: resolveSuggestedValue(d.merchant ?? '', merchantSuggestions),
+        total: d.total ?? 0,
+        category: resolveSuggestedValue(d.category ?? '', categorySuggestions),
+        transaction_date: d.transaction_date ?? new Date().toISOString().split('T')[0],
+        payment_method: d.payment_method || undefined,
+        notes: d.notes || undefined,
+        source_name: 'mutasi-import',
+      }));
+
+      const saved = await bulkCreateTransactions(items);
+      const totalSaved = items.reduce((sum, i) => sum + i.total, 0);
+
+      setSelectedType(items[0].type);
+      setSavedAmount(totalSaved);
+      await playSuccessSound(items[0].type);
+
+      setIsSavingMutasi(false);
+      setShowSuccessModal(true);
+      setTimeout(() => {
+        setShowSuccessModal(false);
+        setShowMutasiEntry(false);
+        setMutasiDrafts([]);
+        setInlineAlert(null);
+      }, 2500);
+
+      if (__DEV__) console.log('[add] Mutasi bulk save:', saved.length);
+    } catch (error: any) {
+      setIsSavingMutasi(false);
+      console.error('[add] Mutasi save error:', error);
+      setInlineAlert({ type: 'error', message: `Gagal menyimpan: ${error?.message || 'Terjadi kesalahan.'}` });
+    }
+  };
+
   const formatFileSize = (bytes?: number) => {
     if (!bytes) return 'Unknown size';
     if (bytes < 1024) return bytes + ' B';
@@ -588,7 +701,63 @@ export default function AddScreen() {
               <IconSymbol name={showPromptEntry ? 'chevron.left' : 'chevron.right'} size={16} color={showPromptEntry ? '#0a0a0a' : '#737373'} />
             </View>
           </Pressable>
+
+          <Pressable
+            onPress={() => { setShowMutasiEntry(!showMutasiEntry); if (!showMutasiEntry) { setMutasiDrafts([]); setInlineAlert(null); } }}
+            style={{ backgroundColor: showMutasiEntry ? colors.primary : colors.card, borderRadius: 16, padding: 16, marginTop: 12 }}
+          >
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <View style={{ width: 48, height: 48, borderRadius: 12, backgroundColor: showMutasiEntry ? 'rgba(10,10,10,0.15)' : colors.cardSecondary, alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
+                <IconSymbol name="doc.text.magnifyingglass" size={24} color={showMutasiEntry ? '#0a0a0a' : colors.primary} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={{ color: showMutasiEntry ? '#0a0a0a' : colors.text, fontWeight: '600', fontSize: 15, marginBottom: 2 }}>Upload Mutasi</Text>
+                <Text style={{ color: showMutasiEntry ? 'rgba(10,10,10,0.6)' : colors.textTertiary, fontSize: 12 }}>{showMutasiEntry ? 'Tap to close' : 'Foto mutasi rekening, auto-input banyak transaksi'}</Text>
+              </View>
+              <IconSymbol name={showMutasiEntry ? 'chevron.left' : 'chevron.right'} size={16} color={showMutasiEntry ? '#0a0a0a' : '#737373'} />
+            </View>
+          </Pressable>
         </View>
+
+        {/* Mutasi Entry */}
+        {showMutasiEntry && (
+          <View style={{ paddingHorizontal: 20, marginTop: 24 }}>
+            <Text style={{ color: colors.textSecondary, fontSize: 11, fontWeight: '600', marginBottom: 12, letterSpacing: 0.5 }}>UPLOAD MUTASI</Text>
+            {mutasiDrafts.length === 0 ? (
+              <View style={{ backgroundColor: colors.card, borderRadius: 16, padding: 20, alignItems: 'center' }}>
+                {isProcessingMutasi ? (
+                  <>
+                    <ActivityIndicator size="large" color={colors.primary} style={{ marginBottom: 16 }} />
+                    <Text style={{ color: colors.text, fontSize: 15, fontWeight: '600', marginBottom: 4 }}>Memproses mutasi...</Text>
+                    <Text style={{ color: colors.textTertiary, fontSize: 13, textAlign: 'center' }}>OCR baca foto + AI parse transaksi. Tunggu sebentar.</Text>
+                  </>
+                ) : (
+                  <>
+                    <View style={{ width: 56, height: 56, borderRadius: 16, backgroundColor: colors.cardSecondary, alignItems: 'center', justifyContent: 'center', marginBottom: 16 }}>
+                      <IconSymbol name="photo.badge.arrow.down.fill" size={28} color={colors.primary} />
+                    </View>
+                    <Text style={{ color: colors.text, fontSize: 15, fontWeight: '600', marginBottom: 4 }}>Pilih Screenshot Mutasi</Text>
+                    <Text style={{ color: colors.textTertiary, fontSize: 13, textAlign: 'center', marginBottom: 20, lineHeight: 18 }}>Upload foto screenshot mutasi rekening dari m-banking. AI akan baca dan input semua transaksi sekaligus.</Text>
+                    <Pressable onPress={handleUploadMutasi} style={{ backgroundColor: colors.primary, borderRadius: 12, paddingVertical: 14, paddingHorizontal: 32, flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}>
+                      <IconSymbol name="arrow.up.doc.fill" size={18} color="#0a0a0a" style={{ marginRight: 8 }} />
+                      <Text style={{ color: '#0a0a0a', fontWeight: 'bold', fontSize: 14 }}>Pilih Foto Mutasi</Text>
+                    </Pressable>
+                  </>
+                )}
+              </View>
+            ) : (
+              <ParsedTransactionReviewList
+                drafts={mutasiDrafts}
+                categorySuggestions={categorySuggestions}
+                merchantSuggestions={merchantSuggestions}
+                onChange={handleChangeMutasiDraft}
+                onRemove={handleRemoveMutasiDraft}
+                onSaveAll={handleSaveAllMutasi}
+                isSaving={isSavingMutasi}
+              />
+            )}
+          </View>
+        )}
 
         {/* Manual Entry Form */}
         {showManualEntry && (
@@ -757,7 +926,7 @@ export default function AddScreen() {
         )}
 
         {/* Tips */}
-        {!uploadedFile && !showManualEntry && !showPromptEntry && (
+        {!uploadedFile && !showManualEntry && !showPromptEntry && !showMutasiEntry && (
           <View style={{ paddingHorizontal: 20, marginTop: 24 }}>
             <View style={{ backgroundColor: colors.card, borderRadius: 16, padding: 16, flexDirection: 'row', alignItems: 'flex-start' }}>
               <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: colors.cardSecondary, alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>

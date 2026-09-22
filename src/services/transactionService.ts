@@ -432,6 +432,109 @@ export async function createTransaction(
   return data as Transaction;
 }
 
+// ─── extractMutasiText (OCR via n8n pharsImg) ────────────────────────────────
+
+export interface MutasiOcrResult {
+  rawText: string;
+}
+
+/**
+ * Upload mutasi screenshot to n8n pharsImg webhook for OCR.
+ * Returns raw OCR text that will be passed to parse-mutasi Edge Function.
+ */
+export async function extractMutasiText(
+  userId: string,
+  file: { uri: string; type?: string; name?: string; size?: number }
+): Promise<string> {
+  const apiUrl = process.env.EXPO_PUBLIC_API_URL!;
+  const isWeb = typeof window !== 'undefined' && typeof document !== 'undefined';
+
+  // Resize image client-side (max 1600px) to keep upload fast
+  let manipResult = file;
+  try {
+    const resized = await ImageManipulator.manipulateAsync(
+      file.uri,
+      [{ resize: { width: 1600 } }],
+      { compress: 0.8, format: ImageManipulator.SaveFormat.JPEG }
+    );
+    manipResult = { uri: resized.uri, type: 'image/jpeg', name: file.name || `mutasi_${Date.now()}.jpg` };
+  } catch {
+    // resize failed — use original
+  }
+
+  const formData = new FormData();
+  formData.append('user_id', userId);
+
+  if (isWeb) {
+    const response = await fetch(manipResult.uri);
+    const blob = await response.blob();
+    const mimeType = manipResult.type || blob.type || 'image/jpeg';
+    const fileName = manipResult.name || `mutasi_${Date.now()}.jpg`;
+    const fileObj = new File([blob], fileName, { type: mimeType });
+    formData.append('file', fileObj);
+  } else {
+    // @ts-ignore - React Native FormData typing
+    formData.append('file', {
+      uri: manipResult.uri,
+      type: manipResult.type || 'image/jpeg',
+      name: manipResult.name || 'mutasi.jpg',
+    });
+  }
+
+  const response = await fetch(`${apiUrl}/webhook/pharsImg`, {
+    method: 'POST',
+    body: formData,
+  });
+
+  if (!response.ok) {
+    const errText = await response.text().catch(() => 'No response body');
+    console.error('[extractMutasiText] OCR failed:', { status: response.status, body: errText });
+    throw new Error(`Gagal OCR mutasi (HTTP ${response.status}): ${errText || 'Server error'}`);
+  }
+
+  const responseText = await response.text().catch(() => '');
+  if (!responseText) {
+    throw new Error('OCR mutasi return response kosong. Coba foto ulang dengan pencahayaan lebih baik.');
+  }
+
+  let data: MutasiOcrResult;
+  try {
+    data = JSON.parse(responseText);
+  } catch {
+    throw new Error(`Gagal OCR: response bukan JSON valid. Raw: ${responseText.slice(0, 200)}`);
+  }
+
+  if (!data.rawText || !data.rawText.trim()) {
+    throw new Error('OCR gak nemu teks apapun di foto. Pastikan screenshot mutasi jelas.');
+  }
+
+  if (__DEV__) console.log('[extractMutasiText] OCR success, text length:', data.rawText.length);
+  return data.rawText;
+}
+
+// ─── parseMutasiTransactions (OCR text → multi-transaksi) ────────────────────
+
+export async function parseMutasiTransactions(
+  userId: string,
+  ocrText: string
+): Promise<ParsedTransactionDraft[]> {
+  const { data, error } = await supabase.functions.invoke<{
+    transactions: Omit<ParsedTransactionDraft, 'id'>[];
+  }>('parse-mutasi', {
+    body: { user_id: userId, ocr_text: ocrText },
+  });
+
+  if (error) {
+    if (__DEV__) console.error('[parseMutasiTransactions] Failed:', error);
+    throw new Error(`Gagal parse mutasi: ${error.message}`);
+  }
+
+  return (data?.transactions ?? []).map((t, index) => ({
+    ...t,
+    id: `${Date.now()}-${index}`,
+  }));
+}
+
 // ─── parseTransactionsFromPrompt ─────────────────────────────────────────────
 
 export async function parseTransactionsFromPrompt(
