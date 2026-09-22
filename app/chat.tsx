@@ -1,8 +1,6 @@
 import { IconSymbol } from '@/components/ui/icon-symbol';
-import { ParsedTransactionReviewList } from '@/src/components/common/ParsedTransactionReviewList';
 import { useTheme } from '@/src/contexts/ThemeContext';
 import { useUser } from '@/src/contexts/UserContext';
-import { useCategoryMerchantSuggestions } from '@/src/hooks/useCategoryMerchantSuggestions';
 import { sendChatMessageStream, type StreamHandle } from '@/src/services/aiChatService';
 import { bulkCreateTransactions } from '@/src/services/transactionService';
 import type { ChatMessage, ParsedTransactionDraft } from '@/src/types';
@@ -10,6 +8,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
+  ActivityIndicator,
   Animated,
   Easing,
   FlatList,
@@ -287,7 +286,6 @@ async function persistChatSession(session: StoredChatSession): Promise<void> {
 export default function ChatScreen() {
   const { colors } = useTheme();
   const { profile } = useUser();
-  const { categories: categorySuggestions, merchants: merchantSuggestions } = useCategoryMerchantSuggestions();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
@@ -534,10 +532,6 @@ export default function ChatScreen() {
     }
   }, [profile?.user_id, pendingDrafts, scrollToBottom]);
 
-  const handleChangeChatDraft = useCallback((id: string, patch: Partial<ParsedTransactionDraft>) => {
-    setPendingDrafts((prev) => prev.map((d) => (d.id === id ? { ...d, ...patch } : d)));
-  }, []);
-
   const handleRemoveChatDraft = useCallback((id: string) => {
     setPendingDrafts((prev) => prev.filter((d) => d.id !== id));
   }, []);
@@ -624,49 +618,127 @@ export default function ChatScreen() {
           </View>
         }
         ListFooterComponent={
-          loading ? (
-            streamingReply ? (
+          <>
+            {loading ? (
+              streamingReply ? (
+                <View style={{ paddingHorizontal: 20, marginVertical: 6, flexDirection: 'row' }}>
+                  <View style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center', marginRight: 8, marginTop: 4 }}>
+                    <IconSymbol name="bot.fill" size={16} color="#0a0a0a" />
+                  </View>
+                  <View style={{ maxWidth: '75%', backgroundColor: colors.cardSecondary, borderRadius: 18, borderBottomLeftRadius: 4, paddingHorizontal: 16, paddingVertical: 10 }}>
+                    <Text style={{ color: colors.text, fontSize: 15, lineHeight: 22 }}>{streamingReply}</Text>
+                  </View>
+                </View>
+              ) : researching ? (
+                <View style={{ paddingHorizontal: 20, paddingVertical: 12, flexDirection: 'row', alignItems: 'center' }}>
+                  <View style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center', marginRight: 8 }}>
+                    <IconSymbol name="magnifyingglass" size={16} color="#0a0a0a" />
+                  </View>
+                  <ResearchingIndicator color={colors.primary} dimColor={colors.textTertiary} />
+                </View>
+              ) : (
+                <View style={{ paddingHorizontal: 20, paddingVertical: 12, flexDirection: 'row', alignItems: 'center' }}>
+                  <View style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center', marginRight: 8 }}>
+                    <EqualizerTyping color="#0a0a0a" />
+                  </View>
+                  <Text style={{ color: colors.textTertiary, fontSize: 14 }}>Monetra AI lagi mikir...</Text>
+                </View>
+              )
+            ) : null}
+
+            {/* Transaction Drafts — inline as assistant bubble */}
+            {pendingDrafts.length > 0 && (
               <View style={{ paddingHorizontal: 20, marginVertical: 6, flexDirection: 'row' }}>
                 <View style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center', marginRight: 8, marginTop: 4 }}>
                   <IconSymbol name="bot.fill" size={16} color="#0a0a0a" />
                 </View>
-                <View style={{ maxWidth: '75%', backgroundColor: colors.cardSecondary, borderRadius: 18, borderBottomLeftRadius: 4, paddingHorizontal: 16, paddingVertical: 10 }}>
-                  <Text style={{ color: colors.text, fontSize: 15, lineHeight: 22 }}>{streamingReply}</Text>
+                <View style={{ maxWidth: '85%', flexShrink: 1 }}>
+                  {/* Header bubble */}
+                  <View style={{ backgroundColor: colors.cardSecondary, borderRadius: 18, borderBottomLeftRadius: 4, paddingHorizontal: 16, paddingVertical: 10, marginBottom: 8 }}>
+                    <Text style={{ color: colors.text, fontSize: 14, fontWeight: '600', marginBottom: 2 }}>
+                      {pendingDrafts.length} Transaksi Siap Disimpan
+                    </Text>
+                    <Text style={{ color: colors.textTertiary, fontSize: 12 }}>
+                      Cek data di bawah, edit kalo perlu, terus klik Simpan.
+                    </Text>
+                  </View>
+
+                  {/* Draft cards */}
+                  {pendingDrafts.map((draft, idx) => (
+                    <View
+                      key={draft.id}
+                      style={{
+                        backgroundColor: colors.cardSecondary,
+                        borderRadius: 14,
+                        padding: 12,
+                        marginBottom: 6,
+                        borderWidth: 1,
+                        borderColor: colors.border,
+                      }}
+                    >
+                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                        <Text style={{ color: colors.text, fontSize: 14, fontWeight: '600', flex: 1 }} numberOfLines={1}>
+                          {draft.merchant || 'Tanpa nama'}
+                        </Text>
+                        <Pressable onPress={() => handleRemoveChatDraft(draft.id)} style={{ padding: 4, marginLeft: 8 }}>
+                          <IconSymbol name="xmark" size={14} color={colors.textTertiary} />
+                        </Pressable>
+                      </View>
+                      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+                        <View style={{ backgroundColor: colors.card, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3 }}>
+                          <Text style={{ color: colors.primary, fontSize: 13, fontWeight: '700' }}>
+                            Rp {(draft.total ?? 0).toLocaleString('id-ID')}
+                          </Text>
+                        </View>
+                        <View style={{ backgroundColor: colors.card, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3 }}>
+                          <Text style={{ color: colors.textSecondary, fontSize: 12 }}>{draft.category || 'Lainnya'}</Text>
+                        </View>
+                        <View style={{ backgroundColor: colors.card, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3 }}>
+                          <Text style={{ color: colors.textSecondary, fontSize: 12 }}>{draft.transaction_date || '-'}</Text>
+                        </View>
+                        <View style={{ backgroundColor: draft.type === 'money_saving' ? 'rgba(34,197,94,0.15)' : 'rgba(239,68,68,0.15)', borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3 }}>
+                          <Text style={{ color: draft.type === 'money_saving' ? colors.success : colors.error, fontSize: 12, fontWeight: '500' }}>
+                            {draft.type === 'money_saving' ? 'Saving' : 'Expense'}
+                          </Text>
+                        </View>
+                      </View>
+                    </View>
+                  ))}
+
+                  {/* Save button */}
+                  <Pressable
+                    onPress={handleSaveChatDrafts}
+                    disabled={isSavingDrafts}
+                    style={{
+                      backgroundColor: colors.primary,
+                      borderRadius: 14,
+                      paddingVertical: 14,
+                      alignItems: 'center',
+                      flexDirection: 'row',
+                      justifyContent: 'center',
+                      marginTop: 4,
+                    }}
+                  >
+                    {isSavingDrafts ? (
+                      <>
+                        <ActivityIndicator size="small" color="#0a0a0a" style={{ marginRight: 8 }} />
+                        <Text style={{ color: '#0a0a0a', fontWeight: 'bold', fontSize: 14 }}>Menyimpan...</Text>
+                      </>
+                    ) : (
+                      <>
+                        <IconSymbol name="checkmark.circle.fill" size={18} color="#0a0a0a" style={{ marginRight: 8 }} />
+                        <Text style={{ color: '#0a0a0a', fontWeight: 'bold', fontSize: 14 }}>
+                          Simpan {pendingDrafts.length} Transaksi
+                        </Text>
+                      </>
+                    )}
+                  </Pressable>
                 </View>
               </View>
-            ) : researching ? (
-              <View style={{ paddingHorizontal: 20, paddingVertical: 12, flexDirection: 'row', alignItems: 'center' }}>
-                <View style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center', marginRight: 8 }}>
-                  <IconSymbol name="magnifyingglass" size={16} color="#0a0a0a" />
-                </View>
-                <ResearchingIndicator color={colors.primary} dimColor={colors.textTertiary} />
-              </View>
-            ) : (
-              <View style={{ paddingHorizontal: 20, paddingVertical: 12, flexDirection: 'row', alignItems: 'center' }}>
-                <View style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center', marginRight: 8 }}>
-                  <EqualizerTyping color="#0a0a0a" />
-                </View>
-                <Text style={{ color: colors.textTertiary, fontSize: 14 }}>Monetra AI lagi mikir...</Text>
-              </View>
-            )
-          ) : null
+            )}
+          </>
         }
       />
-
-      {/* Transaction Drafts Review — shown when AI parses transactions from chat */}
-      {pendingDrafts.length > 0 && (
-        <View style={{ maxHeight: 400, paddingBottom: 8 }}>
-          <ParsedTransactionReviewList
-            drafts={pendingDrafts}
-            categorySuggestions={categorySuggestions}
-            merchantSuggestions={merchantSuggestions}
-            onChange={handleChangeChatDraft}
-            onRemove={handleRemoveChatDraft}
-            onSaveAll={handleSaveChatDrafts}
-            isSaving={isSavingDrafts}
-          />
-        </View>
-      )}
 
       {/* Input */}
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
