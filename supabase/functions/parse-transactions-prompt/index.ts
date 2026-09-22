@@ -51,46 +51,26 @@ const CATEGORY_LIST = [
 ];
 
 function buildSystemPrompt(): string {
-  return `Jawab CEPAT. Langsung output JSON. JANGAN mikir keras / JANGAN yapping / JANGAN tulis reasoning atau penjelasan apapun sebelum JSON.
+  return `Cepat. Output JSON saja, tanpa reasoning/markdown. Parser transaksi Monetra.
+Sekarang: ${getWIBDate()} (GMT+7). Resolve tanggal relatif ("hari ini","kemarin") dari sini.
 
-Kamu adalah parser transaksi keuangan untuk aplikasi Monetra.
-Sekarang: ${getWIBDate()}. User berada di Indonesia (GMT+7). Gunakan tanggal ini untuk resolve tanggal relatif seperti "hari ini", "kemarin", "tadi pagi" — JANGAN menebak tanggal lain.
+Baca kalimat user → array JSON, 1 object per transaksi berbeda.
 
-Tugas kamu: baca kalimat user yang menyebutkan satu atau lebih transaksi keuangan, dan ubah jadi array JSON, satu object per transaksi berbeda yang disebut.
-
-Field per transaksi:
-- merchant: nama toko/tempat/tujuan/penerima (string, Title Case, minimal 2 karakter, bukan cuma angka/simbol. Kalau gak disebut/gak jelas -> null)
-- total: nominal transaksi dalam Rupiah, angka murni tanpa pemisah ribuan. "12k"/"12rb" = 12000, "1.5jt" = 1500000. Range wajar 100 - 100.000.000. Kalau gak ada nominal yang jelas atau <= 0 -> null
-- transaction_date: format YYYY-MM-DD, resolve dari kata relatif atau tanggal eksplisit. Year range 2020 - tahun sekarang+1. Kalau gak disebut sama sekali -> pakai tanggal hari ini. Kalau invalid -> null
-- payment_method: "Cash", "QRIS", "Transfer", "E-Wallet", "Debit Card", "Credit Card", Title Case, atau null kalau gak disebut
-- notes: catatan singkat tambahan, item/alasan (string, max 200 char, boleh kosong "")
-- category: WAJIB salah satu dari 15 nilai persis ini (case-sensitive, JANGAN terjemahkan, JANGAN bikin nama baru):
+Field:
+- merchant: nama toko/tempat (Title Case, min 2 char, bukan angka/simbol. null kalau gak disebut)
+- total: nominal Rupiah, angka murni. "12k"/"12rb"=12000, "1.5jt"=1500000. null kalau gak ada
+- transaction_date: YYYY-MM-DD. Default hari ini kalau gak disebut. null kalau invalid
+- payment_method: "Cash"|"QRIS"|"Transfer"|"E-Wallet"|"Debit Card"|"Credit Card" atau null
+- notes: catatan singkat max 200 char (boleh "")
+- category: WAJIB salah satu (case-sensitive, jangan translate):
 ${CATEGORY_LIST.map((c) => `  - "${c}"`).join('\n')}
+  Inferensi: makan siap/resto/gofood→Daily Meals | parfum/baju/skincare→Grooming Products | kebutuhan rumah di minimarket→Groceries | bensin/tiket/parkir→Transport | pulsa/data/wifi→Internet | jasa perawatan→Personal Treatments | nongkrong/hobi/travel→Life Style | obat/RS/BPJS→Health | sedekah/kado→Social | nabung/tabungan→Saving | kursus/tools→Self Improvement | service→Maintenance | aset besar→Capital Expenditure | emas/crypto/saham→Investment | ragu→Lainnya
+- type: "money_saving" kalau category="Saving" atau menyebut nabung/tabungan, selain itu "expense"
 
-  Panduan infer category:
-  - Makanan/minuman siap santap, resto, cafe, warteg, GoFood/GrabFood -> "Daily Meals"
-  - Parfum, baju, skincare, produk grooming -> "Grooming Products"
-  - Belanja kebutuhan rumah/kos (bukan makanan siap santap) di minimarket/supermarket -> "Groceries"
-  - Bensin, tiket kendaraan, parkir, tol -> "Transport"
-  - Pulsa, paket data, wifi -> "Internet"
-  - Jasa perawatan wajah/kulit/rambut/gigi (bukan produk) -> "Personal Treatments"
-  - Nongkrong, hobi, coffee shop, jalan-jalan/travel -> "Life Style"
-  - Apotek, rumah sakit, obat, BPJS, asuransi kesehatan -> "Health"
-  - Sedekah, infaq, kado, angpao, iuran sosial -> "Social"
-  - Nabung, tabungan (termasuk tabungan nikah), setor rekening -> "Saving"
-  - Webinar, kursus, training, tools produktivitas/AI -> "Self Improvement"
-  - Service motor/mobil/elektronik/rumah -> "Maintenance"
-  - Beli aset besar: rumah, mobil, motor, gadget baru -> "Capital Expenditure"
-  - Emas, crypto, saham, reksadana -> "Investment"
-  - Kalau gak yakin masuk salah satu di atas -> "Lainnya" (JANGAN pernah null)
-- type: "money_saving" kalau category = "Saving" ATAU kalimat menyebut nabung/menabung/tabungan, selain itu "expense". Satu prompt bisa hasilkan campuran keduanya kalau user sebut lebih dari satu transaksi dengan konteks berbeda
-
-PENTING:
-- Kalau merchant atau total gak bisa ditentukan untuk sebuah transaksi yang disebut, tetap keluarkan object-nya dengan field itu null — JANGAN dihapus/di-skip, dan JANGAN mengarang nilai.
-- Setiap kalimat/klausa yang menyebut transaksi berbeda (nominal berbeda, tempat berbeda, atau tanggal berbeda) adalah transaksi TERPISAH.
-- Return HANYA JSON object dengan struktur ini, tanpa markdown, tanpa reasoning, tanpa penjelasan:
-
-{"transactions": [{"merchant": "string atau null", "total": 0, "category": "string", "transaction_date": "YYYY-MM-DD", "payment_method": "string atau null", "notes": "", "type": "expense"}]}`;
+Aturan:
+- merchant/total null → tetap keluarkan object-nya, jangan di-skip atau diarang nilai
+- Transaksi berbeda (nominal/tempat/tanggal beda) = object terpisah
+- Output HANYA: {"transactions":[{"merchant":...,"total":0,"category":"...","transaction_date":"YYYY-MM-DD","payment_method":...,"notes":"","type":"expense"}]}`;
 }
 
 function extractJson(raw: string): { transactions: ParsedTransaction[] } {
@@ -100,11 +80,19 @@ function extractJson(raw: string): { transactions: ParsedTransaction[] } {
   if (start !== -1 && end !== -1 && end > start) {
     text = text.slice(start, end + 1);
   }
-  const parsed = JSON.parse(text);
-  if (!Array.isArray(parsed.transactions)) {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(text);
+  } catch {
+    // Common failure: max_tokens cut the JSON mid-stream, so the array is
+    // missing its closing `]` and/or `}`. Try to patch a minimal tail.
+    const patched = text.replace(/,\s*$/, '').replace(/[\]}]*\s*$/, '') + ']}';
+    parsed = JSON.parse(patched);
+  }
+  if (!Array.isArray((parsed as { transactions?: unknown }).transactions)) {
     throw new Error('AI response missing "transactions" array');
   }
-  return parsed;
+  return parsed as { transactions: ParsedTransaction[] };
 }
 
 function corsHeaders() {
@@ -130,6 +118,18 @@ Deno.serve(async (req: Request) => {
       );
     }
 
+    // Guard against excessively long prompts that would blow up the LLM
+    // context window or cause the JSON response to truncate at max_tokens.
+    const MAX_PROMPT_CHARS = 1000;
+    if (body.prompt.length > MAX_PROMPT_CHARS) {
+      return new Response(
+        JSON.stringify({
+          error: `Prompt terlalu panjang (${body.prompt.length} char). Maksimal ${MAX_PROMPT_CHARS} char. Coba pecah jadi beberapa input.`,
+        }),
+        { status: 400, headers: { ...corsHeaders(), 'Content-Type': 'application/json' } }
+      );
+    }
+
     const llmResponse = await fetch(`${LLM_BASE_URL}/chat/completions`, {
       method: 'POST',
       headers: {
@@ -144,7 +144,7 @@ Deno.serve(async (req: Request) => {
         ],
         stream: false,
         temperature: 0.2,
-        max_tokens: 1200,
+        max_tokens: 4000,
       }),
     });
 

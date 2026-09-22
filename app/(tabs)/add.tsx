@@ -398,6 +398,10 @@ export default function AddScreen() {
 
   const handleParsePrompt = async (prompt: string) => {
     if (!prompt.trim()) return;
+    if (prompt.length > 1000) {
+      setInlineAlert({ type: 'error', message: 'Prompt terlalu panjang (maks 1000 karakter). Pecah jadi beberapa input.' });
+      return;
+    }
     if (!profile?.user_id) {
       Alert.alert('User ID Required', 'Please set your User ID in Settings.', [
         { text: 'Cancel', style: 'cancel' },
@@ -418,7 +422,13 @@ export default function AddScreen() {
     } catch (error: any) {
       setIsParsingPrompt(false);
       console.error('[add] Prompt parse error:', error);
-      setInlineAlert({ type: 'error', message: `Gagal parse: ${error?.message || 'Terjadi kesalahan. Coba lagi.'}` });
+      const msg = error?.message || 'Terjadi kesalahan. Coba lagi.';
+      setInlineAlert({
+        type: 'error',
+        message: msg.includes('parse')
+          ? 'AI gagal parse transaksinya. Coba tulis lebih jelas/pendek, atau input manual.'
+          : `Gagal parse: ${msg}`,
+      });
     }
   };
 
