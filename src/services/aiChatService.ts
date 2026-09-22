@@ -1,4 +1,4 @@
-import type { ChatMessage, ChatResponse } from '@/src/types';
+import type { ChatMessage, ChatResponse, ParsedTransactionDraft } from '@/src/types';
 
 const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL!;
 const SUPABASE_ANON_KEY = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY!;
@@ -43,6 +43,7 @@ export interface StreamCallbacks {
   onResearchStart?: (query: string) => void;
   onResearchDone?: () => void;
   onDelta: (chunk: string) => void;
+  onTransactionDrafts?: (drafts: Omit<ParsedTransactionDraft, 'id'>[]) => void;
   onDone: () => void;
   onError: (error: Error) => void;
 }
@@ -88,6 +89,8 @@ export function sendChatMessageStream(
           callbacks.onResearchDone?.();
         } else if (parsed.type === 'content' && typeof parsed.content === 'string') {
           callbacks.onDelta(parsed.content);
+        } else if (parsed.type === 'transaction_drafts' && Array.isArray(parsed.transactions)) {
+          callbacks.onTransactionDrafts?.(parsed.transactions);
         } else if (parsed.type === 'done') {
           finish(callbacks.onDone);
         }

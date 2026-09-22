@@ -9,6 +9,13 @@ const LANGSEARCH_API_KEY = Deno.env.get('LANGSEARCH_API_KEY')!;
 const RESEARCH_KEYWORDS = (Deno.env.get('RESEARCH_KEYWORDS') || 'harga,kurs,inflasi,emas,berita,bi rate,pajak,reksadana,investasi,terbaru,update,pasar,saham,crypto,bitcoin,ihsg,resesi,suku bunga,usd,idr,eur,jpy,sgd,dollar,rupiah,nilai tukar,forex,btc,eth,exchange rate,to usd,to idr')
   .split(',').map((k) => k.trim().toLowerCase()).filter(Boolean);
 const USER_DATA_KEYWORDS = ['total', 'saving', 'expense', 'pengeluaran', 'pemasukan', 'transaksi', 'tabungan', 'bulan ini', 'bulan lalu', 'kategori', 'budget', 'merchant', 'rekap', 'histori', 'history', 'rekening', 'top'];
+const TRANSACTION_INPUT_KEYWORDS = ['catat', 'input', 'tambah transaksi', 'masukin', 'record'];
+
+const CATEGORY_LIST = [
+  'Daily Meals', 'Grooming Products', 'Groceries', 'Transport', 'Internet',
+  'Personal Treatments', 'Life Style', 'Health', 'Social', 'Saving',
+  'Self Improvement', 'Maintenance', 'Capital Expenditure', 'Investment', 'Lainnya',
+];
 
 interface ChatMessage {
   role: 'user' | 'assistant';
@@ -235,6 +242,92 @@ async function langSearch(query: string, count = 8): Promise<string> {
   return results ? `${results}${sourceLine}` : 'Tidak ada hasil pencarian.';
 }
 
+async function parseTransactionsFromChat(
+  userId: string,
+  message: string
+): Promise<{ transactions: Array<Omit<ParsedTransactionDraft, 'id'>> }> {
+  const today = new Date();
+  const utcMs = today.getTime() + today.getTimezoneOffset() * 60000;
+  const wib = new Date(utcMs + 7 * 3600000);
+  const todayStr = wib.toISOString().split('T')[0];
+
+  const systemPrompt = `Parser transaksi keuangan → array JSON. Tanggal hari ini: ${todayStr} (GMT+7).
+Output HANYA JSON, tanpa markdown/reasoning.
+
+Field:
+- merchant: nama merchant/store. Title Case. null kalau gak jelas
+- total: nominal angka murni (tanpa "Rp" / titik / koma). null kalau gak parseable
+- category: WAJIB salah satu: ${CATEGORY_LIST.join(', ')}
+  Inferensi: makan/resto/gofood→Daily Meals | parfum/baju/skincare→Grooming Products | minimarket→Groceries | bensin/tol→Transport | pulsa/data→Internet | salon→Personal Treatments | hobi→Life Style | obat→Health | sedekah→Social | nabung→Saving | kursus→Self Improvement | service→Maintenance | aset→Capital Expenditure | investasi→Investment | ragu→Lainnya
+- transaction_date: YYYY-MM-DD. Kalau gak disebut, pakai hari ini (${todayStr})
+- payment_method: "Cash"|"QRIS"|"Transfer"|"E-Wallet"|"Debit Card"|"Credit Card" atau null
+- notes: catatan singkat (boleh "")
+- type: "expense" (default) atau "money_saving" (kalau explicitly nabung/menabung/transfer masuk)
+
+Format: {"transactions":[{"merchant":null,"total":0,"category":"Lainnya","transaction_date":"YYYY-MM-DD","payment_method":null,"notes":"","type":"expense"}]}
+
+Contoh input: "catat beli kopi 15rb, bensin 50rb, bayar wifi 250rb"
+Contoh output: {"transactions":[{"merchant":"Kopi","total":15000,"category":"Daily Meals","transaction_date":"${todayStr}","payment_method":null,"notes":"","type":"expense"},{"merchant":"Bensin","total":50000,"category":"Transport","transaction_date":"${todayStr}","payment_method":null,"notes":"","type":"expense"},{"merchant":"Wifi","total":250000,"category":"Internet","transaction_date":"${todayStr}","payment_method":null,"notes":"","type":"expense"}]}`;
+
+  const response = await fetch(`${LLM_BASE_URL}/chat/completions`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${LLM_API_KEY}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      model: CHAT_MODEL,
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: message },
+      ],
+      stream: false,
+      temperature: 0.1,
+      max_tokens: 4000,
+    }),
+  });
+
+  if (!response.ok) {
+    const errText = await response.text().catch(() => 'No response body');
+    console.error('[ai-chat] parseTransactions LLM error:', response.status, errText);
+    throw new Error(`LLM parse failed: ${response.status}`);
+  }
+
+  const data = await response.json();
+  const content = data.choices?.[0]?.message?.content ?? '{}';
+
+  let text = String(content).trim();
+  const start = text.indexOf('{');
+  const end = text.lastIndexOf('}');
+  if (start !== -1 && end !== -1 && end > start) {
+    text = text.slice(start, end + 1);
+  }
+
+  let parsed: { transactions: Array<Omit<ParsedTransactionDraft, 'id'>> };
+  try {
+    parsed = JSON.parse(text);
+  } catch {
+    const patched = text.replace(/,\s*$/, '').replace(/[\]}]*\s*$/, '') + ']}';
+    parsed = JSON.parse(patched);
+  }
+
+  if (!Array.isArray(parsed.transactions)) {
+    return { transactions: [] };
+  }
+  return parsed;
+}
+
+interface ParsedTransactionDraft {
+  id: string;
+  merchant: string | null;
+  total: number | null;
+  category: string | null;
+  transaction_date: string | null;
+  payment_method?: string | null;
+  notes?: string;
+  type: 'expense' | 'money_saving';
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, {
@@ -293,6 +386,30 @@ Deno.serve(async (req) => {
           const send = (obj: unknown) => controller.enqueue(encoder.encode(`data: ${JSON.stringify(obj)}\n\n`));
 
           send({ type: 'summary', summary: summaryPayload });
+
+          // Detect "catat transaksi" intent — parse transactions and stream
+          // as a dedicated event so the client can show a review+save card.
+          const isTransactionInput = TRANSACTION_INPUT_KEYWORDS.some((kw) => q.includes(kw));
+          if (isTransactionInput) {
+            try {
+              const parseResult = await parseTransactionsFromChat(user_id, message);
+              send({ type: 'transaction_drafts', transactions: parseResult.transactions });
+              const count = parseResult.transactions.length;
+              const summaryText = count > 0
+                ? `Sudah aku catat ${count} transaksi dari pesan kamu. Cek data di bawah — kalo udah sesuai tinggal klik "Simpan", kalo ada yang mau diubah bisa edit langsung di card-nya.`
+                : 'Aku gak nemu transaksi yang bisa di-parse dari pesan itu. Coba tulis lebih jelas, contoh: "catat beli kopi 15rb, bensin 50rb"';
+              send({ type: 'content', content: summaryText });
+              send({ type: 'done' });
+              controller.close();
+              return;
+            } catch (parseErr) {
+              console.error('[ai-chat] Transaction parse error:', parseErr);
+              send({ type: 'content', content: 'Aku gak bisa parse transaksi dari pesan itu. Coba tulis lebih jelas, contoh: "catat beli kopi 15rb, bensin 50rb"' });
+              send({ type: 'done' });
+              controller.close();
+              return;
+            }
+          }
 
           // Research (if triggered) runs before the LLM call — surfaced to the
           // client as its own phase so the UI can show a "researching" state

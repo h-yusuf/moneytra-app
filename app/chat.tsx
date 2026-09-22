@@ -1,8 +1,11 @@
 import { IconSymbol } from '@/components/ui/icon-symbol';
+import { ParsedTransactionReviewList } from '@/src/components/common/ParsedTransactionReviewList';
 import { useTheme } from '@/src/contexts/ThemeContext';
 import { useUser } from '@/src/contexts/UserContext';
+import { useCategoryMerchantSuggestions } from '@/src/hooks/useCategoryMerchantSuggestions';
 import { sendChatMessageStream, type StreamHandle } from '@/src/services/aiChatService';
-import type { ChatMessage } from '@/src/types';
+import { bulkCreateTransactions } from '@/src/services/transactionService';
+import type { ChatMessage, ParsedTransactionDraft } from '@/src/types';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -23,7 +26,7 @@ const SUGGESTION_PROMPTS = [
   'Berapa total saving bulan ini?',
   'Kasih rekomendasi keuangan dong',
   'Pengeluaran terbesar aku apa aja?',
-  'Apakah saving aku optimal?',
+  'Catat: beli kopi 15rb, bensin 50rb, bayar wifi 250rb',
 ];
 
 function formatClock(timestamp: number): string {
@@ -284,6 +287,7 @@ async function persistChatSession(session: StoredChatSession): Promise<void> {
 export default function ChatScreen() {
   const { colors } = useTheme();
   const { profile } = useUser();
+  const { categories: categorySuggestions, merchants: merchantSuggestions } = useCategoryMerchantSuggestions();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
@@ -291,6 +295,8 @@ export default function ChatScreen() {
   const [inputFocused, setInputFocused] = useState(false);
   const [streamingReply, setStreamingReply] = useState<string | null>(null);
   const [researching, setResearching] = useState(false);
+  const [pendingDrafts, setPendingDrafts] = useState<ParsedTransactionDraft[]>([]);
+  const [isSavingDrafts, setIsSavingDrafts] = useState(false);
   const streamHandleRef = useRef<StreamHandle | null>(null);
   const flatListRef = useRef<FlatList>(null);
   const startedAtRef = useRef<number>(Date.now());
@@ -357,6 +363,7 @@ export default function ChatScreen() {
     setStreamingReply(null);
     setResearching(false);
     setLoading(false);
+    setPendingDrafts([]);
     startedAtRef.current = Date.now();
     messagesRef.current = [];
     setMessages([]);
@@ -407,6 +414,16 @@ export default function ChatScreen() {
               if (mountedRef.current) {
                 setResearching(false);
                 setStreamingReply(acc);
+                scrollToBottom();
+              }
+            },
+            onTransactionDrafts: (drafts) => {
+              if (mountedRef.current) {
+                const withIds: ParsedTransactionDraft[] = drafts.map((d, i) => ({
+                  ...d,
+                  id: `${Date.now()}-${i}`,
+                }));
+                setPendingDrafts(withIds);
                 scrollToBottom();
               }
             },
@@ -461,6 +478,69 @@ export default function ChatScreen() {
     },
     [profile?.user_id, loading, scrollToBottom]
   );
+
+  const handleSaveChatDrafts = useCallback(async () => {
+    if (!profile?.user_id || pendingDrafts.length === 0) return;
+
+    setIsSavingDrafts(true);
+    try {
+      const items = pendingDrafts.map((d) => ({
+        user_id: profile.user_id!,
+        type: d.type,
+        merchant: d.merchant ?? 'Unknown',
+        total: d.total ?? 0,
+        category: d.category ?? 'Lainnya',
+        transaction_date: d.transaction_date ?? new Date().toISOString().split('T')[0],
+        payment_method: d.payment_method || undefined,
+        notes: d.notes || undefined,
+        source_name: 'chat-input',
+      }));
+
+      const saved = await bulkCreateTransactions(items);
+      const totalSaved = items.reduce((sum, i) => sum + i.total, 0);
+
+      const successMsg: ChatMessage = {
+        role: 'assistant',
+        content: `Tersimpan! ${saved.length} transaksi berhasil dicatat (total Rp ${totalSaved.toLocaleString('id-ID')}). Data udah masuk ke summary kamu.`,
+        timestamp: Date.now(),
+      };
+      const finalMessages = [...messagesRef.current, successMsg];
+      messagesRef.current = finalMessages;
+      if (mountedRef.current) {
+        setMessages(finalMessages);
+        setPendingDrafts([]);
+        scrollToBottom();
+      }
+      persistChatSession({
+        messages: finalMessages,
+        startedAt: startedAtRef.current,
+        unreadReplyAt: null,
+      });
+    } catch (err) {
+      console.error('[Chat] Draft save error:', err);
+      if (mountedRef.current) {
+        const errMsg: ChatMessage = {
+          role: 'assistant',
+          content: 'Gagal menyimpan transaksi. Coba lagi ya.',
+          timestamp: Date.now(),
+        };
+        const finalMessages = [...messagesRef.current, errMsg];
+        messagesRef.current = finalMessages;
+        setMessages(finalMessages);
+        scrollToBottom();
+      }
+    } finally {
+      if (mountedRef.current) setIsSavingDrafts(false);
+    }
+  }, [profile?.user_id, pendingDrafts, scrollToBottom]);
+
+  const handleChangeChatDraft = useCallback((id: string, patch: Partial<ParsedTransactionDraft>) => {
+    setPendingDrafts((prev) => prev.map((d) => (d.id === id ? { ...d, ...patch } : d)));
+  }, []);
+
+  const handleRemoveChatDraft = useCallback((id: string) => {
+    setPendingDrafts((prev) => prev.filter((d) => d.id !== id));
+  }, []);
 
   const renderMessage = ({ item }: { item: ChatMessage }) => {
     const isUser = item.role === 'user';
@@ -572,6 +652,21 @@ export default function ChatScreen() {
           ) : null
         }
       />
+
+      {/* Transaction Drafts Review — shown when AI parses transactions from chat */}
+      {pendingDrafts.length > 0 && (
+        <View style={{ maxHeight: 400, paddingBottom: 8 }}>
+          <ParsedTransactionReviewList
+            drafts={pendingDrafts}
+            categorySuggestions={categorySuggestions}
+            merchantSuggestions={merchantSuggestions}
+            onChange={handleChangeChatDraft}
+            onRemove={handleRemoveChatDraft}
+            onSaveAll={handleSaveChatDrafts}
+            isSaving={isSavingDrafts}
+          />
+        </View>
+      )}
 
       {/* Input */}
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
